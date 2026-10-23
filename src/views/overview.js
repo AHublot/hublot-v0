@@ -128,6 +128,7 @@ export function overviewView(s, ui, now = new Date()) {
   const counts = Object.fromEntries(FILTERS.map((x) => [x.key, s.boats.filter((b) => matchFilter(b, x.key, now)).length]));
   const body = !list.length
     ? empty('search', 'Aucun bateau pour ce filtre', 'Change de filtre ou efface la recherche.', `<button class="btn" data-act="resetFilters">Tout afficher</button>`)
+    : ui.filter === 'obs' ? obsOverview(list, now)
     : ui.view === 'board' ? board(list, now) : `<div class="fleet">${list.map((b) => card(b, now)).join('')}</div>`;
   return `<div class="page-head"><div><h1>Vue d’ensemble</h1><p class="mut">${esc(s.baseName)} · ${esc(utcLabel())}</p></div>
       <div class="row gap wrap"><a class="btn" target="_blank" rel="noopener" href="${waLink(fleetReport(s, now))}" data-act="copyWA" data-kind="fleet">${ic('send')} Point flotte WhatsApp</a>
@@ -136,7 +137,7 @@ export function overviewView(s, ui, now = new Date()) {
     ${hero(s, now)}
     ${kpis(f, ui)}
     <section class="fleet-head">
-      <div><h2>La flotte <span class="count mono">${list.length}</span></h2><p class="mut small">Tri : à préparer par date de départ, puis en location.</p></div>
+      <div><h2>${ui.filter === 'obs' ? 'Observations à traiter' : 'La flotte'} <span class="count mono">${list.length}</span></h2><p class="mut small">${ui.filter === 'obs' ? 'Les points notés hors tâches habituelles, bateau par bateau. Coche pour les régler.' : 'Tri : à préparer par date de départ, puis en location.'}</p></div>
       <div class="tools">
         <div class="seg" role="group" aria-label="Affichage"><button type="button" class="${ui.view === 'cards' ? 'on' : ''}" data-act="view" data-v="cards" aria-pressed="${ui.view === 'cards'}">${ic('grid')} Cartes</button><button type="button" class="${ui.view === 'board' ? 'on' : ''}" data-act="view" data-v="board" aria-pressed="${ui.view === 'board'}">${ic('calendar')} Planning</button></div>
         ${bases.length > 1 ? `<select aria-label="Base" data-chg="baseFilter"><option value="all">Toutes les bases</option>${bases.map((x) => `<option${base === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
@@ -145,6 +146,24 @@ export function overviewView(s, ui, now = new Date()) {
     </section>
     <div class="chips" role="group" aria-label="Filtres">${FILTERS.map((x) => `<button type="button" class="chip ${ui.filter === x.key ? 'on' : ''}" data-act="filter" data-v="${x.key}" aria-pressed="${ui.filter === x.key}">${x.label} <span class="mono">${counts[x.key]}</span></button>`).join('')}</div>
     ${body}`;
+}
+
+
+/** Clic sur « Observations à traiter » : les problèmes de chaque bateau, regroupés, plutôt que les cartes. */
+function obsOverview(boats, now) {
+  const rows = boats.map((b) => ({ b, items: b.tasks.filter((t) => !t.template && !t.done).sort((x, y) => (y.blocked ? 1 : 0) - (x.blocked ? 1 : 0)) }))
+    .filter((r) => r.items.length);
+  if (!rows.length) return empty('check', 'Aucune observation à traiter', 'Tout ce qui a été noté est réglé.');
+  return `<div class="obsgrid">${rows.map(({ b, items }) => {
+    const st = boatStatus(b), nb = items.filter((t) => t.blocked).length;
+    return `<article class="panel obscard ${nb ? 'has-block' : ''}">
+      <header><div class="grow"><h3><a href="#/boat/${b.id}/prep" data-act="open" data-id="${b.id}">${esc(b.name)}</a></h3>
+        <p class="mut small">${b.departure ? `${ic('clock')} Départ ${esc(fmtDT(b.departure))} · ${cd(b.departure, now)}` : 'Pas de départ planifié'}</p></div>
+        ${pill(st)}</header>
+      <p class="small mut"><b class="${nb ? 't-bad' : ''}">${plural(items.length, 'observation', 'observations')}</b>${nb ? ` dont ${plural(nb, 'bloquante', 'bloquantes')}` : ''}</p>
+      <ul class="obslist">${items.map((t) => `<li class="${t.blocked ? 'blocked' : ''}"><button type="button" class="chk" role="checkbox" aria-checked="false" aria-label="${esc(t.title)}" data-act="tgl" data-id="${b.id}" data-tid="${t.id}" data-fk="tgl-${t.id}">${ic('check')}</button><span>${esc(t.title)}${t.blocked ? ' <em class="t-bad">bloquant</em>' : ''}${t.origin ? `<small class="mut"> · notée le ${esc(fmtD(t.origin))}</small>` : ''}</span></li>`).join('')}</ul>
+      <footer><button type="button" class="btn sm" data-act="open" data-id="${b.id}">Ouvrir le bateau ${ic("right")}</button></footer></article>`;
+  }).join('')}</div>`;
 }
 
 export function addForm(ui) {

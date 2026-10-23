@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.DS_Store
+# Données réelles : ne jamais les versionner
+*.backup.json
+hublot-*.json
+cap-depart-*.json
