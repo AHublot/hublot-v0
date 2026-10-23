@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Cap Départ</title>
+  <meta name="description" content="Préparation des départs et retours d’une flotte de location : tâches, fiches retour, entretiens.">
+  <meta name="theme-color" content="#0A1621">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="styles/app.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <aside class="side" id="side"></aside>
+    <div class="main">
+      <header class="top" id="top"></header>
+      <main class="content" id="view" tabindex="-1"><p class="mut">Chargement…</p></main>
+    </div>
+    <nav class="tabbar" id="tabbar" aria-label="Navigation principale"></nav>
+  </div>
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+  <div id="layer"></div>
+  <noscript>Cap Départ a besoin de JavaScript pour fonctionner.</noscript>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
