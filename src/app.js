@@ -148,6 +148,10 @@ function render() {
   const sel = ae && typeof ae.selectionStart === 'number' ? [ae.selectionStart, ae.selectionEnd] : null;
   const inLayer = ae && ae.closest && ae.closest('dialog');
 
+  const routeKey = location.hash || '#/';
+  const prevBars = routeKey === ui.barRoute ? [...document.querySelectorAll('#view .bar i')].map((i) => i.style.width) : [];
+  ui.barRoute = routeKey;
+
   $('#side').innerHTML = sideHTML(s);
   $('#top').innerHTML = topHTML(s);
   $('#tabbar').innerHTML = tabbarHTML();
@@ -157,6 +161,7 @@ function render() {
   document.querySelectorAll('#view [data-draft]').forEach((el) => { if (ui.drafts[el.dataset.draft] != null) el.value = ui.drafts[el.dataset.draft]; });
   document.querySelectorAll('#view textarea[data-parse]').forEach(updateParse);
   tickCountdowns();
+  animateBars(prevBars);
 
   if (!inLayer) $('#layer').innerHTML = layerHTML(s, now);
   const dlg = $('#ficheDlg'); if (dlg && !dlg.open) dlg.showModal();
@@ -166,6 +171,19 @@ function render() {
     const t = document.querySelector(key);
     if (t && t !== document.activeElement) { try { t.focus({ preventScroll: true }); if (sel && t.setSelectionRange && t.type !== 'datetime-local' && t.type !== 'date') t.setSelectionRange(sel[0], sel[1]); } catch { /* ignore */ } }
   }
+}
+
+/** Les barres de préparation partent de leur ancienne valeur (ou de 0 à l'arrivée sur une page) et glissent vers la nouvelle. */
+function animateBars(prev) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  document.querySelectorAll('#view .bar i').forEach((el, n) => {
+    const to = el.style.width;
+    const from = prev[n] != null ? prev[n] : '0%';
+    if (from === to) return;
+    el.style.transition = 'none'; el.style.width = from;
+    el.getBoundingClientRect();
+    el.style.transition = ''; el.style.width = to;
+  });
 }
 
 function updateParse(ta) {
