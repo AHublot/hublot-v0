@@ -67,7 +67,7 @@ const STYLES = {
   bDone: bill({ font: { color: GREEN, b: true }, align: { h: 'center' } }),
   bOpen: bill({ font: { color: ORANGE, b: true }, align: { h: 'center' } }),
   bYes: { fill: GBG, border: 'all', borderColor: VLINE, font: { b: true, color: GREEN }, align: { h: 'center', v: 'top', wrap: true } },
-  bTodo: { fill: OBG, border: 'all', borderColor: VLINE, font: { b: true, color: ORANGE }, align: { h: 'center', v: 'top', wrap: true } },
+  bTodo: { fill: 'FFE3E5', border: 'all', borderColor: VLINE, font: { b: true, color: 'C7283A' }, align: { h: 'center', v: 'top', wrap: true } },
   totLbl: { font: { b: true, color: VIOLET }, align: { h: 'right' } },
   totNum: { font: { b: true, color: VIOLET, sz: 11 }, fill: VBG, numFmt: '0.0#', align: { h: 'center' }, border: 'all', borderColor: VLINE },
   kTxt: basic(),
@@ -118,7 +118,7 @@ function boatSheet(name, x, month, baseName, today) {
       const st = obsState(o);
       add([D(o.origin, 'bDate'), C(o.title, 'bTitle'), C(st.label, o.done ? 'bDone' : 'bOpen'), D(localDay(o.doneAt), 'bDate'),
         hoursOf(o) ? C(hoursOf(o), 'bNum') : C('', 'bNum'), C(o.material || '', 'bTxt'),
-        o.billed ? C(`Oui${o.billedAt ? ' · ' + localDay(o.billedAt).split('-').reverse().slice(0, 2).join('/') : ''}`, 'bYes') : C('À faire', 'bTodo')],
+        o.billed ? C(`Oui${o.billedAt ? ' · ' + localDay(o.billedAt).split('-').reverse().slice(0, 2).join('/') : ''}`, 'bYes') : C('Non', 'bTodo')],
       Math.max(22, 15 * Math.ceil(Math.max(o.title.length / 46, (o.material || '').length / 30, 1)) + 7));
     });
     const last = rows.length;
