@@ -1,5 +1,6 @@
 import { esc, initials, plural, fmtDT, fmtD, norm } from '../util.js';
 import { boatStats, baseLabel, sortBoats, DEFAULT_TEMPLATES } from '../model.js';
+import { collectObservations } from '../exports.js';
 import { ic } from '../icons.js';
 import { bar, empty } from './common.js';
 import { snapshots, store } from '../store.js';
@@ -54,15 +55,33 @@ export function checklistView(s, ui) {
       ${rows ? `<ul class="matrix">${rows}</ul>` : empty('list', 'Liste vide')}</div></section></div>`;
 }
 
+// ---- Export des observations (refacturation) ---------------------------------------------------
+function obsExportPanel(s, ui) {
+  const o = ui.ox;
+  const n = collectObservations(s, o).length;
+  const opt = (v, l, cur) => `<option value="${esc(v)}"${cur === v ? ' selected' : ''}>${esc(l)}</option>`;
+  return `<div class="panel obsexport"><h3>${ic('file')} Exporter les observations</h3>
+    <p class="mut small">Pour refacturer au propriétaire : chaque observation avec le bateau, son statut et ses dates. Le fichier CSV s’ouvre dans Excel.</p>
+    <div class="grid2">
+      <div class="fld"><label class="k" for="ox-b">Bateau</label><select id="ox-b" data-chg="ox" data-k="boat">${opt('all', 'Toute la flotte', o.boat)}${sortBoats(s.boats).map((b) => opt(b.id, b.name, o.boat)).join('')}</select></div>
+      <div class="fld"><label class="k" for="ox-s">Statut</label><select id="ox-s" data-chg="ox" data-k="status">${opt('all', 'Toutes', o.status)}${opt('done', 'Réglées', o.status)}${opt('open', 'Non réglées', o.status)}</select></div>
+      <div class="fld"><label class="k" for="ox-f">Du</label><input id="ox-f" type="date" value="${esc(o.from)}" data-chg="ox" data-k="from"></div>
+      <div class="fld"><label class="k" for="ox-t">Au</label><input id="ox-t" type="date" value="${esc(o.to)}" data-chg="ox" data-k="to"></div>
+    </div>
+    <p class="small mut">La période porte sur la date de règlement, ou sur la date de constat pour une observation non réglée.</p>
+    <div class="row gap wrap"><button class="btn pri" data-act="obsCsvF" ${n ? '' : 'disabled'}>${ic('download')} Exporter ${plural(n, 'observation', 'observations')}</button></div></div>`;
+}
+
 // ---- Sauvegardes et restauration ----------------------------------------------------------
 export function backupView(s, ui) {
   const snaps = snapshots();
   const imp = ui.imp;
   return `<div class="page-head"><div><h1>Sauvegardes et restauration</h1><p class="mut">Tes données sont enregistrées sur cet appareil. Exporte un fichier pour les garder ailleurs ou les ouvrir sur un autre appareil.</p></div></div>
     <div class="two even"><section class="col">
-      <div class="panel"><h3>${ic('download')} Exporter</h3><p class="mut small">Un fichier JSON avec les bateaux, les fiches retour, l’équipe et les listes. Même format que l’ancienne sauvegarde.</p>
-        <div class="row gap wrap"><button class="btn pri" data-act="export">${ic('download')} Exporter la sauvegarde</button><button class="btn" data-act="csvAll">Fiches retour (CSV)</button></div>
+      <div class="panel"><h3>${ic('download')} Exporter</h3><p class="mut small">Un fichier JSON avec les bateaux, leurs observations et archives, l’équipe et les listes. Même format que l’ancienne sauvegarde.</p>
+        <div class="row gap wrap"><button class="btn pri" data-act="export">${ic('download')} Exporter la sauvegarde</button></div>
         <p class="small mut">${store.savedAt ? `Dernier enregistrement local : ${esc(fmtDT(store.savedAt.toISOString()))}.` : 'Rien d’enregistré pour l’instant.'}${store.persistOk ? '' : ' <b class="t-bad">Le stockage du navigateur est refusé : exporte avant de fermer la page.</b>'}</p></div>
+      ${obsExportPanel(s, ui)}
       <div class="panel"><h3>${ic('upload')} Importer</h3><p class="mut small">Choisis une sauvegarde Cap Départ (.json). Rien n’est modifié avant ta confirmation.</p>
         <input type="file" id="importFile" accept=".json,application/json" hidden><button class="btn" data-act="pickImport">${ic('upload')} Choisir un fichier</button>
         ${imp ? `<div class="importbox"><p><b>${plural(imp.boats, 'bateau', 'bateaux')}</b> et <b>${plural(imp.team, 'personne', 'personnes')}</b> dans « ${esc(imp.name)} ».</p>

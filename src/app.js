@@ -1,11 +1,12 @@
 // Contrôleur : routes, rendu, événements. Toute la logique métier est dans actions.js.
 import * as A from './actions.js';
 import { store, getState, load, mutate, undo, replace, subscribe, snapshots, addSnapshot, autoSnapshot, restoreSnapshot, resetAll } from './store.js';
-import { normalizeState, ZONES, baseLabel, sortBoats, boatStats } from './model.js';
-import { esc, parseObservations, todayStr, csvCell, fmtHM, plural, norm, nowIso } from './util.js';
+import { normalizeState, baseLabel, sortBoats, boatStats } from './model.js';
+import { esc, parseObservations, todayStr, fmtHM, plural, norm, nowIso } from './util.js';
 import { ic } from './icons.js';
 import { overviewView } from './views/overview.js';
-import { boatView, ficheDrawer } from './views/boat.js';
+import { boatView } from './views/boat.js';
+import { collectObservations, observationsCsv } from './exports.js';
 import { teamView, checklistView, backupView } from './views/pages.js';
 import { tickCountdowns } from './views/common.js';
 import { boatReport, fleetReport } from './whatsapp.js';
@@ -15,8 +16,9 @@ import { demoState } from './demo.js';
 const $ = (s, r = document) => r.querySelector(s);
 const ui = {
   route: { name: 'overview', id: null }, tab: 'prep', filter: 'all', base: 'all', q: '', view: 'cards', drafts: {},
-  add: false, techs: false, banner: false, editRec: false, tplNow: true, ficheDel: null, confirm: null,
-  teamEdit: null, cl: null, imp: null, impErr: null, drawer: null, palette: null,
+  add: false, techs: false, banner: false, editRec: false, tplNow: true, confirm: null, obsF: 'all',
+  ox: { boat: 'all', status: 'all', from: '', to: '' },
+  teamEdit: null, cl: null, imp: null, impErr: null, palette: null,
 };
 const LS = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
 
@@ -29,7 +31,7 @@ function applyTheme() {
 const isDark = () => theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
 
 // ---- routes ---------------------------------------------------------------------------
-const TAB_KEYS = ['prep', 'retours', 'maint', 'archives', 'reglages'];
+const TAB_KEYS = ['prep', 'maint', 'archives', 'reglages'];
 function parseHash() {
   let h = '';
   try { h = location.hash || ''; } catch { /* ignore */ }
@@ -46,8 +48,7 @@ function hashFor(r) {
 function go(name, id = null, tab = null) {
   ui.route = { name, id };
   if (name === 'boat') ui.tab = tab || 'prep';
-  Object.assign(ui, { techs: false, banner: false, editRec: false, ficheDel: null, confirm: null, add: false, teamEdit: null, imp: null, impErr: null });
-  if (name !== 'boat') ui.drawer = null;
+  Object.assign(ui, { techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null });
   try { history.replaceState(null, '', hashFor(ui.route)); } catch { /* sandbox */ }
   render();
   window.scrollTo(0, 0);
@@ -56,7 +57,6 @@ window.addEventListener('hashchange', () => {
   const r = parseHash();
   ui.route = { name: r.name, id: r.id || null };
   if (r.tab) ui.tab = r.tab;
-  ui.drawer = null;
   render();
 });
 
@@ -117,7 +117,8 @@ function paletteItems(s, q) {
     { label: 'Exporter la sauvegarde', sub: 'Action', run: () => doExport(), icon: 'download' },
     { label: 'Changer de thème', sub: 'Action', run: () => cycleTheme(), icon: 'moon' },
     ...sortBoats(s.boats).map((b) => ({ label: b.name, sub: `Bateau · ${baseLabel(b)}`, run: () => go('boat', b.id), icon: 'boat' })),
-    ...sortBoats(s.boats).map((b) => ({ label: `Nouveau retour · ${b.name}`, sub: 'Action', run: () => { go('boat', b.id, 'retours'); ui.drawer = b.id; render(); }, icon: 'file' })),
+    { label: 'Exporter toutes les observations (CSV)', sub: 'Action', run: () => exportObs(getState(), {}, 'flotte'), icon: 'download' },
+    ...sortBoats(s.boats).map((b) => ({ label: `Nouveau retour · ${b.name}`, sub: 'Action', run: () => { go('boat', b.id, 'prep'); ui.confirm = 'ret:' + b.id; render(); }, icon: 'left' })),
   ];
   const n = norm(q).trim();
   return n ? items.filter((i) => norm(i.label + ' ' + i.sub).includes(n)) : items.slice(0, 12);
@@ -133,10 +134,6 @@ const paletteList = (s) => {
 
 function layerHTML(s, now) {
   let h = '';
-  if (ui.drawer && ui.route.name === 'boat') {
-    const b = s.boats.find((x) => x.id === ui.drawer);
-    if (b) h += ficheDrawer(s, b, now);
-  }
   if (ui.palette) h += `<dialog class="palette" id="palette" aria-label="Rechercher"><div class="pin">${ic('search')}<input id="pq" placeholder="Bateau, page ou action" autocomplete="off" value="${esc(ui.palette.q)}" data-pal></div><ul id="plist">${paletteList(s)}</ul><footer class="mut small"><kbd>↑</kbd><kbd>↓</kbd> naviguer <kbd>Entrée</kbd> ouvrir <kbd>Échap</kbd> fermer</footer></dialog>`;
   return h;
 }
@@ -164,7 +161,6 @@ function render() {
   animateBars(prevBars);
 
   if (!inLayer) $('#layer').innerHTML = layerHTML(s, now);
-  const dlg = $('#ficheDlg'); if (dlg && !dlg.open) dlg.showModal();
   const pal = $('#palette'); if (pal && !pal.open) { pal.showModal(); $('#pq')?.focus(); }
 
   if (key && !inLayer) {
@@ -215,11 +211,10 @@ function doExport() {
   };
   download(`cap-depart-${todayStr()}.json`, JSON.stringify(out, null, 2));
 }
-function ficheRows(boats) {
-  const rows = [['Bateau', 'Base', 'Date', 'Client', 'Moteur bâbord (h)', 'Moteur tribord (h)', 'Carburant (%)', 'Eau (%)', 'Gaz', 'Observations', 'Notes']];
-  boats.forEach((b) => [...b.fiches].sort((x, y) => String(x.date).localeCompare(String(y.date))).forEach((f) =>
-    rows.push([b.name, baseLabel(b), f.date, f.client, f.hoursPort, f.hoursStbd, f.fuel, f.water, f.gas, (f.obs || []).map((o) => o.title).join(' | '), f.notes])));
-  return '﻿' + rows.map((r) => r.map(csvCell).join(';')).join('\n');
+function exportObs(s, filter, label) {
+  const rows = collectObservations(s, filter);
+  if (!rows.length) { toast('Aucune observation à exporter pour ce choix'); return; }
+  download(`observations-${slugify(label)}-${todayStr()}.csv`, observationsCsv(rows), 'text/csv;charset=utf-8');
 }
 function readImport(file) {
   if (!file) return;
@@ -248,7 +243,6 @@ function closePalette() { ui.palette = null; $('#layer').innerHTML = layerHTML(g
 document.addEventListener('click', (e) => {
   const dlg = e.target;
   if (dlg instanceof HTMLDialogElement && dlg.open) { // clic sur le fond
-    if (dlg.id === 'ficheDlg') { ui.drawer = null; dlg.close(); return; }
     if (dlg.id === 'palette') { closePalette(); return; }
   }
   const el = e.target.closest('[data-act]');
@@ -296,14 +290,13 @@ document.addEventListener('click', (e) => {
     case 'addMissing': M('Tâches habituelles ajoutées', (st) => A.addMissingTemplates(st, id)); break;
     // départ / retour
     case 'dep': M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
-    case 'ret': if (ui.route.name !== 'boat' || ui.route.id !== id) go('boat', id, 'prep'); ui.drawer = id; render(); break;
-    case 'retQuick': ui.drawer = null; $('#ficheDlg')?.close(); M(`${nm} de retour à la base`, (st) => A.returnToBase(st, id)); break;
-    case 'closeDrawer': ui.drawer = null; $('#ficheDlg')?.close(); $('#layer').innerHTML = ''; break;
-    case 'ficheDelAsk': ui.ficheDel = d.fid; render(); break;
-    case 'ficheDelNo': ui.ficheDel = null; render(); break;
-    case 'ficheDel': ui.ficheDel = null; M('Fiche supprimée', (st) => A.deleteFiche(st, id, d.fid)); break;
-    case 'csv': download(`retours-${slugify(nm)}-${todayStr()}.csv`, ficheRows(boat ? [boat] : []), 'text/csv'); break;
-    case 'csvAll': download(`retours-flotte-${todayStr()}.csv`, ficheRows(s.boats), 'text/csv'); break;
+    case 'retAsk': if (ui.route.name !== 'boat' || ui.route.id !== id) go('boat', id, 'prep'); ui.confirm = 'ret:' + id; render(); break;
+    case 'retGo': ui.confirm = null; ui.tab = 'prep'; M(`Nouveau retour · ${nm}`, (st) => A.newReturn(st, id)); break;
+    // observations
+    case 'obsF': ui.obsF = d.v; render(); break;
+    case 'obsCsv': exportObs(s, { boat: id }, nm); break;
+    case 'obsCsvAll': exportObs(s, {}, 'flotte'); break;
+    case 'obsCsvF': exportObs(s, ui.ox, ui.ox.boat === 'all' ? 'flotte' : (s.boats.find((b) => b.id === ui.ox.boat)?.name || 'bateau')); break;
     // en-tête bateau
     case 'techs': ui.techs = !ui.techs; render(); break;
     case 'banner': ui.banner = !ui.banner; render(); break;
@@ -365,7 +358,6 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && ui.route.name === 'overview') { e.preventDefault(); $('[data-live="q"]')?.focus(); }
 });
 document.addEventListener('close', (e) => {
-  if (e.target.id === 'ficheDlg') { ui.drawer = null; $('#layer').innerHTML = ''; }
   if (e.target.id === 'palette') { ui.palette = null; $('#layer').innerHTML = ''; }
 }, true);
 
@@ -384,6 +376,8 @@ document.addEventListener('change', (e) => {
     case 'assign': M('', (st) => A.toggleAssign(st, d.name, id)); break;
     case 'tplNow': ui.tplNow = el.checked; break;
     case 'maint': M('', (st) => A.updateMaint(st, id, d.mid, d.f, el.value)); break;
+    case 'hours': M('', (st) => A.setHours(st, id, d.f, el.value)); break;
+    case 'ox': ui.ox = { ...ui.ox, [d.k]: el.value }; render(); break;
     case 'pref': M('Préférence enregistrée', (st) => A.setPref(st, d.k, el.checked)); break;
     case 'baseName': M('', (st) => { st.baseName = el.value.trim() || 'Ma base'; }); break;
     default: break;
@@ -430,22 +424,6 @@ document.addEventListener('submit', (e) => {
       break;
     }
     case 'saveBoat': { if (!g('name')) return; M('Réglages enregistrés', (st) => A.updateBoat(st, id, { name: g('name'), model: g('model'), base: g('base'), otherBase: g('base') === 'Autre' ? g('otherBase') : '' })); break; }
-    case 'fiche': {
-      const zones = {}, obs = [];
-      ZONES.forEach((z, i) => {
-        const s1 = String(fd.get('z' + i) || ''), n = g('zn' + i);
-        if (s1 || n) zones[z] = { s: s1, note: n };
-        if (s1 === 'todo') obs.push({ title: n ? `${z} : ${n}` : z });
-      });
-      parseObservations(g('obs')).forEach((o) => obs.push(o));
-      const markReturn = fd.get('ret') === '1';
-      ui.drawer = null; $('#ficheDlg')?.close(); $('#layer').innerHTML = '';
-      ui.tab = markReturn ? 'prep' : 'retours';
-      M(markReturn ? `${name} de retour · fiche enregistrée` : 'Fiche retour enregistrée', (st) => A.addFiche(st, id, {
-        date: g('date'), client: g('client'), hoursPort: g('hp'), hoursStbd: g('hs'), fuel: g('fuel'), water: g('water'), gas: g('gas'), notes: g('notes'), zones, obs,
-      }, { markReturn }));
-      break;
-    }
     case 'addMember': { const n = g('name'); if (!n) return; delete ui.drafts.tm; M(`${n} ajouté à l’équipe`, (st) => A.addMember(st, n)); break; }
     case 'addDefTpl': {
       const t = g('title'); if (!t) return; delete ui.drafts['cl-new'];

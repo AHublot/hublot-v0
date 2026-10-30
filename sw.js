@@ -1,10 +1,10 @@
 // Fonctionne sans réseau (quai, mer) : l'application est mise en cache à la première visite.
 // Change VERSION à chaque mise en ligne pour forcer le rafraîchissement.
-const VERSION = 'cap-depart-v2.1.1';
+const VERSION = 'cap-depart-v2.2.0';
 const SHELL = [
   './', 'index.html', 'styles/app.css', 'manifest.webmanifest', 'icons/icon.svg',
   'src/app.js', 'src/util.js', 'src/model.js', 'src/actions.js', 'src/store.js', 'src/demo.js', 'src/icons.js',
-  'src/whatsapp.js', 'src/voice.js', 'src/views/common.js', 'src/views/overview.js', 'src/views/boat.js', 'src/views/pages.js',
+  'src/whatsapp.js', 'src/voice.js', 'src/exports.js', 'src/views/common.js', 'src/views/overview.js', 'src/views/boat.js', 'src/views/pages.js',
 ];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

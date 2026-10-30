@@ -27,7 +27,12 @@ export function demoState() {
   doneN(a, 9);
   a.tasks.push(mkTask('Winch bâbord à regraisser', false, { blocked: false }));
   a.importantEvents.push({ id: 'e1', title: 'Pompe HP du dessalinisateur remplacée : 55 l/h passés à 70 l/h', category: 'Dessalinisateur', date: day(-3), details: '', pinned: true });
-  a.fiches.push({ id: 'f1', date: day(-4) + 'T16:20', client: 'Équipage Martin', hoursPort: '1182', hoursStbd: '1176', fuel: '60', water: '30', gas: '2', notes: 'Retour avec une demi-heure de retard.', zones: { Moteurs: { s: 'ok', note: '' }, Annexe: { s: 'todo', note: 'Sable dans le puisard' } }, obs: [], createdAt: nowIso() });
+  a.hours = { port: '1182', stbd: '1176', date: nowIso() };
+  // une préparation déjà archivée, avec ses observations
+  const past = DEFAULT_TEMPLATES.map((t) => ({ ...mkTask(t, true), origin: day(-11), done: true, doneAt: nowIso() }));
+  past.push({ ...mkTask('Pompe de douche arrière à remplacer'), origin: day(-11), done: true, doneAt: addDays(now, -8).toISOString() });
+  past.push({ ...mkTask('Coussin de cockpit déchiré'), origin: day(-10), done: true, doneAt: addDays(now, -7).toISOString() });
+  a.history.push({ id: 'h1', date: day(-11), tasks: past, kind: 'return', at: addDays(now, -4).toISOString() });
 
   const b = mk({ name: 'Bora', base: 'Martinique', departure: at(1, 9, 30), techs: ['Mathis', 'Sofia'], maintenance: maint(day(-30), day(-30), day(-20), '905') });
   doneN(b, 14);
@@ -44,7 +49,7 @@ export function demoState() {
 
   const f = mk({ name: 'Fregate', base: 'Martinique', inRental: true, departureArchived: true, departure: at(-2, 17, 0), returnDate: at(5, 10, 0), tasks: [], maintenance: maint(day(-45), day(-45), day(-45), '3310') });
   f.pendingOnReturn = [mkTask('Eau dans la cale moteur bâbord', false, { carried: true })];
-  f.fiches.push({ id: 'f2', date: day(-12) + 'T10:05', client: 'Famille Roche', hoursPort: '3302', hoursStbd: '3297', fuel: '40', water: '50', gas: '3', notes: '', zones: {}, obs: [], createdAt: nowIso() });
+  f.hours = { port: '3302', stbd: '3297', date: nowIso() };
 
   const g = mk({ name: 'Gabian', base: 'Guadeloupe', inRental: true, departureArchived: true, departure: at(-6, 17, 0), returnDate: '', tasks: [], maintenance: maint(day(-20), day(-20), day(-20), '780') });
   g.pendingOnReturn = [];

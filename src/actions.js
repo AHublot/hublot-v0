@@ -1,6 +1,6 @@
 // Toutes les modifications de données. Chaque fonction reçoit l'état « brouillon » (muté en place)
 // via store.mutate(), qui s'occupe de l'enregistrement et de l'annulation.
-import { uid, todayStr, nowIso, nowLocal, clone, arr } from './util.js';
+import { uid, todayStr, nowIso, clone, norm } from './util.js';
 import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES } from './model.js';
 
 const find = (s, id) => {
@@ -121,48 +121,54 @@ export function confirmDeparture(s, id, { auto = false } = {}) {
   b.lastDeparture = b.departure || '';
   log(b, auto
     ? 'Départ automatique : préparation archivée, tâches non terminées reportées au retour'
-    : 'Départ signalé : préparation archivée, tâches non terminées reportées au retour');
+    : 'Départ signalé : préparation archivée, observations non terminées reportées au retour');
 }
-export function returnToBase(s, id, newTasks = []) {
+/** Ce que « Nouveau retour » va faire, pour l'afficher avant de valider. */
+export function returnPlan(s, b) {
+  const obs = (list) => list.filter((t) => !t.template && t.title);
+  const seen = new Set();
+  const kept = obs([...b.pendingOnReturn, ...b.tasks]).filter((t) => !t.done)
+    .filter((t) => { const k = norm(t.title); if (seen.has(k)) return false; seen.add(k); return true; });
+  return {
+    archived: b.tasks.length,
+    obsDone: obs(b.tasks).filter((t) => t.done).length,
+    kept,
+    templates: tplsOf(s, b).length,
+  };
+}
+/**
+ * Nouveau retour : la préparation en cours part dans les archives, les observations non terminées
+ * (y compris celles notées pendant la location) restent dans la préparation, les tâches habituelles repartent à zéro.
+ */
+export function newReturn(s, id, now = new Date()) {
   const b = find(s, id);
-  const tpls = tplsOf(s, b);
-  const tset = new Set(tpls);
-  const carried = b.pendingOnReturn
-    .filter((t) => !t.done && !(t.template && tset.has(t.template)))
-    .map((t) => ({ ...t, carried: true }));
-  b.tasks = [...tpls.map((t) => mkTask(t, true)), ...carried, ...newTasks];
+  const plan = returnPlan(s, b);
+  if (b.tasks.length) {
+    b.history = [{ id: uid(), date: b.cycle || todayStr(now), tasks: clone(b.tasks), kind: 'return', at: nowIso() }, ...b.history];
+  }
+  b.tasks = [...tplsOf(s, b).map((t) => mkTask(t, true)), ...plan.kept.map((t) => ({ ...clone(t), carried: true }))];
   b.pendingOnReturn = [];
-  b.departureArchived = false;
   b.inRental = false;
-  b.departure = '';
+  b.departureArchived = false;
+  if (!b.departure || new Date(b.departure) <= now) b.departure = '';
   b.returnDate = '';
-  b.cycle = todayStr();
-  log(b, 'Retour à la base : tâches récurrentes relancées, observations non terminées reportées');
+  b.cycle = todayStr(now);
+  log(b, `Nouveau retour : préparation archivée${plan.kept.length ? `, ${plan.kept.length} observation${plan.kept.length > 1 ? 's' : ''} non terminée${plan.kept.length > 1 ? 's' : ''} gardée${plan.kept.length > 1 ? 's' : ''}` : ''}`);
+  return plan;
 }
+/** Ancien nom, gardé pour compatibilité. */
+export const returnToBase = (s, id) => newReturn(s, id);
 /** Départs dont l'heure est passée et qui n'ont pas encore été signalés. */
 export function dueDepartures(s, now = new Date()) {
   if (!s.prefs?.autoDeparture) return [];
   return s.boats.filter((b) => !b.inRental && !b.departureArchived && b.departure && new Date(b.departure) <= now).map((b) => b.id);
 }
 
-// ---- fiches retour ------------------------------------------------------------
-export function addFiche(s, id, f, { markReturn = false } = {}) {
+// ---- relevé moteur ------------------------------------------------------------------
+export function setHours(s, id, field, value) {
   const b = find(s, id);
-  const fid = uid();
-  const newTasks = arr(f.obs).map((o) => mkTask(o.title, false, { ficheId: fid, blocked: !!o.blocked }));
-  b.fiches = [{
-    id: fid, date: f.date || nowLocal(), client: f.client || '',
-    hoursPort: f.hoursPort || '', hoursStbd: f.hoursStbd || '', fuel: f.fuel || '', water: f.water || '', gas: f.gas || '',
-    notes: f.notes || '', zones: f.zones || {}, obs: newTasks.map((t) => ({ id: t.id, title: t.title })), createdAt: nowIso(),
-  }, ...b.fiches];
-  if (markReturn && b.inRental) returnToBase(s, id, newTasks);
-  else b.tasks.push(...newTasks);
-  log(b, `Fiche retour enregistrée${newTasks.length ? ` (${newTasks.length} observation${newTasks.length > 1 ? 's' : ''})` : ''}`);
-}
-export function deleteFiche(s, id, fid) {
-  const b = find(s, id);
-  b.fiches = b.fiches.filter((f) => f.id !== fid);
-  log(b, 'Fiche retour supprimée');
+  b.hours = { ...(b.hours || {}), [field]: String(value || '').trim(), date: nowIso() };
+  log(b, `Relevé moteur ${field === 'port' ? 'bâbord' : 'tribord'} : ${value || '—'} h`);
 }
 
 // ---- entretiens et événements --------------------------------------------------

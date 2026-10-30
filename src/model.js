@@ -75,6 +75,7 @@ export function normalizeBoat(raw, i = 0) {
     tasks: arr(r.tasks), pendingOnReturn: arr(r.pendingOnReturn), templates: arr(r.templates),
     maintenance: arr(r.maintenance), history: arr(r.history), logs: arr(r.logs),
     importantEvents: arr(r.importantEvents), fiches: arr(r.fiches), techs: arr(r.techs),
+    hours: r.hours && typeof r.hours === 'object' ? r.hours : null,
   };
   const fixTask = (t) => ({ ...t, id: t.id || uid(), title: String(t.title || ''), done: !!t.done, blocked: !!t.blocked });
   b.tasks = b.tasks.map(fixTask);
@@ -132,12 +133,45 @@ export function boatStatus(b) {
 }
 
 export function latestHours(b) {
-  const fs = [...b.fiches].sort((x, y) => String(y.date).localeCompare(String(x.date)));
-  for (const f of fs) {
-    const port = num(f.hoursPort), stbd = num(f.hoursStbd);
-    if (port != null || stbd != null) return { port, stbd, max: Math.max(port ?? -1, stbd ?? -1), date: f.date };
-  }
-  return null;
+  const cands = [];
+  if (b.hours) cands.push({ port: num(b.hours.port), stbd: num(b.hours.stbd), date: b.hours.date || '' });
+  arr(b.fiches).forEach((f) => cands.push({ port: num(f.hoursPort), stbd: num(f.hoursStbd), date: f.date || '' }));
+  const ok = cands.filter((c) => c.port != null || c.stbd != null).sort((x, y) => String(y.date).localeCompare(String(x.date)));
+  if (!ok.length) return null;
+  const c = ok[0];
+  return { ...c, max: Math.max(c.port ?? -1, c.stbd ?? -1) };
+}
+
+// ---- observations ------------------------------------------------------------
+const obsKey = (t) => norm(t.title) + '|' + (t.origin || '');
+const isoDay = (iso) => { const d = iso ? new Date(iso) : null; return d && !Number.isNaN(d.getTime()) ? todayStr(d) : ''; };
+/** Date utilisée pour trier et filtrer : jour du règlement, sinon jour du constat. */
+export const obsDate = (o) => (o.done ? isoDay(o.doneAt) || o.origin : o.origin) || '';
+
+/**
+ * Toutes les observations d'un bateau (préparations archivées, points en attente pendant la location,
+ * préparation en cours), sans doublon : la version la plus récente d'une même observation l'emporte.
+ */
+export function observationsOf(b) {
+  const map = new Map();
+  const put = (t, where, at = '') => {
+    if (!t || t.template || !t.title) return;
+    map.set(obsKey(t), {
+      id: t.id, title: t.title, origin: t.origin || '', done: !!t.done, doneAt: t.doneAt || '',
+      blocked: !!t.blocked, where, archivedAt: at,
+    });
+  };
+  [...arr(b.history)].reverse().forEach((h) => arr(h.tasks).forEach((t) => put(t, 'archive', h.at || h.date || '')));
+  arr(b.pendingOnReturn).forEach((t) => put(t, 'pending'));
+  arr(b.tasks).forEach((t) => put(t, 'current'));
+  return [...map.values()].sort((x, y) => obsDate(y).localeCompare(obsDate(x)));
+}
+/** Libellé de statut d'une observation. */
+export function obsState(o) {
+  if (o.done) return { key: 'done', label: 'Réglée' };
+  if (o.where === 'archive') return { key: 'lost', label: 'Non réglée' };
+  if (o.where === 'pending') return { key: 'open', label: 'Au retour' };
+  return { key: 'open', label: 'À traiter' };
 }
 
 export function maintStatus(m, b, now = new Date()) {

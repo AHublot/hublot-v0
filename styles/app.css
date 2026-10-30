@@ -427,3 +427,24 @@ dialog::backdrop { background: rgba(5, 12, 20, .55); backdrop-filter: blur(2px);
 :root:not([data-theme="dark"]) .top { background: rgba(255,255,255,.7); backdrop-filter: blur(8px); }
 :root:not([data-theme="dark"]) .tabbar { background: linear-gradient(180deg, #FFFFFF, #E3F1F7); }
 :root:not([data-theme="dark"]) .tabbar button.on { color: var(--tx); }
+
+/* ---- nouveau retour, observations archivées, export ---- */
+.retconfirm { border-left: 4px solid var(--acc); background: linear-gradient(120deg, var(--acc-soft), var(--panel) 60%); display: grid; gap: 12px; }
+.retconfirm h3 { font: 700 19px/1.2 var(--f-cond); display: flex; align-items: center; gap: 8px; }
+.retconfirm ul { display: grid; gap: 8px; }
+.retconfirm li { display: flex; gap: 10px; align-items: flex-start; line-height: 1.45; } .retconfirm li .ic { margin-top: 2px; color: var(--acc-tx); }
+.ost { flex: none; display: inline-block; min-width: 84px; text-align: center; font: 600 10.5px/1 var(--f-cond); letter-spacing: .08em; text-transform: uppercase; padding: 5px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--mut); background: var(--panel2); }
+.ost.done { color: var(--ok); background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.ost.open { color: var(--acc-tx); background: var(--acc-soft); border-color: color-mix(in srgb, var(--acc) 35%, transparent); }
+.ost.carry { color: var(--rent); background: var(--rent-soft); border-color: color-mix(in srgb, var(--rent) 35%, transparent); }
+.ost.lost { color: var(--bad); background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+ul.obshist, .hist ul.obshist { display: grid; gap: 0; padding: 0; list-style: none; color: var(--tx); font-size: 14px; margin-top: 8px; }
+.obshist li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 2px; border-bottom: 1px solid var(--line2); } .obshist li:last-child { border-bottom: 0; }
+.obshist li > div { min-width: 0; } .obshist .ttl { overflow-wrap: anywhere; }
+.panel.obshist { padding-top: 6px; padding-bottom: 6px; }
+.hist > p { margin-top: 8px; }
+.hours .grid2 { margin-top: 4px; }
+.obsexport .grid2 { margin-top: 6px; }
+.fleet-head .btn.sm { margin-top: 8px; }
+@media (max-width: 560px) { .ost { min-width: 0; } .obshist li { flex-direction: column; gap: 6px; } }
+.col > .seg { align-self: flex-start; max-width: 100%; }

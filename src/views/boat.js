@@ -1,26 +1,23 @@
-import {
-  esc, fmtD, fmtDT, fmtWDT, fmtLong, plural, parseLocal, nowLocal, utcLabel, num, byDescDate,
-} from '../util.js';
+import { esc, fmtD, fmtDT, fmtWDT, plural, parseLocal } from '../util.js';
 import {
   boatStats, boatStatus, maintStatus, maintCounts, baseLabel, tplsOf, pinnedEvents, latestHours,
-  BASES, ZONES, CATEGORIES, INTERVALS,
+  observationsOf, obsState, BASES, CATEGORIES, INTERVALS,
 } from '../model.js';
+import { returnPlan } from '../actions.js';
 import { ic } from '../icons.js';
-import { pill, bar, cd, empty, sparkline } from './common.js';
+import { pill, bar, cd, empty } from './common.js';
 import { boatReport, waLink } from '../whatsapp.js';
 import { voiceSupported } from '../voice.js';
 
 export const TABS = [
-  ['prep', 'Préparation', 'list'], ['retours', 'Retours', 'file'], ['maint', 'Entretiens', 'tool'],
+  ['prep', 'Préparation', 'list'], ['maint', 'Entretiens', 'tool'],
   ['archives', 'Archives & suivi', 'history'], ['reglages', 'Réglages', 'sliders'],
 ];
 
 function taskRow(b, t, { edit = false, pending = false } = {}) {
   const meta = [];
-  const fiche = t.ficheId && b.fiches.find((f) => f.id === t.ficheId);
   if (t.blocked && !t.done) meta.push('<b class="t-bad">Bloquant</b>');
   if (t.carried) meta.push(`Reportée · depuis le ${esc(fmtD(t.origin))}`);
-  else if (fiche) meta.push(`Fiche retour du ${esc(fmtD(fiche.date))}`);
   else if (!t.template && t.origin) meta.push(`Ajoutée le ${esc(fmtD(t.origin))}`);
   if (t.done && t.doneAt) meta.push(`Terminée le ${esc(fmtDT(t.doneAt))}`);
   const chk = pending
@@ -39,6 +36,18 @@ function tplEditRow(b, title, i, n) {
     <button type="button" class="ibtn" data-act="recDel" data-id="${b.id}" data-i="${i}" aria-label="Retirer de la liste">${ic('trash')}</button></li>`;
 }
 
+/** Récapitulatif avant de valider un nouveau retour. */
+function retConfirm(s, b) {
+  const p = returnPlan(s, b);
+  return `<section class="panel retconfirm" aria-label="Valider le nouveau retour"><h3>${ic('left')} Nouveau retour · ${esc(b.name)}</h3>
+    <ul>
+      <li>${ic('history')}<span>${p.archived ? `La préparation en cours (<b>${plural(p.archived, 'tâche', 'tâches')}</b>${p.obsDone ? `, dont ${plural(p.obsDone, 'observation réglée', 'observations réglées')}` : ''}) part dans <b>Archives &amp; suivi</b>.` : 'Rien à archiver : la préparation est vide.'}</span></li>
+      <li>${ic('flag')}<span>${p.kept.length ? `<b>${plural(p.kept.length, 'observation non terminée reste', 'observations non terminées restent')}</b> dans la préparation : ${p.kept.slice(0, 4).map((t) => esc(t.title)).join(' · ')}${p.kept.length > 4 ? ` · +${p.kept.length - 4}` : ''}` : 'Aucune observation en cours à reporter.'}</span></li>
+      <li>${ic('list')}<span>Les <b>${p.templates} tâches habituelles</b> repartent à zéro.</span></li>
+    </ul>
+    <div class="row gap wrap"><button class="btn pri" data-act="retGo" data-id="${b.id}">${ic('check')} Valider le retour</button><button class="btn" data-act="confirmNo">Annuler</button></div></section>`;
+}
+
 function header(s, b, ui, now) {
   const st = boatStats(b), stt = boatStatus(b), mc = maintCounts(b, now);
   const dep = !b.inRental && parseLocal(b.departure);
@@ -53,7 +62,7 @@ function header(s, b, ui, now) {
       <h1>${esc(b.name)} ${pill(stt)}</h1><p class="mut">${esc(b.model || '—')} · ${esc(baseLabel(b))}</p></div>
     <div class="row gap wrap actions">
       <a class="btn acc" target="_blank" rel="noopener" href="${waLink(report)}" data-act="copyWA" data-kind="boat" data-id="${b.id}">${ic('send')} Exporter pour WhatsApp</a>
-      <button class="btn" type="button" data-act="ret" data-id="${b.id}">${ic('plus')} Nouveau retour</button>
+      <button class="btn" type="button" data-act="retAsk" data-id="${b.id}">${ic('left')} Nouveau retour</button>
       <button class="btn icon" type="button" data-act="print" aria-label="Imprimer la feuille de préparation" title="Imprimer">${ic('print')}</button>
     </div>
   </div>
@@ -71,21 +80,20 @@ function header(s, b, ui, now) {
   <div class="chiprow">
     <span class="tag">${ic('pin')} ${esc(baseLabel(b))}</span>
     ${b.inRental
-      ? `<button type="button" class="btn sm" data-act="ret" data-id="${b.id}">${ic('left')} Signaler le retour</button>`
+      ? `<button type="button" class="btn sm" data-act="retAsk" data-id="${b.id}">${ic('left')} Signaler le retour</button>`
       : `<button type="button" class="btn sm ghost" data-act="dep" data-id="${b.id}">${ic('send')} Signaler le départ</button>`}
     <span class="tech">${techs} <button type="button" class="linkbtn" data-act="techs" aria-expanded="${!!ui.techs}">${ui.techs ? 'Fermer' : 'Modifier'}</button></span>
   </div>
+  ${ui.confirm === 'ret:' + b.id ? retConfirm(s, b) : ''}
   ${ui.techs ? `<div class="panel techpanel">${s.team.length ? s.team.map((n) => `<label class="ck"><input type="checkbox" data-chg="tech" data-id="${b.id}" data-name="${esc(n)}" ${b.techs.includes(n) ? 'checked' : ''}> ${esc(n)}</label>`).join('') : `<span class="mut">Aucune personne dans l’équipe. <button class="linkbtn" data-act="nav" data-to="team">Ajouter des personnes</button></span>`}</div>` : ''}
   ${pins.length ? `<button type="button" class="banner" data-act="banner" aria-expanded="${!!ui.banner}">${ic('bookmark')}<span><b>À retenir</b> · ${esc(pins[0].title)}${pins.length > 1 ? ` <em>+${pins.length - 1}</em>` : ''}</span>${ic(ui.banner ? 'down' : 'chevR')}</button>
     ${ui.banner ? `<ul class="panel pinlist">${pins.map((e) => `<li><span class="mono mut">${esc(fmtD(e.date))}</span> <b>${esc(e.title)}</b>${e.details ? `<p class="mut small">${esc(e.details)}</p>` : ''}</li>`).join('')}</ul>` : ''}` : ''}
-  <div class="tabs" role="tablist">${TABS.map(([k, l, i]) => `<button type="button" role="tab" id="tab-${k}" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}">${ic(i)}<span>${l}</span>${k === 'retours' && b.fiches.length ? `<sup class="mono">${b.fiches.length}</sup>` : ''}${k === 'maint' && (mc.late || mc.missing) ? `<sup class="mono ${mc.late ? 'bad' : ''}">${mc.late || mc.missing}</sup>` : ''}</button>`).join('')}</div>`;
+  <div class="tabs" role="tablist">${TABS.map(([k, l, i]) => `<button type="button" role="tab" id="tab-${k}" aria-selected="${ui.tab === k}" class="${ui.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}">${ic(i)}<span>${l}</span>${k === 'maint' && (mc.late || mc.missing) ? `<sup class="mono ${mc.late ? 'bad' : ''}">${mc.late || mc.missing}</sup>` : ''}</button>`).join('')}</div>`;
 }
 
 // ---- Préparation ---------------------------------------------------------------
 function tabPrep(s, b, ui, now) {
   const st = boatStats(b);
-  const lh = latestHours(b);
-  const lf = [...b.fiches].sort(byDescDate)[0];
   const obsDraft = ui.drafts[`obs-${b.id}`] || '';
   const add = `<section class="panel addobs"><div class="ico">${ic('plus')}</div><h3>Ajouter mes observations</h3>
     <p class="mut small">Une tâche par ligne, ou séparée par un point-virgule. Commence par <code>!</code> pour la marquer bloquante.</p>
@@ -95,18 +103,16 @@ function tabPrep(s, b, ui, now) {
         ${voiceSupported() ? `<button type="button" class="btn sm" data-act="voice" aria-pressed="false">${ic('mic')} Dicter</button>` : `<span class="small mut">Sur mobile, utilise le micro du clavier pour dicter.</span>`}</div>
       <button class="btn pri wide" type="submit" data-submit-label>Préparer les tâches ${ic('right')}</button>
     </form></section>`;
-  const last = `<section class="panel lastret"><div class="row between"><h3>Dernier retour</h3><button class="linkbtn" data-act="tab" data-v="retours">Tous les retours</button></div>
-    ${lf ? `<p class="mono mut small">${esc(fmtDT(lf.date))}${lf.client ? ' · ' + esc(lf.client) : ''}</p>
-      <dl class="mini">${[['Moteur bd', lf.hoursPort && lf.hoursPort + ' h'], ['Moteur td', lf.hoursStbd && lf.hoursStbd + ' h'], ['Carburant', lf.fuel && lf.fuel + ' %'], ['Eau', lf.water && lf.water + ' %'], ['Gaz', lf.gas && lf.gas + ' / 3']].filter((x) => x[1]).map(([k, v]) => `<div><dt>${k}</dt><dd class="mono">${esc(v)}</dd></div>`).join('')}</dl>`
-      : `<p class="mut small">Aucune fiche retour. Remplis-en une à chaque retour de location : heures moteur, niveaux, zones à traiter.</p>`}
-    <button class="btn sm" type="button" data-act="ret" data-id="${b.id}">${ic('plus')} Nouveau retour</button></section>`;
+  const last = `<section class="panel lastret"><h3>${ic('left')} Retour de location</h3>
+    <p class="mut small">« Nouveau retour » archive la préparation en cours, garde les observations non terminées et relance les tâches habituelles.</p>
+    <button class="btn sm" type="button" data-act="retAsk" data-id="${b.id}">${ic('left')} Nouveau retour</button></section>`;
 
   if (b.inRental) {
     const p = b.pendingOnReturn;
     return `<div class="two"><div class="col"><section class="panel"><div class="phead"><h3>À reprendre au retour</h3><span class="count mono">${p.length}</span></div>
       <p class="mut small">Le bateau est en location. Ces points seront remis dans la préparation au retour, avec les tâches habituelles.</p>
       ${p.length ? `<ul class="tasks">${p.map((t) => taskRow(b, t, { pending: true })).join('')}</ul>` : empty('check', 'Rien en attente', 'Ajoute ici ce qu’il faudra regarder au retour.')}
-      <div class="row gap"><button class="btn pri" data-act="ret" data-id="${b.id}">${ic('left')} Enregistrer le retour</button></div></section></div>
+      <div class="row gap"><button class="btn pri" data-act="retAsk" data-id="${b.id}">${ic('left')} Enregistrer le retour</button></div></section></div>
       <aside class="col">${add}${last}</aside></div>`;
   }
   const rec = b.tasks.filter((t) => t.template);
@@ -127,53 +133,9 @@ function tabPrep(s, b, ui, now) {
   const obsPanel = `<section class="panel"><div class="phead"><h3>${ic('tool')} Observations ajoutées</h3><span class="count mono">${st.obsOpen} restante${st.obsOpen > 1 ? 's' : ''}</span></div>
     <p class="mut small">Les problèmes et interventions propres à ce bateau.</p>
     ${obs.length ? `<ul class="tasks">${obs.map((t) => taskRow(b, t)).join('')}</ul>${st.obsOpen === 0 ? `<div class="okbar">${ic('check')} Toutes les observations sont traitées.</div>` : ''}`
-      : empty('wave', 'Aucune observation', 'Note ce que tu vois sur le bateau avec le champ à droite, ou depuis une fiche retour.')}
+      : empty('wave', 'Aucune observation', 'Note ce que tu vois sur le bateau avec le champ à droite.')}
   </section>`;
   return `<div class="two"><div class="col">${recPanel}${obsPanel}</div><aside class="col">${add}${last}</aside></div>`;
-}
-
-// ---- Retours (fiches) ---------------------------------------------------------------
-function tabRetours(s, b, ui) {
-  const fs = [...b.fiches].sort(byDescDate);
-  return `<div class="phead big"><div><h2>Fiches retour</h2><p class="mut small">Heures moteur, niveaux et contrôle par zone à chaque retour de location.</p></div>
-    <div class="row gap wrap"><button class="btn" data-act="csv" data-id="${b.id}">${ic('download')} Exporter en CSV</button><button class="btn pri" data-act="ret" data-id="${b.id}">${ic('plus')} Nouveau retour</button></div></div>
-    ${fs.length ? fs.map((f) => {
-      const zs = f.zones || {};
-      const zk = ZONES.filter((z) => zs[z] && (zs[z].s || zs[z].note));
-      const meta = [['Moteur bd', f.hoursPort && f.hoursPort + ' h'], ['Moteur td', f.hoursStbd && f.hoursStbd + ' h'], ['Carburant', f.fuel && f.fuel + ' %'], ['Eau', f.water && f.water + ' %'], ['Gaz', f.gas && f.gas + ' / 3']].filter((m) => m[1]);
-      const live = [...b.tasks, ...b.pendingOnReturn];
-      return `<article class="panel fiche"><header><div><b class="mono">${esc(fmtDT(f.date))}</b> <span>${esc(f.client || 'Retour')}</span></div>
-        <div class="row gap">${ui.ficheDel === f.id ? `<button class="btn sm bad solid" data-act="ficheDel" data-id="${b.id}" data-fid="${f.id}">Supprimer la fiche</button><button class="btn sm" data-act="ficheDelNo">Annuler</button>` : `<button class="btn sm ghost" data-act="ficheDelAsk" data-fid="${f.id}">${ic('trash')} Supprimer</button>`}</div></header>
-        ${meta.length ? `<dl class="meta">${meta.map(([k, v]) => `<div><dt>${k}</dt><dd class="mono">${esc(v)}</dd></div>`).join('')}</dl>` : ''}
-        ${zk.length ? `<ul class="zl">${zk.map((z) => { const v = zs[z]; return `<li><span class="zs ${v.s || 'na'}">${v.s === 'ok' ? 'OK' : v.s === 'todo' ? 'À traiter' : 'Noté'}</span> ${esc(z)}${v.note ? ` — ${esc(v.note)}` : ''}</li>`; }).join('')}</ul>` : ''}
-        ${f.obs?.length ? `<div><span class="k">Observations créées</span><ul class="ol">${f.obs.map((o) => { const t = live.find((x) => x.id === o.id); return `<li><span class="mono st ${t?.done ? 'd' : ''}">${t ? (t.done ? 'traitée' : 'ouverte') : 'archivée'}</span>${esc(o.title)}</li>`; }).join('')}</ul></div>` : ''}
-        ${f.notes ? `<p class="fnote">${esc(f.notes)}</p>` : ''}</article>`;
-    }).join('') : empty('file', 'Aucune fiche retour', 'Remplis la première au prochain retour, ou saisis à la main celle d’un retour passé.', `<button class="btn pri" data-act="ret" data-id="${b.id}">${ic('plus')} Nouveau retour</button>`)}`;
-}
-
-export function ficheDrawer(s, b, now) {
-  const lh = latestHours(b);
-  const chips = (name, vals, unit = '') => `<div class="quick">${vals.map((v) => `<label><input type="radio" name="${name}_q" value="${v}" data-quick="${name}"><span>${v}${unit}</span></label>`).join('')}</div>`;
-  return `<dialog class="drawer" id="ficheDlg" aria-labelledby="fh"><form data-form="fiche" data-id="${b.id}" method="dialog">
-    <header><div><span class="eyebrow">${esc(b.name)}</span><h2 id="fh">Fiche retour</h2></div><button type="button" class="ibtn" data-act="closeDrawer" aria-label="Fermer">${ic('x')}</button></header>
-    <div class="dbody">
-      <div class="grid2"><div class="fld"><label class="k" for="f-date">Date et heure</label><input id="f-date" type="datetime-local" name="date" value="${nowLocal(now)}" required></div>
-        <div class="fld"><label class="k" for="f-client">Équipage ou client</label><input id="f-client" name="client" autocomplete="off"></div></div>
-      <div class="grid2"><div class="fld"><label class="k" for="f-hp">Moteur bâbord (h)</label><input id="f-hp" name="hp" inputmode="decimal" placeholder="${lh?.port != null ? 'dernier : ' + lh.port : ''}"></div>
-        <div class="fld"><label class="k" for="f-hs">Moteur tribord (h)</label><input id="f-hs" name="hs" inputmode="decimal" placeholder="${lh?.stbd != null ? 'dernier : ' + lh.stbd : ''}"></div></div>
-      <div class="fld"><label class="k" for="f-fuel">Carburant (%)</label><input id="f-fuel" name="fuel" inputmode="numeric">${chips('fuel', [0, 25, 50, 75, 100], ' %')}</div>
-      <div class="fld"><label class="k" for="f-water">Eau (%)</label><input id="f-water" name="water" inputmode="numeric">${chips('water', [0, 25, 50, 75, 100], ' %')}</div>
-      <div class="fld"><label class="k" for="f-gas">Gaz (bouteilles pleines sur 3)</label><input id="f-gas" name="gas" inputmode="numeric">${chips('gas', [0, 1, 2, 3])}</div>
-      <div><span class="k">Contrôle par zone</span><p class="small mut">« À traiter » crée une observation sur la préparation.</p>
-        ${ZONES.map((z, i) => `<fieldset class="zone"><legend>${esc(z)}</legend><div class="seg" role="radiogroup" aria-label="${esc(z)}"><label><input type="radio" name="z${i}" value="" checked><span>–</span></label><label><input type="radio" name="z${i}" value="ok"><span>OK</span></label><label class="todo"><input type="radio" name="z${i}" value="todo"><span>À traiter</span></label></div>
-          <input name="zn${i}" placeholder="Précision" aria-label="Précision ${esc(z)}" autocomplete="off"></fieldset>`).join('')}</div>
-      <div class="fld"><label class="k" for="f-obs">Autres observations (une par ligne, <code>!</code> = bloquant)</label><textarea id="f-obs" name="obs" rows="3"></textarea></div>
-      <div class="fld"><label class="k" for="f-notes">Notes</label><textarea id="f-notes" name="notes" rows="2"></textarea></div>
-      ${b.inRental ? `<label class="ck strong"><input type="checkbox" name="ret" value="1" checked> Marquer le bateau de retour à la base <span class="mut small">(relance les tâches habituelles)</span></label>` : ''}
-    </div>
-    <footer><button class="btn" type="button" data-act="closeDrawer">Annuler</button>
-      ${b.inRental ? `<button class="btn ghost" type="button" data-act="retQuick" data-id="${b.id}">Retour sans fiche</button>` : ''}
-      <button class="btn pri" type="submit">Enregistrer la fiche</button></footer></form></dialog>`;
 }
 
 // ---- Entretiens ------------------------------------------------------------------------
@@ -192,7 +154,11 @@ function tabMaint(s, b, ui, now) {
       <div class="fld"><label class="k" for="mn-${m.id}">Notes</label><textarea id="mn-${m.id}" rows="2" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="notes">${esc(m.notes)}</textarea></div></article>`;
   }).join('');
   const evs = [...b.importantEvents].sort((a, c) => (c.pinned - a.pinned) || String(c.date).localeCompare(String(a.date)));
-  return `<div class="two even"><section class="col"><div class="phead big"><div><h2>Entretiens</h2><p class="mut small">${lh ? `Dernier relevé moteur : ${esc([lh.port, lh.stbd].filter((x) => x != null).join(' / '))} h (${esc(fmtD(lh.date))}).` : 'Les échéances en heures utilisent les relevés des fiches retour.'}</p></div></div>
+  return `<div class="two even"><section class="col"><div class="phead big"><div><h2>Entretiens</h2><p class="mut small">Les échéances en heures se calculent à partir du dernier relevé moteur.</p></div></div>
+    <div class="panel hours"><h3>Relevé moteur</h3>
+      <div class="grid2"><div class="fld"><label class="k" for="hp-${b.id}">Bâbord (h)</label><input id="hp-${b.id}" inputmode="decimal" value="${esc(b.hours?.port ?? '')}" placeholder="${lh?.port != null ? esc(lh.port) : ''}" data-chg="hours" data-id="${b.id}" data-f="port"></div>
+      <div class="fld"><label class="k" for="hs-${b.id}">Tribord (h)</label><input id="hs-${b.id}" inputmode="decimal" value="${esc(b.hours?.stbd ?? '')}" placeholder="${lh?.stbd != null ? esc(lh.stbd) : ''}" data-chg="hours" data-id="${b.id}" data-f="stbd"></div></div>
+      <p class="mut small">${lh ? `Dernier relevé : ${esc([lh.port, lh.stbd].filter((x) => x != null).join(' / '))} h${lh.date ? ` · ${esc(fmtD(lh.date))}` : ''}.` : 'Aucun relevé pour l’instant.'}</p></div>
     ${items || empty('tool', 'Aucun entretien suivi')}
     <form class="inl" data-form="addMaint" data-id="${b.id}"><input name="title" placeholder="Nouvel entretien (ex. Winchs)" aria-label="Nouvel entretien" autocomplete="off" data-draft="maint-${b.id}"><button class="btn pri" type="submit">Ajouter</button></form></section>
     <section class="col"><div class="phead big"><div><h2>Événements importants</h2><p class="mut small">Un événement épinglé apparaît dans « À retenir » en haut de la page.</p></div></div>
@@ -207,15 +173,38 @@ function tabMaint(s, b, ui, now) {
 }
 
 // ---- Archives & suivi --------------------------------------------------------------------
-function tabArchives(s, b) {
-  const fs = [...b.fiches].sort((x, y) => String(x.date).localeCompare(String(y.date)));
-  const series = [['Moteur bâbord', fs.map((f) => num(f.hoursPort)), 'h'], ['Moteur tribord', fs.map((f) => num(f.hoursStbd)), 'h'], ['Carburant au retour', fs.map((f) => num(f.fuel)), '%']].filter((x) => x[1].filter((v) => v != null).length >= 2);
-  return `<div class="two even"><section class="col"><div class="phead big"><div><h2>Suivi</h2></div></div>
-    ${series.length ? `<div class="panel trend">${series.map(([l, v, u]) => `<div><span class="k">${l}</span><b class="mono">${v.filter((x) => x != null).at(-1)} ${u}</b>${sparkline(v)}</div>`).join('')}</div>` : empty('history', 'Pas encore de courbe', 'Les courbes apparaissent dès deux fiches retour avec des heures moteur.')}
-    <div class="phead big"><div><h2>Préparations archivées</h2></div><span class="count mono">${b.history.length}</span></div>
-    ${b.history.length ? b.history.map((e) => { const d = e.tasks.filter((x) => x.done).length; return `<details class="panel hist"><summary><b>${e.kind === 'departure' ? 'Départ' : 'Archive'}${e.automatic ? ' automatique' : ''}</b><span class="mono mut">${esc(e.at ? fmtDT(e.at) : fmtD(e.date))}</span><span class="mut">${d}/${e.tasks.length} terminées</span></summary><ul>${e.tasks.map((x) => `<li class="${x.done ? 'd' : ''}">${esc(x.title)}${x.done ? '' : ' <em>(non terminée)</em>'}${x.blocked ? ' · bloquante' : ''}</li>`).join('')}</ul></details>`; }).join('') : empty('history', 'Aucune archive', 'Chaque départ signalé archive la préparation ici.')}</section>
-    <section class="col"><div class="phead big"><div><h2>Journal</h2></div><span class="count mono">${b.logs.length}</span></div>
-    ${b.logs.length ? `<ul class="panel log">${b.logs.slice(0, 80).map((l) => `<li><time class="mono mut">${esc(fmtDT(l.date))}</time><span>${esc(l.text)}</span></li>`).join('')}</ul>` : empty('history', 'Journal vide')}</section></div>`;
+const ostate = (o) => { const x = obsState(o); return `<span class="ost ${x.key}">${x.label}</span>`; };
+function obsLine(o) {
+  const meta = [];
+  if (o.origin) meta.push(`Constatée le ${esc(fmtD(o.origin))}`);
+  if (o.done && o.doneAt) meta.push(`réglée le ${esc(fmtD(o.doneAt))}`);
+  if (o.blocked && !o.done) meta.push('<b class="t-bad">bloquante</b>');
+  return `<li>${ostate(o)}<div><div class="ttl">${esc(o.title)}</div>${meta.length ? `<div class="tmeta">${meta.join(' · ')}</div>` : ''}</div></li>`;
+}
+function tabArchives(s, b, ui) {
+  const all = observationsOf(b);
+  const f = ui.obsF || 'all';
+  const nDone = all.filter((o) => o.done).length, nOpen = all.length - nDone;
+  const list = all.filter((o) => (f === 'done' ? o.done : f === 'open' ? !o.done : true));
+  const seg = (k, l, n) => `<button type="button" class="${f === k ? 'on' : ''}" data-act="obsF" data-v="${k}" aria-pressed="${f === k}">${l} <span class="mono">${n}</span></button>`;
+  const hist = b.history.map((e) => {
+    const obs = e.tasks.filter((t) => !t.template), rec = e.tasks.filter((t) => t.template);
+    const recDone = rec.filter((t) => t.done).length, obsDone = obs.filter((t) => t.done).length;
+    const label = e.kind === 'departure' ? `Départ${e.automatic ? ' automatique' : ''}` : e.kind === 'return' ? 'Retour' : 'Archive';
+    return `<details class="panel hist"><summary><b>${label}</b><span class="mono mut">${esc(e.at ? fmtDT(e.at) : fmtD(e.date))}</span>
+      <span class="mut">${obs.length ? `${obsDone}/${plural(obs.length, 'observation réglée', 'observations réglées')}` : 'Aucune observation'}</span></summary>
+      ${obs.length ? `<ul class="obshist">${obs.map((t) => `<li><span class="ost ${t.done ? 'done' : 'carry'}">${t.done ? 'Réglée' : 'Reportée'}</span><div><div class="ttl">${esc(t.title)}</div><div class="tmeta">${t.origin ? `Constatée le ${esc(fmtD(t.origin))}` : ''}${t.done && t.doneAt ? ` · réglée le ${esc(fmtD(t.doneAt))}` : ''}</div></div></li>`).join('')}</ul>` : ''}
+      <p class="mut small">Préparation du ${esc(fmtD(e.date))} · tâches habituelles : ${recDone}/${rec.length} terminées.</p></details>`;
+  }).join('');
+  return `<div class="two"><section class="col">
+    <div class="phead big"><div><h2>Observations</h2><p class="mut small">Tout ce qui a été noté sur ${esc(b.name)}, réglé ou non, de la plus récente à la plus ancienne.</p></div>
+      <button class="btn" data-act="obsCsv" data-id="${b.id}">${ic('download')} Exporter (CSV)</button></div>
+    <div class="seg" role="group" aria-label="Filtrer les observations">${seg('all', 'Toutes', all.length)}${seg('open', 'À traiter', nOpen)}${seg('done', 'Réglées', nDone)}</div>
+    ${list.length ? `<ul class="panel obshist">${list.map(obsLine).join('')}</ul>` : empty('wave', 'Aucune observation', f === 'all' ? 'Les observations ajoutées dans la préparation apparaîtront ici.' : 'Rien pour ce filtre.')}
+    <div class="phead big"><div><h2>Préparations archivées</h2><p class="mut small">Une archive à chaque départ signalé et à chaque nouveau retour.</p></div><span class="count mono">${b.history.length}</span></div>
+    ${hist || empty('history', 'Aucune archive', 'La préparation est archivée au départ et au nouveau retour.')}</section>
+    <aside class="col"><div class="phead big"><div><h2>Journal</h2></div><span class="count mono">${b.logs.length}</span></div>
+    ${b.logs.length ? `<ul class="panel log">${b.logs.slice(0, 80).map((l) => `<li><time class="mono mut">${esc(fmtDT(l.date))}</time><span>${esc(l.text)}</span></li>`).join('')}</ul>` : empty('history', 'Journal vide')}</aside></div>`;
 }
 
 // ---- Réglages -------------------------------------------------------------------------------
@@ -226,14 +215,15 @@ function tabReglages(s, b, ui) {
     <div class="grid2"><div class="fld"><label class="k" for="st-b">Base</label><select id="st-b" name="base"><option value="">Sans base</option>${BASES.map((x) => `<option${b.base === x ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
     <div class="fld"><label class="k" for="st-o">Nom de la base si « Autre »</label><input id="st-o" name="otherBase" value="${esc(b.otherBase)}"></div></div>
     <div><button class="btn pri" type="submit">Enregistrer</button></div></form></section>
-    <section class="col"><div class="panel formrow"><h3>Zone sensible</h3><p class="mut small">Supprime le bateau, ses fiches, son historique et son journal. Tu peux annuler juste après, ou exporter une sauvegarde avant.</p>
+    <section class="col"><div class="panel formrow"><h3>Zone sensible</h3><p class="mut small">Supprime le bateau, ses archives, ses observations et son journal. Tu peux annuler juste après, ou exporter une sauvegarde avant.</p>
       ${ui.confirm === 'delBoat' ? `<div class="row gap"><button class="btn bad solid" data-act="delBoat" data-id="${b.id}">Oui, supprimer ${esc(b.name)}</button><button class="btn" data-act="confirmNo">Annuler</button></div>` : `<div><button class="btn bad" data-act="confirmAsk" data-v="delBoat">${ic('trash')} Supprimer le bateau</button></div>`}</div></section></div>`;
 }
 
 export function boatView(s, ui, id, now = new Date()) {
   const b = s.boats.find((x) => x.id === id);
   if (!b) return `<div class="page-head"><h1>Bateau introuvable</h1></div>${empty('boat', 'Ce bateau n’existe plus', '', `<button class="btn" data-act="nav" data-to="overview">Retour à la flotte</button>`)}`;
-  const body = ui.tab === 'retours' ? tabRetours(s, b, ui) : ui.tab === 'maint' ? tabMaint(s, b, ui, now)
-    : ui.tab === 'archives' ? tabArchives(s, b) : ui.tab === 'reglages' ? tabReglages(s, b, ui) : tabPrep(s, b, ui, now);
+  if (!TABS.some((t) => t[0] === ui.tab)) ui.tab = 'prep';
+  const body = ui.tab === 'maint' ? tabMaint(s, b, ui, now)
+    : ui.tab === 'archives' ? tabArchives(s, b, ui) : ui.tab === 'reglages' ? tabReglages(s, b, ui) : tabPrep(s, b, ui, now);
   return header(s, b, ui, now) + `<div class="tabpane" role="tabpanel" aria-labelledby="tab-${ui.tab}">${body}</div>`;
 }

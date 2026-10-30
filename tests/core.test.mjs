@@ -6,6 +6,8 @@ import {
   normalizeState, emptyState, newBoat, boatStats, boatStatus, maintStatus, DEFAULT_TEMPLATES, matchFilter, fleetStats,
 } from '../src/model.js';
 import * as A from '../src/actions.js';
+import { observationsOf } from '../src/model.js';
+import { collectObservations, observationsCsv } from '../src/exports.js';
 import { demoState } from '../src/demo.js';
 
 const fresh = () => {
@@ -56,21 +58,59 @@ test('cycle départ puis retour : archive, report des observations, tâches réc
   assert.equal(carried[0].blocked, true);
 });
 
-test('fiche retour : crée les observations, marque le retour', () => {
+test('nouveau retour : archive la préparation, garde les observations non terminées', () => {
   const s = fresh();
   const b = s.boats[0];
+  b.tasks.forEach((t) => A.toggleTask(s, b.id, t.id)); // tâches habituelles faites
+  A.addObservations(s, b.id, [{ title: 'Pompe de douche' }, { title: 'Feu de navigation', blocked: true }, { title: 'Coussin' }]);
+  const pompe = b.tasks.find((t) => t.title === 'Pompe de douche');
+  A.toggleTask(s, b.id, pompe.id);
+  const plan = A.returnPlan(s, b);
+  assert.equal(plan.kept.length, 2);
+  A.newReturn(s, b.id);
+  assert.equal(b.history.length, 1);
+  assert.equal(b.history[0].kind, 'return');
+  assert.equal(b.history[0].tasks.length, DEFAULT_TEMPLATES.length + 3);
+  const obs = b.tasks.filter((t) => !t.template);
+  assert.deepEqual(obs.map((t) => t.title).sort(), ['Coussin', 'Feu de navigation']);
+  assert.ok(obs.every((t) => t.carried && !t.done));
+  assert.ok(b.tasks.filter((t) => t.template).every((t) => !t.done));
+  // un 2e retour n'archive pas deux fois la même observation dans l'export
+  A.toggleTask(s, b.id, obs[0].id);
+  A.newReturn(s, b.id);
+  const all = observationsOf(b);
+  assert.equal(all.length, 3, 'chaque observation une seule fois');
+  assert.equal(all.filter((o) => o.done).length, 2);
+});
+
+test('nouveau retour pendant une location : les observations notées en location reviennent', () => {
+  const s = fresh();
+  const b = s.boats[0];
+  A.addObservations(s, b.id, [{ title: 'Winch' }]);
   A.confirmDeparture(s, b.id);
-  A.addFiche(s, b.id, {
-    client: 'Martin', hoursPort: '1200', hoursStbd: '1190',
-    obs: [{ title: 'Annexe : sable' }, { title: 'Fuite', blocked: true }],
-  }, { markReturn: true });
+  A.addObservations(s, b.id, [{ title: 'Eau dans la cale' }]);
+  assert.equal(b.pendingOnReturn.length, DEFAULT_TEMPLATES.length + 2);
+  A.newReturn(s, b.id);
   assert.equal(b.inRental, false);
-  assert.equal(b.fiches.length, 1);
-  assert.equal(b.fiches[0].obs.length, 2);
-  const o = b.tasks.filter((t) => t.ficheId === b.fiches[0].id);
-  assert.equal(o.length, 2);
-  assert.equal(boatStats(b).blocked, 1);
-  assert.equal(boatStatus(b).key, 'blocked');
+  assert.equal(b.history.length, 1, 'rien de plus à archiver : la préparation était vide');
+  assert.deepEqual(b.tasks.filter((t) => !t.template).map((t) => t.title).sort(), ['Eau dans la cale', 'Winch']);
+});
+
+test('export des observations : filtres et CSV Excel', () => {
+  const s = fresh();
+  A.addBoat(s, { name: 'Autre' });
+  const [b, c] = s.boats;
+  A.addObservations(s, b.id, [{ title: 'Pompe; douche' }, { title: 'Feu' }]);
+  A.addObservations(s, c.id, [{ title: 'Voile' }]);
+  A.toggleTask(s, b.id, b.tasks.find((t) => t.title === 'Feu').id);
+  assert.equal(collectObservations(s).length, 3);
+  assert.equal(collectObservations(s, { boat: b.id }).length, 2);
+  assert.equal(collectObservations(s, { status: 'done' }).length, 1);
+  assert.equal(collectObservations(s, { from: '2999-01-01' }).length, 0);
+  const csv = observationsCsv(collectObservations(s));
+  assert.ok(csv.startsWith('\uFEFFBateau;Base;Observation;Statut'));
+  assert.match(csv, /"Pompe; douche"/);
+  assert.match(csv, /Feu;Réglée/);
 });
 
 test('annulation : mutate + snapshot JSON restitue l’état', () => {
@@ -92,7 +132,8 @@ test('entretiens : à renseigner, à jour, en retard (jours et heures moteur)', 
   assert.equal(maintStatus(survie, b).key, 'late');
   moteur.date = new Date().toISOString().slice(0, 10);
   moteur.hours = '1000';
-  A.addFiche(s, b.id, { hoursPort: '1250', hoursStbd: '1240' });
+  A.setHours(s, b.id, 'port', '1250');
+  A.setHours(s, b.id, 'stbd', '1240');
   const st = maintStatus(moteur, b);
   assert.equal(st.key, 'late');
   assert.match(st.label, /50 h de retard/);
