@@ -514,6 +514,6 @@ body.auth .content { padding: 0; }
 .bcard footer .btn.icon { min-width: 30px; padding: 0 6px; }
 .bcard.other { opacity: .72; filter: saturate(.55); transition: opacity .15s, filter .15s; }
 .bcard.other:hover, .bcard.other:focus-within { opacity: 1; filter: none; }
-.bcard.prep { background: linear-gradient(125deg, color-mix(in srgb, var(--ok) 12%, var(--panel)) 0%, var(--panel) 62%); }
-:root:not([data-theme="dark"]) .bcard.prep { background: linear-gradient(125deg, #E2F6EA 0%, #FFFFFF 62%); }
+.bcard.prep { background: linear-gradient(125deg, color-mix(in srgb, var(--ok) 24%, var(--panel)) 0%, var(--panel) 78%); border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
+:root:not([data-theme="dark"]) .bcard.prep { background: linear-gradient(125deg, #BDEBD0 0%, #E3F6EA 45%, #FFFFFF 85%); border-color: #A9DDBF; }
 @media (prefers-reduced-motion: reduce) { .bcard.other { transition: none; } }
