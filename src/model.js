@@ -226,8 +226,10 @@ export function matchFilter(b, key, now = new Date()) {
 export function sortBoats(boats) {
   const depT = (b) => parseLocal(b.departure)?.getTime() ?? Infinity;
   const retT = (b) => parseLocal(b.returnDate)?.getTime() ?? Infinity;
+  // Martinique en préparation d'abord, puis les bateaux en location, puis les autres bases
+  const grp = (b) => (b.inRental ? 1 : b.base === 'Martinique' ? 0 : 2);
   return [...boats].sort((a, b) => {
-    if (a.inRental !== b.inRental) return a.inRental ? 1 : -1;
+    if (grp(a) !== grp(b)) return grp(a) - grp(b);
     const d = a.inRental ? retT(a) - retT(b) : depT(a) - depT(b);
     if (d && Number.isFinite(d)) return d;
     if (depT(a) !== depT(b) && !a.inRental) return depT(a) < depT(b) ? -1 : 1;

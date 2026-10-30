@@ -189,7 +189,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .tools select { width: auto; min-width: 160px; }
 .search { position: relative; display: block; } .search .ic { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); pointer-events: none; z-index: 1; }
 .search input { min-width: 220px; }
-.fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 14px; }
+.fleet { display: grid; grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); gap: 12px; }
 .bcard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow); cursor: pointer; position: relative; min-width: 0; }
 .bcard:hover { border-color: var(--faint); }
 .bcard.rental { border-left: 4px solid var(--rent); background: linear-gradient(90deg, var(--rent-soft), transparent 55%), var(--panel); }
@@ -498,3 +498,22 @@ body.auth .content { padding: 0; }
 @media (prefers-reduced-motion: reduce) { .sync.busy i { animation: none; } }
 .account p { margin-bottom: 4px; }
 @media (max-width: 860px) { .sync[data-sync] { display: inline-flex !important; } }
+
+/* ---- cartes compactes (5 par ligne), autres bases grisées, préparation en vert ---- */
+.bcard { padding: 13px; gap: 9px; }
+.bcard header { gap: 6px 8px; }
+.bcard h3 { font-size: 18px; flex-basis: 70px; }
+.bcard .bico { transform: scale(.9); }
+.bcard .fld { gap: 3px; }
+.bcard .fld .k { font-size: 11px; }
+.bcard select, .bcard input { min-height: 32px; font-size: 12.5px; padding-left: 8px; padding-right: 6px; }
+.bcard .notes, .bcard .foot { font-size: 12px; }
+.bcard .pill { font-size: 10px; padding: 4px 7px 4px 6px; }
+.bcard footer { gap: 6px; padding-top: 2px; }
+.bcard footer .btn.sm { padding: 0 9px; font-size: 12px; min-height: 30px; }
+.bcard footer .btn.icon { min-width: 30px; padding: 0 6px; }
+.bcard.other { opacity: .72; filter: saturate(.55); transition: opacity .15s, filter .15s; }
+.bcard.other:hover, .bcard.other:focus-within { opacity: 1; filter: none; }
+.bcard.prep { background: linear-gradient(125deg, color-mix(in srgb, var(--ok) 12%, var(--panel)) 0%, var(--panel) 62%); }
+:root:not([data-theme="dark"]) .bcard.prep { background: linear-gradient(125deg, #E2F6EA 0%, #FFFFFF 62%); }
+@media (prefers-reduced-motion: reduce) { .bcard.other { transition: none; } }

@@ -60,7 +60,7 @@ function card(b, now) {
   const foot = b.inRental
     ? `<span class="mut small">${ic('clock')} Parti ${b.lastDeparture ? esc(fmtDT(b.lastDeparture)) : ''}</span>`
     : dep ? `<span class="small">${ic('clock')} ${dep > now ? 'Départ dans' : 'Départ'} ${cd(b.departure, now)}</span>` : `<span class="mut small">Pas de départ planifié</span>`;
-  return `<article class="bcard ${stt.key}" data-open="${b.id}">
+  return `<article class="bcard ${stt.key}${b.base === 'Martinique' ? '' : ' other'}" data-open="${b.id}">
     <header><span class="bico">${ic('boat')}</span><h3>${esc(b.name)}</h3>${pill(stt)}</header>
     <div class="fld"><label class="k" for="b-${b.id}">Base</label>
       <select id="b-${b.id}" data-chg="base" data-id="${b.id}">
@@ -72,7 +72,7 @@ function card(b, now) {
     <div class="foot">${foot}</div>
     <footer>
       <button type="button" class="btn sm ${b.inRental ? '' : 'ghost'}" data-act="${b.inRental ? 'ret' : 'dep'}" data-id="${b.id}">${ic(b.inRental ? 'left' : 'send')} ${b.inRental ? 'Signaler le retour' : 'Signaler le départ'}</button>
-      <button type="button" class="btn sm link" data-act="open" data-id="${b.id}">Ouvrir ${ic('right')}</button>
+      <button type="button" class="btn sm link icon" data-act="open" data-id="${b.id}" aria-label="Ouvrir ${esc(b.name)}" title="Ouvrir">${ic('right')}</button>
     </footer>
   </article>`;
 }
@@ -137,7 +137,7 @@ export function overviewView(s, ui, now = new Date()) {
     ${hero(s, now)}
     ${kpis(f, ui)}
     <section class="fleet-head">
-      <div><h2>${ui.filter === 'obs' ? 'Observations à traiter' : 'La flotte'} <span class="count mono">${list.length}</span></h2><p class="mut small">${ui.filter === 'obs' ? 'Les points notés hors tâches habituelles, bateau par bateau. Coche pour les régler.' : 'Tri : à préparer par date de départ, puis en location.'}</p>${ui.filter === 'obs' ? `<button type="button" class="btn sm" data-act="nav" data-to="backup">${ic('file')} Rapport Excel du mois</button>` : ''}</div>
+      <div><h2>${ui.filter === 'obs' ? 'Observations à traiter' : 'La flotte'} <span class="count mono">${list.length}</span></h2><p class="mut small">${ui.filter === 'obs' ? 'Les points notés hors tâches habituelles, bateau par bateau. Coche pour les régler.' : 'Martinique d’abord (par date de départ), puis les bateaux en location, puis les autres bases.'}</p>${ui.filter === 'obs' ? `<button type="button" class="btn sm" data-act="nav" data-to="backup">${ic('file')} Rapport Excel du mois</button>` : ''}</div>
       <div class="tools">
         <div class="seg" role="group" aria-label="Affichage"><button type="button" class="${ui.view === 'cards' ? 'on' : ''}" data-act="view" data-v="cards" aria-pressed="${ui.view === 'cards'}">${ic('grid')} Cartes</button><button type="button" class="${ui.view === 'board' ? 'on' : ''}" data-act="view" data-v="board" aria-pressed="${ui.view === 'board'}">${ic('calendar')} Planning</button></div>
         ${bases.length > 1 ? `<select aria-label="Base" data-chg="baseFilter"><option value="all">Toutes les bases</option>${bases.map((x) => `<option${base === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
