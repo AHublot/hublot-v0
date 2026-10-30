@@ -1,0 +1,10 @@
+# À copier en /opt/hublot/docker-compose.override.yml quand Caddy tourne dans Docker
+# (cas du VPS : conteneur « caddy » du projet flotte, réseau flotte_default).
+# Docker Compose le lit automatiquement ; il n'est pas suivi par git.
+services:
+  hublot:
+    networks: [default, flotte]
+networks:
+  flotte:
+    name: flotte_default
+    external: true

@@ -1,4 +1,8 @@
-# À ajouter dans ton Caddyfile (Caddy gère le HTTPS tout seul) :
+# À ajouter à la fin du Caddyfile (Caddy gère le HTTPS tout seul).
+# Caddy installé directement sur le serveur :
+#   reverse_proxy 127.0.0.1:8090
+# Caddy dans Docker, sur le même réseau que Hublot (voir docker-compose.override.caddy.yml) :
 hublot.lemard.fr {
-    reverse_proxy 127.0.0.1:8090
+	encode zstd gzip
+	reverse_proxy hublot:8080
 }

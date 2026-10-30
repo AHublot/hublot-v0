@@ -42,7 +42,7 @@ sudo docker compose exec hublot node server/cli.js add-user ton@email.fr --name 
 **4. Exposer le site en HTTPS** avec ton proxy actuel :
 
 - **Nginx** : copie `deploy/nginx-hublot.conf`, remplace le domaine, active-le, puis `sudo certbot --nginx -d hublot.lemard.fr`.
-- **Caddy** : ajoute le bloc de `deploy/Caddyfile.example` (HTTPS automatique).
+- **Caddy** : ajoute le bloc de `deploy/Caddyfile.example` (HTTPS automatique). Si Caddy tourne lui-même dans Docker (cas du VPS, projet flotte), copie `deploy/docker-compose.override.caddy.yml` en `docker-compose.override.yml` pour brancher Hublot sur son réseau, et utilise `reverse_proxy hublot:8080`.
 - **Traefik** : ajoute les labels de `deploy/traefik-labels.example.yml` au service.
 
 Le HTTPS est obligatoire : sans lui, les mots de passe circuleraient en clair.

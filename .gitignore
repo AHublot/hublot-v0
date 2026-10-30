@@ -5,3 +5,4 @@ dist/
 *.backup.json
 hublot-*.json
 data/
+docker-compose.override.yml
