@@ -28,6 +28,6 @@ const body = idx.match(/<body>([\s\S]*)<\/body>/)[1].replace(/<script[\s\S]*?<\/
 const safe = js.replace(/<\/script>/g, '<\\/script>');
 const fonts = idx.match(/<link rel="stylesheet" href="(https:\/\/fonts[^"]+)">/)[1];
 mkdirSync('dist', { recursive: true });
-writeFileSync('dist/preview-fragment.html', `<title>Cap Départ Aperçu</title>\n<link rel="stylesheet" href="${fonts}">\n<style>${css}</style>\n${body}\n<script>${safe}</script>`);
+writeFileSync('dist/preview-fragment.html', `<title>Hublot Aperçu</title>\n<link rel="stylesheet" href="${fonts}">\n<style>${css}</style>\n${body}\n<script>${safe}</script>`);
 writeFileSync('dist/preview.html', idx.replace(/<link rel="(manifest|apple-touch-icon|icon)"[^>]*>\n?/g, '').replace('<link rel="stylesheet" href="styles/app.css">', `<style>${css}</style>`).replace('<script type="module" src="src/app.js"></script>', `<script>${safe}</script>`));
 console.log('ok', Math.round(safe.length / 1024), 'Ko JS');

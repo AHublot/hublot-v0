@@ -84,7 +84,7 @@ subscribe((info) => {
 // ---- rendu --------------------------------------------------------------------------------------
 function sideHTML(s) {
   const nav = (to, icn, label, n) => `<button type="button" class="nav ${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}" ${ui.route.name === to ? 'aria-current="page"' : ''}>${ic(icn)}<span>${label}</span>${n != null ? `<em class="mono">${n}</em>` : ''}</button>`;
-  return `<div class="brand"><span class="mark"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 24h14l-2 3H11z" fill="var(--side)"/><path d="M16 6v15M16 7l7 11h-7z" fill="none" stroke="var(--side)" stroke-width="2" stroke-linejoin="round"/></svg></span><div><b>Cap Départ</b><small>Gestion de flotte</small></div></div>
+  return `<div class="brand"><span class="mark"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 24h14l-2 3H11z" fill="var(--side)"/><path d="M16 6v15M16 7l7 11h-7z" fill="none" stroke="var(--side)" stroke-width="2" stroke-linejoin="round"/></svg></span><div><b>Hublot</b><small>Gestion de flotte</small></div></div>
     <span class="k side-k">${remote.user?.role === 'tech' ? 'Espace technicien' : 'Espace manager'}</span>
     <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${nav('team', 'users', 'Mon équipe', s.team.length)}${nav('checklist', 'list', 'Liste avant départ', s.templates.length)}</nav>
     <div class="grow"></div>
@@ -107,7 +107,7 @@ function syncBadge(t) {
 }
 function loginHTML() {
   return `<div class="login"><form class="panel loginbox" data-form="login" novalidate>
-    <div class="brand"><span class="mark"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 24h14l-2 3H11z" fill="#fff"/><path d="M16 6v15M16 7l7 11h-7z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></span><div><b>Cap Départ</b><small>Gestion de flotte</small></div></div>
+    <div class="brand"><span class="mark"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 24h14l-2 3H11z" fill="#fff"/><path d="M16 6v15M16 7l7 11h-7z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></span><div><b>Hublot</b><small>Gestion de flotte</small></div></div>
     <h1>Connexion</h1>
     <div class="fld"><label class="k" for="lg-e">E-mail</label><input id="lg-e" name="email" type="email" autocomplete="username" required value="${esc(ui.loginEmail || '')}"></div>
     <div class="fld"><label class="k" for="lg-p">Mot de passe</label><input id="lg-p" name="password" type="password" autocomplete="current-password" required></div>
@@ -243,7 +243,7 @@ function doExport() {
     format: 'cap-depart-backup', version: 1, savedAt: nowIso(),
     data: { checklistVersion: 1, schemaVersion: 2, boats: s.boats, team: s.team, templates: s.templates, baseName: s.baseName, prefs: s.prefs },
   };
-  download(`cap-depart-${todayStr()}.json`, JSON.stringify(out, null, 2));
+  download(`hublot-${todayStr()}.json`, JSON.stringify(out, null, 2));
 }
 function exportMonth(s) {
   const month = ui.xm.month || todayStr().slice(0, 7);
@@ -262,7 +262,7 @@ function readImport(file) {
       const n = normalizeState(raw);
       ui.imp = { raw, name: file.name, boats: n.boats.length, team: n.team.length };
       ui.impErr = null;
-    } catch (e) { ui.imp = null; ui.impErr = e.message === 'Aucun bateau dans ce fichier' ? e.message : 'Ce fichier n’est pas une sauvegarde Cap Départ.'; }
+    } catch (e) { ui.imp = null; ui.impErr = e.message === 'Aucun bateau dans ce fichier' ? e.message : 'Ce fichier n’est pas une sauvegarde Hublot.'; }
     render();
   };
   r.readAsText(file);

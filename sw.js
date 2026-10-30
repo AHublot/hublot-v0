@@ -1,6 +1,6 @@
 // Fonctionne sans réseau (quai, mer) : l'application est mise en cache à la première visite.
 // Change VERSION à chaque mise en ligne pour forcer le rafraîchissement.
-const VERSION = 'cap-depart-v3.0.0';
+const VERSION = 'hublot-v3.0.1';
 const SHELL = [
   './', 'index.html', 'styles/app.css', 'manifest.webmanifest', 'icons/icon.svg',
   'src/app.js', 'src/util.js', 'src/model.js', 'src/actions.js', 'src/store.js', 'src/demo.js', 'src/icons.js',

@@ -1,4 +1,4 @@
-// Serveur Cap Départ : sert l'application et l'API (connexion, données partagées).
+// Serveur Hublot : sert l'application et l'API (connexion, données partagées).
 // Lancement : node server/server.js  (variables : PORT, DATA_DIR, COOKIE_SECURE, TRUST_PROXY)
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -61,7 +61,7 @@ export function createApp({ db = openDb(), log = console } = {}) {
 
   // Requêtes qui modifient : en-tête dédié + même origine (protection CSRF en plus de SameSite=Strict).
   const sameOrigin = (req) => {
-    if (req.headers['x-capdepart'] !== '1') return false;
+    if (req.headers['x-hublot'] !== '1') return false;
     const o = req.headers.origin;
     if (!o) return true;
     try { return new URL(o).host === (String(req.headers['x-forwarded-host'] || '') || req.headers.host); } catch { return false; }
@@ -186,7 +186,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === normalize(process.argv
   housekeeping();
   setInterval(housekeeping, 3 * 3600e3).unref();
   server.listen(PORT, () => {
-    console.log(`Cap Départ écoute sur le port ${PORT} · données : ${process.env.DATA_DIR || join(process.cwd(), 'data')}`);
+    console.log(`Hublot écoute sur le port ${PORT} · données : ${process.env.DATA_DIR || join(process.cwd(), 'data')}`);
     if (!users) console.log('Aucun compte : crée le compte manager avec « node server/cli.js add-user ton@email.fr --name Prénom ».');
   });
   const stop = () => server.close(() => { db.close(); process.exit(0); });

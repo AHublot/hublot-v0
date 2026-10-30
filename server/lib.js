@@ -8,7 +8,7 @@ import { join } from 'node:path';
 export const DATA_DIR = process.env.DATA_DIR || join(process.cwd(), 'data');
 export const ROLES = ['manager', 'tech'];
 
-export function openDb(file = join(DATA_DIR, 'capdepart.sqlite')) {
+export function openDb(file = join(DATA_DIR, 'hublot.sqlite')) {
   if (file !== ':memory:') mkdirSync(DATA_DIR, { recursive: true });
   const db = new DatabaseSync(file);
   db.exec(`
@@ -144,10 +144,10 @@ export function audit(db, userId, action, detail = '') {
 /** Copie de la base (VACUUM INTO), 14 copies gardées. */
 export function backup(db, dir = join(DATA_DIR, 'backups'), keep = 14) {
   mkdirSync(dir, { recursive: true });
-  const file = join(dir, `capdepart-${now().slice(0, 10)}.sqlite`);
+  const file = join(dir, `hublot-${now().slice(0, 10)}.sqlite`);
   try { unlinkSync(file); } catch { /* première copie du jour */ }
   db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
-  const all = readdirSync(dir).filter((f) => /^capdepart-\d{4}-\d{2}-\d{2}\.sqlite$/.test(f)).sort();
+  const all = readdirSync(dir).filter((f) => /^hublot-\d{4}-\d{2}-\d{2}\.sqlite$/.test(f)).sort();
   all.slice(0, Math.max(0, all.length - keep)).forEach((f) => { try { unlinkSync(join(dir, f)); } catch { /* */ } });
   return file;
 }

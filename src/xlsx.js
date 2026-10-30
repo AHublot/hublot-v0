@@ -134,7 +134,7 @@ function zip(files, now = new Date()) {
 }
 
 /** Construit le fichier .xlsx (Uint8Array). */
-export function buildXlsx({ sheets, styles = {}, title = '', creator = 'Cap Départ' }) {
+export function buildXlsx({ sheets, styles = {}, title = '', creator = 'Hublot' }) {
   const st = styleTables(styles);
   const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
   const f = (name, s) => ({ name, data: enc.encode(s) });
@@ -154,7 +154,7 @@ export function buildXlsx({ sheets, styles = {}, title = '', creator = 'Cap Dép
     f('docProps/core.xml', head + '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
       + `<dc:title>${xml(title)}</dc:title><dc:creator>${xml(creator)}</dc:creator>`
       + `<dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`),
-    f('docProps/app.xml', head + '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Cap Départ</Application></Properties>'),
+    f('docProps/app.xml', head + '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Hublot</Application></Properties>'),
     f('xl/workbook.xml', head + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
       + '<bookViews><workbookView activeTab="0"/></bookViews>'
       + `<sheets>${sheets.map((sh, i) => `<sheet name="${xml(sh.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`),

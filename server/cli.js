@@ -26,7 +26,7 @@ function ask(q, hidden = true) {
   });
 }
 async function newPassword() {
-  if (process.env.CAPDEPART_PASSWORD) return process.env.CAPDEPART_PASSWORD;
+  if (process.env.HUBLOT_PASSWORD) return process.env.HUBLOT_PASSWORD;
   const a = await ask('Mot de passe (10 caractères minimum) : ');
   if (!process.stdin.isTTY) return a;
   const b = await ask('Confirme le mot de passe : ');

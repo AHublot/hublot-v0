@@ -100,7 +100,7 @@ export function backupView(s, ui) {
         <div class="row gap wrap"><button class="btn pri" data-act="export">${ic('download')} Exporter la sauvegarde</button></div>
         <p class="small mut">${ui.server ? (remote.lastSync ? `Dernière synchronisation : ${esc(fmtDT(remote.lastSync.toISOString()))}.` : '') : store.savedAt ? `Dernier enregistrement local : ${esc(fmtDT(store.savedAt.toISOString()))}.` : 'Rien d’enregistré pour l’instant.'}${store.persistOk ? '' : ' <b class="t-bad">Le stockage du navigateur est refusé : exporte avant de fermer la page.</b>'}</p></div>
       ${obsExportPanel(s, ui)}
-      <div class="panel"><h3>${ic('upload')} Importer</h3><p class="mut small">Choisis une sauvegarde Cap Départ (.json). Rien n’est modifié avant ta confirmation.</p>
+      <div class="panel"><h3>${ic('upload')} Importer</h3><p class="mut small">Choisis une sauvegarde Hublot (.json). Rien n’est modifié avant ta confirmation.</p>
         <input type="file" id="importFile" accept=".json,application/json" hidden><button class="btn" data-act="pickImport">${ic('upload')} Choisir un fichier</button>
         ${imp ? `<div class="importbox"><p><b>${plural(imp.boats, 'bateau', 'bateaux')}</b> et <b>${plural(imp.team, 'personne', 'personnes')}</b> dans « ${esc(imp.name)} ».</p>
           <div class="row gap wrap"><button class="btn pri" data-act="impMerge">Fusionner avec la flotte actuelle</button><button class="btn bad solid" data-act="impReplace">${ui.server ? 'Remplacer les données de toute l’équipe' : 'Remplacer toutes les données'}</button><button class="btn" data-act="impNo">Annuler</button></div>

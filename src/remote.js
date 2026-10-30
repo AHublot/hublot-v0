@@ -1,4 +1,4 @@
-// Synchronisation avec le serveur Cap Départ.
+// Synchronisation avec le serveur Hublot.
 // - Servie par le serveur (VPS) : connexion obligatoire, données partagées, copie locale pour le hors-ligne.
 // - Servie ailleurs (GitHub Pages, fichier local) : aucun serveur détecté, l'application reste 100 % locale.
 import { store, applyRemote, clearLocal, onPersist } from './store.js';
@@ -33,7 +33,7 @@ const save = () => LS.set({ version: remote.version, boats: synced.boats, meta: 
 async function api(path, { method = 'GET', body } = {}) {
   const r = await fetch('api/' + path, {
     method, credentials: 'same-origin', cache: 'no-store',
-    headers: method === 'GET' ? {} : { 'Content-Type': 'application/json', 'X-CapDepart': '1' },
+    headers: method === 'GET' ? {} : { 'Content-Type': 'application/json', 'X-Hublot': '1' },
     body: body ? JSON.stringify(body) : undefined,
   });
   let data = null;

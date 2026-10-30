@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'capdepart-'));
+process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'hublot-'));
 process.env.COOKIE_SECURE = '0';
 const { createApp } = await import('../server/server.js');
 const { openDb, addUser } = await import('../server/lib.js');
@@ -17,7 +17,7 @@ await new Promise((ok) => server.listen(0, ok));
 const base = `http://127.0.0.1:${server.address().port}`;
 test.after(() => server.close());
 
-const H = { 'Content-Type': 'application/json', 'X-CapDepart': '1' };
+const H = { 'Content-Type': 'application/json', 'X-Hublot': '1' };
 const post = (p, body, extra = {}) => fetch(base + p, { method: 'POST', headers: { ...H, ...extra }, body: JSON.stringify(body) });
 async function login(email, password) {
   const r = await post('/api/login', { email, password });
@@ -28,9 +28,9 @@ async function login(email, password) {
 test('fichiers : l’application est servie, le reste non', async () => {
   const idx = await fetch(base + '/');
   assert.equal(idx.status, 200);
-  assert.match(await idx.text(), /Cap Départ/);
+  assert.match(await idx.text(), /Hublot/);
   assert.match(idx.headers.get('content-security-policy'), /frame-ancestors 'none'/);
-  for (const p of ['/server/lib.js', '/data/capdepart.sqlite', '/tests/core.test.mjs', '/package.json', '/src/../server/lib.js', '/.git/config']) {
+  for (const p of ['/server/lib.js', '/data/hublot.sqlite', '/tests/core.test.mjs', '/package.json', '/src/../server/lib.js', '/.git/config']) {
     assert.equal((await fetch(base + p)).status, 404, p);
   }
   assert.equal((await fetch(base + '/src/app.js')).status, 200);

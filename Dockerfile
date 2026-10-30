@@ -1,4 +1,4 @@
-# Cap Départ : application + API (Node 22, SQLite intégré, aucune dépendance npm)
+# Hublot : application + API (Node 22, SQLite intégré, aucune dépendance npm)
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080 DATA_DIR=/data TZ=America/Martinique

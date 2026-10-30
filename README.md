@@ -1,4 +1,4 @@
-# Cap Départ
+# Hublot
 
 Application web de préparation des départs et retours pour une flotte de location de bateaux : vue d'ensemble avec compte à rebours, une page par bateau (préparation, observations, entretiens, archives), équipe, liste avant départ de toute la flotte, sauvegardes.
 
@@ -17,18 +17,18 @@ npm run serve      # serveur complet sur http://localhost:8080 (connexion + donn
 
 ## Héberger sur ton VPS
 
-Cap Départ tourne dans son propre conteneur Docker, à côté de tes autres projets, avec son sous-domaine. Il n'écoute que sur `127.0.0.1:8090` : c'est ton proxy (Nginx, Caddy ou Traefik) qui l'expose en HTTPS.
+Hublot tourne dans son propre conteneur Docker, à côté de tes autres projets, avec son sous-domaine. Il n'écoute que sur `127.0.0.1:8090` : c'est ton proxy (Nginx, Caddy ou Traefik) qui l'expose en HTTPS.
 
-**1. Nom de domaine** : crée un enregistrement DNS `A` pour `capdepart.tondomaine.fr` vers l'adresse IP du VPS.
+**1. Nom de domaine** : crée un enregistrement DNS `A` pour `hublot.lemard.fr` vers l'adresse IP du VPS.
 
 **2. Récupérer le code et lancer le conteneur**
 
 ```bash
-sudo git clone https://github.com/AHublot/hublot-v0.git /opt/capdepart
-cd /opt/capdepart
+sudo git clone https://github.com/AHublot/hublot-v0.git /opt/hublot
+cd /opt/hublot
 sudo mkdir -p data && sudo chown 1000:1000 data   # le conteneur écrit la base ici
 sudo docker compose up -d --build
-sudo docker compose logs -f                        # « Cap Départ écoute sur le port 8080 »
+sudo docker compose logs -f                        # « Hublot écoute sur le port 8080 »
 ```
 
 Si le port 8090 est déjà utilisé sur le VPS, change-le dans `docker-compose.yml` (et dans la config du proxy).
@@ -36,12 +36,12 @@ Si le port 8090 est déjà utilisé sur le VPS, change-le dans `docker-compose.y
 **3. Créer ton compte manager** (le mot de passe est demandé, il ne s'affiche pas, 10 caractères minimum) :
 
 ```bash
-sudo docker compose exec capdepart node server/cli.js add-user ton@email.fr --name Prénom
+sudo docker compose exec hublot node server/cli.js add-user ton@email.fr --name Prénom
 ```
 
 **4. Exposer le site en HTTPS** avec ton proxy actuel :
 
-- **Nginx** : copie `deploy/nginx-capdepart.conf`, remplace le domaine, active-le, puis `sudo certbot --nginx -d capdepart.tondomaine.fr`.
+- **Nginx** : copie `deploy/nginx-hublot.conf`, remplace le domaine, active-le, puis `sudo certbot --nginx -d hublot.lemard.fr`.
 - **Caddy** : ajoute le bloc de `deploy/Caddyfile.example` (HTTPS automatique).
 - **Traefik** : ajoute les labels de `deploy/traefik-labels.example.yml` au service.
 
@@ -50,14 +50,14 @@ Le HTTPS est obligatoire : sans lui, les mots de passe circuleraient en clair.
 **5. Importer tes données** : connecte-toi, page **Données**, « Choisir un fichier » avec ta sauvegarde `.json`, puis « Remplacer les données de toute l'équipe ». Ou en ligne de commande :
 
 ```bash
-sudo docker compose cp hublot-2026-10-30.json capdepart:/tmp/import.json
-sudo docker compose exec capdepart node server/cli.js import /tmp/import.json
+sudo docker compose cp hublot-2026-10-30.json hublot:/tmp/import.json
+sudo docker compose exec hublot node server/cli.js import /tmp/import.json
 ```
 
 **Mettre à jour** après une modification du code :
 
 ```bash
-cd /opt/capdepart && sudo git pull && sudo docker compose up -d --build
+cd /opt/hublot && sudo git pull && sudo docker compose up -d --build
 ```
 
 **Sauvegardes** : une copie de la base est faite chaque jour dans `data/backups/` (14 jours gardés), et avant chaque import. Copie ce dossier ailleurs de temps en temps.
@@ -65,10 +65,10 @@ cd /opt/capdepart && sudo git pull && sudo docker compose up -d --build
 ### Comptes
 
 ```bash
-sudo docker compose exec capdepart node server/cli.js list                   # liste des comptes
-sudo docker compose exec capdepart node server/cli.js passwd ton@email.fr    # nouveau mot de passe
-sudo docker compose exec capdepart node server/cli.js disable email@x.fr     # bloquer un compte
-sudo docker compose exec capdepart node server/cli.js add-user tech@x.fr --name Julien --role tech
+sudo docker compose exec hublot node server/cli.js list                   # liste des comptes
+sudo docker compose exec hublot node server/cli.js passwd ton@email.fr    # nouveau mot de passe
+sudo docker compose exec hublot node server/cli.js disable email@x.fr     # bloquer un compte
+sudo docker compose exec hublot node server/cli.js add-user tech@x.fr --name Julien --role tech
 ```
 
 Le rôle `tech` existe déjà côté serveur mais il est en **lecture seule** pour l'instant : les droits des techniciens restent à définir. Chacun peut changer son mot de passe depuis la page Données.

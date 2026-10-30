@@ -1,5 +1,5 @@
 // État de l'application, enregistrement local, annulation et sauvegardes automatiques.
-// Hébergé sur le serveur Cap Départ, remote.js synchronise cet état avec la base partagée :
+// Hébergé sur le serveur Hublot, remote.js synchronise cet état avec la base partagée :
 // ce fichier garde la copie locale (hors ligne) et prévient remote.js à chaque enregistrement.
 import { emptyState, normalizeState } from './model.js';
 import { nowIso } from './util.js';

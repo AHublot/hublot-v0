@@ -1,10 +1,10 @@
-# Cap Départ sur ton VPS, à côté de tes autres projets.
+# Hublot sur ton VPS, à côté de tes autres projets.
 #   docker compose up -d --build
-#   docker compose exec capdepart node server/cli.js add-user ton@email.fr --name Prénom
+#   docker compose exec hublot node server/cli.js add-user ton@email.fr --name Prénom
 services:
-  capdepart:
+  hublot:
     build: .
-    container_name: capdepart
+    container_name: hublot
     restart: unless-stopped
     environment:
       - TZ=America/Martinique
