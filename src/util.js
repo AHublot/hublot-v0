@@ -106,7 +106,7 @@ export function parseObservations(text) {
 
 export const csvCell = (v) => {
   const s = String(v ?? '');
-  return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 };
 
 export const byDescDate = (a, b) => String(b.date || '').localeCompare(String(a.date || ''));

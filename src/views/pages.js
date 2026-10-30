@@ -65,6 +65,8 @@ function obsExportPanel(s, ui) {
     <div class="grid2">
       <div class="fld"><label class="k" for="ox-b">Bateau</label><select id="ox-b" data-chg="ox" data-k="boat">${opt('all', 'Toute la flotte', o.boat)}${sortBoats(s.boats).map((b) => opt(b.id, b.name, o.boat)).join('')}</select></div>
       <div class="fld"><label class="k" for="ox-s">Statut</label><select id="ox-s" data-chg="ox" data-k="status">${opt('all', 'Toutes', o.status)}${opt('done', 'Réglées', o.status)}${opt('open', 'Non réglées', o.status)}</select></div>
+      <div class="fld"><label class="k" for="ox-r">Refacturation</label><select id="ox-r" data-chg="ox" data-k="bill">${opt('all', 'Toutes les observations', o.bill)}${opt('bill', 'Seulement « à refacturer »', o.bill)}</select></div>
+      <div class="fld"></div>
       <div class="fld"><label class="k" for="ox-f">Du</label><input id="ox-f" type="date" value="${esc(o.from)}" data-chg="ox" data-k="from"></div>
       <div class="fld"><label class="k" for="ox-t">Au</label><input id="ox-t" type="date" value="${esc(o.to)}" data-chg="ox" data-k="to"></div>
     </div>

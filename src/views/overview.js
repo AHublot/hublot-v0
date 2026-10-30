@@ -161,7 +161,7 @@ function obsOverview(boats, now) {
         <p class="mut small">${b.departure ? `${ic('clock')} Départ ${esc(fmtDT(b.departure))} · ${cd(b.departure, now)}` : 'Pas de départ planifié'}</p></div>
         ${pill(st)}</header>
       <p class="small mut"><b class="${nb ? 't-bad' : ''}">${plural(items.length, 'observation', 'observations')}</b>${nb ? ` dont ${plural(nb, 'bloquante', 'bloquantes')}` : ''}</p>
-      <ul class="obslist">${items.map((t) => `<li class="${t.blocked ? 'blocked' : ''}"><button type="button" class="chk" role="checkbox" aria-checked="false" aria-label="${esc(t.title)}" data-act="tgl" data-id="${b.id}" data-tid="${t.id}" data-fk="tgl-${t.id}">${ic('check')}</button><span>${esc(t.title)}${t.blocked ? ' <em class="t-bad">bloquant</em>' : ''}${t.origin ? `<small class="mut"> · notée le ${esc(fmtD(t.origin))}</small>` : ''}</span></li>`).join('')}</ul>
+      <ul class="obslist">${items.map((t) => `<li class="${t.blocked ? 'blocked' : ''}"><button type="button" class="chk" role="checkbox" aria-checked="false" aria-label="${esc(t.title)}" data-act="tgl" data-id="${b.id}" data-tid="${t.id}" data-fk="tgl-${t.id}">${ic('check')}</button><span>${esc(t.title)}${t.blocked ? ' <em class="t-bad">bloquant</em>' : ''}${t.bill ? ' <em class="t-bill">à refacturer</em>' : ''}${t.origin ? `<small class="mut"> · notée le ${esc(fmtD(t.origin))}</small>` : ''}</span></li>`).join('')}</ul>
       <footer><button type="button" class="btn sm" data-act="open" data-id="${b.id}">Ouvrir le bateau ${ic("right")}</button></footer></article>`;
   }).join('')}</div>`;
 }

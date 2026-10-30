@@ -25,6 +25,20 @@ export function toggleBlock(s, id, tid) {
   t.blocked = !t.blocked;
   log(b, `${t.blocked ? 'Marquée bloquante' : 'Blocage retiré'} : ${t.title}`);
 }
+/** « À refacturer » au propriétaire : une observation, jamais une tâche habituelle. */
+export function toggleBill(s, id, tid) {
+  const b = find(s, id), t = b.tasks.find((x) => x.id === tid);
+  if (!t || t.template) return;
+  t.bill = !t.bill;
+  if (!t.bill) delete t.amount;
+  log(b, `${t.bill ? 'À refacturer' : 'Plus à refacturer'} : ${t.title}`);
+}
+export function setAmount(s, id, tid, value) {
+  const b = find(s, id), t = b.tasks.find((x) => x.id === tid);
+  if (!t) return;
+  const v = String(value || '').trim().replace(',', '.');
+  if (v && Number.isFinite(Number(v))) t.amount = v; else delete t.amount;
+}
 export function deleteTask(s, id, tid) {
   const b = find(s, id), t = b.tasks.find((x) => x.id === tid);
   if (!t) return;

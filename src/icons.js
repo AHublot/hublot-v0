@@ -32,6 +32,7 @@ const P = {
   print: '<path d="M7 9V3h10v6M7 17H4v-6h16v6h-3"/><rect x="7" y="14" width="10" height="7"/>',
   edit: '<path d="M4 20l1-4 11-11 3 3L8 19z"/>',
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+  euro: '<path d="M17 6.5A6.5 6.5 0 1 0 17 17.5"/><path d="M4 10h9M4 14h9"/>',
   file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
   rows: '<path d="M3 6h18M3 12h18M3 18h18"/>',
   up: '<path d="M6 15l6-6 6 6"/>',

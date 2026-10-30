@@ -9,6 +9,8 @@ import { pill, bar, cd, empty } from './common.js';
 import { boatReport, waLink } from '../whatsapp.js';
 import { voiceSupported } from '../voice.js';
 
+const euro = (v) => `${String(v).replace('.', ',')} €`;
+
 export const TABS = [
   ['prep', 'Préparation', 'list'], ['maint', 'Entretiens', 'tool'],
   ['archives', 'Archives & suivi', 'history'], ['reglages', 'Réglages', 'sliders'],
@@ -17,15 +19,20 @@ export const TABS = [
 function taskRow(b, t, { edit = false, pending = false } = {}) {
   const meta = [];
   if (t.blocked && !t.done) meta.push('<b class="t-bad">Bloquant</b>');
+  if (t.bill) meta.push(`<b class="t-bill">À refacturer${t.amount ? ` · ${esc(euro(t.amount))}` : ''}</b>`);
   if (t.carried) meta.push(`Reportée · depuis le ${esc(fmtD(t.origin))}`);
   else if (!t.template && t.origin) meta.push(`Ajoutée le ${esc(fmtD(t.origin))}`);
   if (t.done && t.doneAt) meta.push(`Terminée le ${esc(fmtDT(t.doneAt))}`);
   const chk = pending
     ? `<span class="chk off" aria-hidden="true"></span>`
     : `<button type="button" class="chk" role="checkbox" aria-checked="${!!t.done}" aria-label="${esc(t.title)}" data-act="tgl" data-id="${b.id}" data-tid="${t.id}" data-fk="tgl-${t.id}">${ic('check')}</button>`;
-  return `<li class="task ${t.done ? 'done' : ''} ${t.blocked && !t.done ? 'blocked' : ''}">${chk}
+  const bill = !pending && !t.template
+    ? `<button type="button" class="tbtn bill ${t.bill ? 'on' : ''}" data-act="bill" data-id="${b.id}" data-tid="${t.id}" data-fk="bill-${t.id}" aria-pressed="${!!t.bill}" title="À refacturer au propriétaire">${ic('euro')}<span>Refacturer</span></button>
+      ${t.bill ? `<label class="amount" title="Montant à refacturer"><input inputmode="decimal" value="${esc(t.amount || '')}" placeholder="Montant" aria-label="Montant à refacturer : ${esc(t.title)}" data-chg="amount" data-id="${b.id}" data-tid="${t.id}" id="amt-${t.id}"><span>€</span></label>` : ''}`
+    : '';
+  return `<li class="task ${t.done ? 'done' : ''} ${t.blocked && !t.done ? 'blocked' : ''} ${t.bill ? 'billed' : ''}">${chk}
     <div class="tbody"><div class="ttl">${esc(t.title)}</div>${meta.length ? `<div class="tmeta">${meta.join('<span>·</span>')}</div>` : ''}</div>
-    ${pending ? '' : `<button type="button" class="tbtn ${t.blocked ? 'on' : ''}" data-act="blk" data-id="${b.id}" data-tid="${t.id}" data-fk="blk-${t.id}" aria-pressed="${!!t.blocked}">${ic('flag')}<span>Bloquer</span></button>`}
+    ${bill}${pending ? '' : `<button type="button" class="tbtn ${t.blocked ? 'on' : ''}" data-act="blk" data-id="${b.id}" data-tid="${t.id}" data-fk="blk-${t.id}" aria-pressed="${!!t.blocked}">${ic('flag')}<span>Bloquer</span></button>`}
     <button type="button" class="ibtn" data-act="${pending ? 'delp' : 'del'}" data-id="${b.id}" data-tid="${t.id}" aria-label="Retirer : ${esc(t.title)}">${ic('x')}</button></li>`;
 }
 
@@ -179,13 +186,15 @@ function obsLine(o) {
   if (o.origin) meta.push(`Constatée le ${esc(fmtD(o.origin))}`);
   if (o.done && o.doneAt) meta.push(`réglée le ${esc(fmtD(o.doneAt))}`);
   if (o.blocked && !o.done) meta.push('<b class="t-bad">bloquante</b>');
-  return `<li>${ostate(o)}<div><div class="ttl">${esc(o.title)}</div>${meta.length ? `<div class="tmeta">${meta.join(' · ')}</div>` : ''}</div></li>`;
+  return `<li class="${o.bill ? 'billed' : ''}">${ostate(o)}<div><div class="ttl">${esc(o.title)}${o.bill ? ` <span class="billtag">${ic('euro')} À refacturer${o.amount ? ` · ${esc(euro(o.amount))}` : ''}</span>` : ''}</div>${meta.length ? `<div class="tmeta">${meta.join(' · ')}</div>` : ''}</div></li>`;
 }
 function tabArchives(s, b, ui) {
   const all = observationsOf(b);
   const f = ui.obsF || 'all';
   const nDone = all.filter((o) => o.done).length, nOpen = all.length - nDone;
-  const list = all.filter((o) => (f === 'done' ? o.done : f === 'open' ? !o.done : true));
+  const nBill = all.filter((o) => o.bill).length;
+  const total = all.filter((o) => o.bill && o.amount).reduce((a, o) => a + Number(o.amount), 0);
+  const list = all.filter((o) => (f === 'done' ? o.done : f === 'open' ? !o.done : f === 'bill' ? o.bill : true));
   const seg = (k, l, n) => `<button type="button" class="${f === k ? 'on' : ''}" data-act="obsF" data-v="${k}" aria-pressed="${f === k}">${l} <span class="mono">${n}</span></button>`;
   const hist = b.history.map((e) => {
     const obs = e.tasks.filter((t) => !t.template), rec = e.tasks.filter((t) => t.template);
@@ -193,13 +202,14 @@ function tabArchives(s, b, ui) {
     const label = e.kind === 'departure' ? `Départ${e.automatic ? ' automatique' : ''}` : e.kind === 'return' ? 'Retour' : 'Archive';
     return `<details class="panel hist"><summary><b>${label}</b><span class="mono mut">${esc(e.at ? fmtDT(e.at) : fmtD(e.date))}</span>
       <span class="mut">${obs.length ? `${obsDone}/${plural(obs.length, 'observation réglée', 'observations réglées')}` : 'Aucune observation'}</span></summary>
-      ${obs.length ? `<ul class="obshist">${obs.map((t) => `<li><span class="ost ${t.done ? 'done' : 'carry'}">${t.done ? 'Réglée' : 'Reportée'}</span><div><div class="ttl">${esc(t.title)}</div><div class="tmeta">${t.origin ? `Constatée le ${esc(fmtD(t.origin))}` : ''}${t.done && t.doneAt ? ` · réglée le ${esc(fmtD(t.doneAt))}` : ''}</div></div></li>`).join('')}</ul>` : ''}
+      ${obs.length ? `<ul class="obshist">${obs.map((t) => `<li class="${t.bill ? 'billed' : ''}"><span class="ost ${t.done ? 'done' : 'carry'}">${t.done ? 'Réglée' : 'Reportée'}</span><div><div class="ttl">${esc(t.title)}${t.bill ? ` <span class="billtag">${ic('euro')} À refacturer${t.amount ? ` · ${esc(euro(t.amount))}` : ''}</span>` : ''}</div><div class="tmeta">${t.origin ? `Constatée le ${esc(fmtD(t.origin))}` : ''}${t.done && t.doneAt ? ` · réglée le ${esc(fmtD(t.doneAt))}` : ''}</div></div></li>`).join('')}</ul>` : ''}
       <p class="mut small">Préparation du ${esc(fmtD(e.date))} · tâches habituelles : ${recDone}/${rec.length} terminées.</p></details>`;
   }).join('');
   return `<div class="two"><section class="col">
     <div class="phead big"><div><h2>Observations</h2><p class="mut small">Tout ce qui a été noté sur ${esc(b.name)}, réglé ou non, de la plus récente à la plus ancienne.</p></div>
       <button class="btn" data-act="obsCsv" data-id="${b.id}">${ic('download')} Exporter (CSV)</button></div>
-    <div class="seg" role="group" aria-label="Filtrer les observations">${seg('all', 'Toutes', all.length)}${seg('open', 'À traiter', nOpen)}${seg('done', 'Réglées', nDone)}</div>
+    <div class="seg" role="group" aria-label="Filtrer les observations">${seg('all', 'Toutes', all.length)}${seg('open', 'À traiter', nOpen)}${seg('done', 'Réglées', nDone)}${seg('bill', 'À refacturer', nBill)}</div>
+    ${nBill ? `<div class="billsum">${ic('euro')}<span><b>${plural(nBill, 'observation à refacturer', 'observations à refacturer')}</b>${total ? ` · total renseigné ${esc(euro(Math.round(total * 100) / 100))}` : ''}</span><button class="btn sm" data-act="obsCsvBill" data-id="${b.id}">${ic('download')} Exporter</button></div>` : ''}
     ${list.length ? `<ul class="panel obshist">${list.map(obsLine).join('')}</ul>` : empty('wave', 'Aucune observation', f === 'all' ? 'Les observations ajoutées dans la préparation apparaîtront ici.' : 'Rien pour ce filtre.')}
     <div class="phead big"><div><h2>Préparations archivées</h2><p class="mut small">Une archive à chaque départ signalé et à chaque nouveau retour.</p></div><span class="count mono">${b.history.length}</span></div>
     ${hist || empty('history', 'Aucune archive', 'La préparation est archivée au départ et au nouveau retour.')}</section>

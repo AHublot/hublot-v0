@@ -11,16 +11,17 @@ const localDay = (iso) => {
 
 /**
  * Observations de la flotte, filtrées.
- * boat : identifiant ou 'all' · status : 'all' | 'done' | 'open' · from / to : 'AAAA-MM-JJ' (inclus),
+ * boat : identifiant ou 'all' · status : 'all' | 'done' | 'open' · bill : 'all' | 'bill' (à refacturer) · from / to : 'AAAA-MM-JJ' (inclus),
  * appliqués à la date de règlement, ou à la date de constat si l'observation n'est pas réglée.
  */
-export function collectObservations(s, { boat = 'all', status = 'all', from = '', to = '' } = {}) {
+export function collectObservations(s, { boat = 'all', status = 'all', from = '', to = '', bill = 'all' } = {}) {
   const out = [];
   s.boats.forEach((b) => {
     if (boat !== 'all' && b.id !== boat) return;
     observationsOf(b).forEach((o) => {
       if (status === 'done' && !o.done) return;
       if (status === 'open' && o.done) return;
+      if (bill === 'bill' && !o.bill) return;
       const d = obsDate(o);
       if (from && (!d || d < from)) return;
       if (to && (!d || d > to)) return;
@@ -32,9 +33,9 @@ export function collectObservations(s, { boat = 'all', status = 'all', from = ''
 
 /** CSV pour Excel (français) : séparateur « ; », BOM UTF-8, dates JJ/MM/AAAA. */
 export function observationsCsv(rows) {
-  const head = ['Bateau', 'Base', 'Observation', 'Statut', 'Bloquante', 'Constatée le', 'Réglée le', 'Archivée le'];
+  const head = ['Bateau', 'Base', 'Observation', 'Statut', 'Bloquante', 'À refacturer', 'Montant (€)', 'Constatée le', 'Réglée le', 'Archivée le'];
   const lines = rows.map((o) => [
-    o.boatName, o.base, o.title, obsState(o).label, o.blocked ? 'Oui' : '',
+    o.boatName, o.base, o.title, obsState(o).label, o.blocked ? 'Oui' : '', o.bill ? 'Oui' : '', o.amount ? String(o.amount).replace('.', ',') : '',
     fr(o.origin), fr(localDay(o.doneAt)), o.where === 'archive' ? fr(o.archivedAt.length > 10 ? localDay(o.archivedAt) : o.archivedAt) : '',
   ]);
   return '﻿' + [head, ...lines].map((r) => r.map(csvCell).join(';')).join('\r\n');

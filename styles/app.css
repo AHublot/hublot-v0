@@ -6,6 +6,7 @@
   --acc: #E8590C; --acc-ink: #130F0B; --acc-soft: #FCE7DA; --acc-tx: #B03E04;
   --ok: #1B7A49; --ok-soft: #DAF0E4; --bad: #BE1D2B; --bad-soft: #FBDEE1;
   --warn: #946000; --warn-soft: #FBF0D2; --rent: #1D5FA8; --rent-soft: #DDEAF8;
+  --bill: #6A3DB8; --bill-soft: #EEE6FB;
   --side: #0A1621; --side-tx: #D2DEE9; --side-mut: #7E92A5; --side-line: #1B2D3D; --side-on: #14283A;
   --f-cond: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
   --f-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -19,7 +20,7 @@
     --tx: #E6EEF5; --mut: #92A5B7; --faint: #67798B;
     --acc: #FF7A2F; --acc-ink: #130B05; --acc-soft: #3A2113; --acc-tx: #FF9D62;
     --ok: #4FCB8C; --ok-soft: #0F3020; --bad: #FF7B84; --bad-soft: #3A161B;
-    --warn: #F0C25A; --warn-soft: #34290E; --rent: #6FB3F5; --rent-soft: #10293F;
+    --warn: #F0C25A; --warn-soft: #34290E; --rent: #6FB3F5; --rent-soft: #10293F; --bill: #B99BF5; --bill-soft: #2A1E45;
     --side: #050D14; --side-on: #11222F; --shadow: 0 1px 0 rgba(255,255,255,.02), 0 12px 28px -18px #000;
     color-scheme: dark;
   }
@@ -29,7 +30,7 @@
   --tx: #E6EEF5; --mut: #92A5B7; --faint: #67798B;
   --acc: #FF7A2F; --acc-ink: #130B05; --acc-soft: #3A2113; --acc-tx: #FF9D62;
   --ok: #4FCB8C; --ok-soft: #0F3020; --bad: #FF7B84; --bad-soft: #3A161B;
-  --warn: #F0C25A; --warn-soft: #34290E; --rent: #6FB3F5; --rent-soft: #10293F;
+  --warn: #F0C25A; --warn-soft: #34290E; --rent: #6FB3F5; --rent-soft: #10293F; --bill: #B99BF5; --bill-soft: #2A1E45;
   --side: #050D14; --side-on: #11222F; --shadow: 0 1px 0 rgba(255,255,255,.02), 0 12px 28px -18px #000;
   color-scheme: dark;
 }
@@ -392,6 +393,7 @@ dialog::backdrop { background: rgba(5, 12, 20, .55); backdrop-filter: blur(2px);
   --acc: #E5521F; --acc-ink: #FFFFFF; --acc-soft: #FFE6DA; --acc-tx: #B73A10;
   --ok: #12804F; --ok-soft: #D8F3E6; --bad: #C7283A; --bad-soft: #FFE3E5;
   --warn: #9A6200; --warn-soft: #FFF0CC; --rent: #1C69B4; --rent-soft: #D9EBFC;
+  --bill: #6A3DB8; --bill-soft: #EFE7FC;
   --side: #F6FBFD; --side-tx: #17394C; --side-mut: #62808F; --side-line: #CFE2EB; --side-on: #DDEEF6;
   --shadow: 0 1px 2px rgba(12,43,61,.06), 0 14px 26px -18px rgba(14,86,128,.45);
   color-scheme: light;
@@ -448,3 +450,18 @@ ul.obshist, .hist ul.obshist { display: grid; gap: 0; padding: 0; list-style: no
 .fleet-head .btn.sm { margin-top: 8px; }
 @media (max-width: 560px) { .ost { min-width: 0; } .obshist li { flex-direction: column; gap: 6px; } }
 .col > .seg { align-self: flex-start; max-width: 100%; }
+
+/* ---- à refacturer ---- */
+.t-bill { color: var(--bill); }
+.tbtn.bill.on { color: var(--bill); background: var(--bill-soft); }
+.task.billed { box-shadow: inset 3px 0 0 var(--bill); padding-left: 10px; background: linear-gradient(90deg, var(--bill-soft), transparent 70%); }
+.task.blocked.billed { box-shadow: inset 3px 0 0 var(--bad); }
+.amount { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.amount input { width: 82px; min-height: 34px; padding: 0 8px; font-size: 13px; text-align: right; }
+.amount span { color: var(--mut); font-size: 13px; }
+.billtag { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font: 600 11px/1 var(--f-cond); letter-spacing: .06em; text-transform: uppercase; color: var(--bill); background: var(--bill-soft); border: 1px solid color-mix(in srgb, var(--bill) 35%, transparent); padding: 4px 8px; border-radius: 99px; vertical-align: 2px; white-space: nowrap; }
+.billtag .ic { width: 12px; height: 12px; }
+.obshist li.billed { background: linear-gradient(90deg, var(--bill-soft), transparent 75%); box-shadow: inset 3px 0 0 var(--bill); padding-left: 10px; }
+.billsum { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--r); border: 1px solid color-mix(in srgb, var(--bill) 35%, transparent); background: linear-gradient(120deg, var(--bill-soft), var(--panel) 70%); color: var(--bill); }
+.billsum span { flex: 1; min-width: 180px; color: var(--tx); } .billsum .ic { color: var(--bill); }
+@media (max-width: 560px) { .task.billed { flex-wrap: wrap; } .task.billed .tbody { flex: 1 1 0; } .task.billed .amount { order: 10; flex-basis: 100%; padding-left: 34px; } }

@@ -113,6 +113,27 @@ test('export des observations : filtres et CSV Excel', () => {
   assert.match(csv, /Feu;Réglée/);
 });
 
+test('à refacturer : marque, montant, archives et export', () => {
+  const s = fresh();
+  const b = s.boats[0];
+  A.addObservations(s, b.id, [{ title: 'Coussin déchiré par le client' }, { title: 'Ampoule' }]);
+  const t = b.tasks.find((x) => x.title.startsWith('Coussin'));
+  A.toggleBill(s, b.id, t.id);
+  A.setAmount(s, b.id, t.id, '45,50');
+  assert.equal(t.bill, true);
+  assert.equal(t.amount, '45.50');
+  A.toggleBill(s, b.id, b.tasks[0].id); // tâche habituelle : ignorée
+  assert.ok(!b.tasks[0].bill);
+  A.toggleTask(s, b.id, t.id);
+  A.newReturn(s, b.id);
+  const o = observationsOf(b).find((x) => x.title.startsWith('Coussin'));
+  assert.equal(o.bill, true);
+  assert.equal(o.where, 'archive');
+  const rows = collectObservations(s, { bill: 'bill' });
+  assert.equal(rows.length, 1);
+  assert.match(observationsCsv(rows), /Coussin déchiré par le client;Réglée;;Oui;45,50;/);
+});
+
 test('annulation : mutate + snapshot JSON restitue l’état', () => {
   const s = fresh();
   const before = JSON.stringify(s);

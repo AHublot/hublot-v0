@@ -17,7 +17,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const ui = {
   route: { name: 'overview', id: null }, tab: 'prep', filter: 'all', base: 'all', q: '', view: 'cards', drafts: {},
   add: false, techs: false, banner: false, editRec: false, tplNow: true, confirm: null, obsF: 'all',
-  ox: { boat: 'all', status: 'all', from: '', to: '' },
+  ox: { boat: 'all', status: 'all', from: '', to: '', bill: 'all' },
   teamEdit: null, cl: null, imp: null, impErr: null, palette: null,
 };
 const LS = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
@@ -278,6 +278,7 @@ document.addEventListener('click', (e) => {
     // tâches
     case 'tgl': M('', (st) => A.toggleTask(st, id, d.tid)); break;
     case 'blk': M('', (st) => A.toggleBlock(st, id, d.tid)); break;
+    case 'bill': M('', (st) => A.toggleBill(st, id, d.tid)); setTimeout(() => document.getElementById(`amt-${d.tid}`)?.focus(), 0); break;
     case 'del': M(`Tâche retirée`, (st) => A.deleteTask(st, id, d.tid)); break;
     case 'delp': M(`Point retiré`, (st) => A.deletePending(st, id, d.tid)); break;
     case 'voice': { const ta = el.closest('form').querySelector('textarea'); toggleVoice(ta, el); break; }
@@ -296,6 +297,7 @@ document.addEventListener('click', (e) => {
     case 'obsF': ui.obsF = d.v; render(); break;
     case 'obsCsv': exportObs(s, { boat: id }, nm); break;
     case 'obsCsvAll': exportObs(s, {}, 'flotte'); break;
+    case 'obsCsvBill': exportObs(s, { boat: id, bill: 'bill' }, `${nm}-a-refacturer`); break;
     case 'obsCsvF': exportObs(s, ui.ox, ui.ox.boat === 'all' ? 'flotte' : (s.boats.find((b) => b.id === ui.ox.boat)?.name || 'bateau')); break;
     // en-tête bateau
     case 'techs': ui.techs = !ui.techs; render(); break;
@@ -377,6 +379,7 @@ document.addEventListener('change', (e) => {
     case 'tplNow': ui.tplNow = el.checked; break;
     case 'maint': M('', (st) => A.updateMaint(st, id, d.mid, d.f, el.value)); break;
     case 'hours': M('', (st) => A.setHours(st, id, d.f, el.value)); break;
+    case 'amount': M('', (st) => A.setAmount(st, id, d.tid, el.value)); break;
     case 'ox': ui.ox = { ...ui.ox, [d.k]: el.value }; render(); break;
     case 'pref': M('Préférence enregistrée', (st) => A.setPref(st, d.k, el.checked)); break;
     case 'baseName': M('', (st) => { st.baseName = el.value.trim() || 'Ma base'; }); break;
