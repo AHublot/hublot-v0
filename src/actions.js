@@ -30,7 +30,7 @@ export function toggleBill(s, id, tid) {
   const b = find(s, id), t = b.tasks.find((x) => x.id === tid);
   if (!t || t.template) return;
   t.bill = !t.bill;
-  if (!t.bill) { delete t.hours; delete t.material; }
+  if (!t.bill) { delete t.hours; delete t.material; delete t.billed; delete t.billedAt; }
   log(b, `${t.bill ? 'À refacturer' : 'Plus à refacturer'} : ${t.title}`);
 }
 /** Détail de la refacturation : heures passées (nombre) et matériel utilisé (texte libre). */
@@ -40,6 +40,18 @@ export function setBillField(s, id, tid, field, value) {
   let v = String(value || '').trim();
   if (field === 'hours') { v = v.replace(',', '.'); if (!Number.isFinite(Number(v)) || Number(v) < 0) v = ''; }
   if (v) t[field] = v; else delete t[field];
+}
+/** « Refacturé au client » : appliqué à toutes les copies de l'observation (préparation, location, archives). */
+export function setBilled(s, id, tid, on) {
+  const b = find(s, id);
+  let hit = null;
+  const apply = (t) => {
+    if (t.id !== tid) return;
+    if (on) { t.billed = true; t.billedAt = t.billedAt || nowIso(); } else { delete t.billed; delete t.billedAt; }
+    hit = t;
+  };
+  b.tasks.forEach(apply); b.pendingOnReturn.forEach(apply); b.history.forEach((h) => (h.tasks || []).forEach(apply));
+  if (hit) log(b, `${on ? 'Refacturé au client' : 'Refacturation annulée'} : ${hit.title}`);
 }
 export function deleteTask(s, id, tid) {
   const b = find(s, id), t = b.tasks.find((x) => x.id === tid);

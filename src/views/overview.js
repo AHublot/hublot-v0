@@ -137,7 +137,7 @@ export function overviewView(s, ui, now = new Date()) {
     ${hero(s, now)}
     ${kpis(f, ui)}
     <section class="fleet-head">
-      <div><h2>${ui.filter === 'obs' ? 'Observations à traiter' : 'La flotte'} <span class="count mono">${list.length}</span></h2><p class="mut small">${ui.filter === 'obs' ? 'Les points notés hors tâches habituelles, bateau par bateau. Coche pour les régler.' : 'Tri : à préparer par date de départ, puis en location.'}</p>${ui.filter === 'obs' ? `<button type="button" class="btn sm" data-act="obsCsvAll">${ic('download')} Exporter toutes les observations (CSV)</button>` : ''}</div>
+      <div><h2>${ui.filter === 'obs' ? 'Observations à traiter' : 'La flotte'} <span class="count mono">${list.length}</span></h2><p class="mut small">${ui.filter === 'obs' ? 'Les points notés hors tâches habituelles, bateau par bateau. Coche pour les régler.' : 'Tri : à préparer par date de départ, puis en location.'}</p>${ui.filter === 'obs' ? `<button type="button" class="btn sm" data-act="nav" data-to="backup">${ic('file')} Rapport Excel du mois</button>` : ''}</div>
       <div class="tools">
         <div class="seg" role="group" aria-label="Affichage"><button type="button" class="${ui.view === 'cards' ? 'on' : ''}" data-act="view" data-v="cards" aria-pressed="${ui.view === 'cards'}">${ic('grid')} Cartes</button><button type="button" class="${ui.view === 'board' ? 'on' : ''}" data-act="view" data-v="board" aria-pressed="${ui.view === 'board'}">${ic('calendar')} Planning</button></div>
         ${bases.length > 1 ? `<select aria-label="Base" data-chg="baseFilter"><option value="all">Toutes les bases</option>${bases.map((x) => `<option${base === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}

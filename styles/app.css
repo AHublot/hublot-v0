@@ -471,3 +471,9 @@ ul.obshist, .hist ul.obshist { display: grid; gap: 0; padding: 0; list-style: no
 
 .task.billed { align-items: flex-start; } .task.billed > .chk { margin-top: 2px; }
 @media (max-width: 560px) { .billf .bm { flex-basis: 100%; width: 100%; } }
+.t-ok { color: var(--ok); } .t-ok .ic { width: 12px; height: 12px; vertical-align: -1px; }
+.billedck { min-height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); font-size: 13px; font-weight: 500; flex: none; }
+.billedck.on { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); background: var(--ok-soft); }
+.billedck input { accent-color: var(--ok); }
+.xmstats { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--panel2); border: 1px solid var(--line2); margin: 4px 0; }
+.seg button { white-space: nowrap; } .col > .seg { overflow-x: auto; scrollbar-width: none; }

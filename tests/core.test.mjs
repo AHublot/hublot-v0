@@ -7,7 +7,8 @@ import {
 } from '../src/model.js';
 import * as A from '../src/actions.js';
 import { observationsOf } from '../src/model.js';
-import { collectObservations, observationsCsv } from '../src/exports.js';
+import { monthData, monthlyReport, monthsAvailable, monthTotals } from '../src/report.js';
+import { dateSerial, sheetName } from '../src/xlsx.js';
 import { demoState } from '../src/demo.js';
 
 const fresh = () => {
@@ -96,24 +97,52 @@ test('nouveau retour pendant une location : les observations notées en location
   assert.deepEqual(b.tasks.filter((t) => !t.template).map((t) => t.title).sort(), ['Eau dans la cale', 'Winch']);
 });
 
-test('export des observations : filtres et CSV Excel', () => {
+test('rapport mensuel : mois de constat, à refacturer, classeur Excel valide', () => {
   const s = fresh();
-  A.addBoat(s, { name: 'Autre' });
+  A.addBoat(s, { name: 'Autre: bateau/2' });
   const [b, c] = s.boats;
-  A.addObservations(s, b.id, [{ title: 'Pompe; douche' }, { title: 'Feu' }]);
+  A.addObservations(s, b.id, [{ title: 'Pompe' }, { title: 'Coussin' }]);
   A.addObservations(s, c.id, [{ title: 'Voile' }]);
-  A.toggleTask(s, b.id, b.tasks.find((t) => t.title === 'Feu').id);
-  assert.equal(collectObservations(s).length, 3);
-  assert.equal(collectObservations(s, { boat: b.id }).length, 2);
-  assert.equal(collectObservations(s, { status: 'done' }).length, 1);
-  assert.equal(collectObservations(s, { from: '2999-01-01' }).length, 0);
-  const csv = observationsCsv(collectObservations(s));
-  assert.ok(csv.startsWith('\uFEFFBateau;Base;Observation;Statut'));
-  assert.match(csv, /"Pompe; douche"/);
-  assert.match(csv, /Feu;Réglée/);
+  const t = b.tasks.find((x) => x.title === 'Coussin');
+  A.toggleBill(s, b.id, t.id);
+  A.setBillField(s, b.id, t.id, 'hours', '2,5');
+  A.setBilled(s, b.id, t.id, true);
+  const month = new Date().toISOString().slice(0, 7);
+  assert.ok(monthsAvailable(s).includes(month));
+  const d = monthData(s, month);
+  assert.equal(d.find((x) => x.b.id === b.id).bill.length, 1);
+  assert.equal(d.find((x) => x.b.id === b.id).hours, 2.5);
+  assert.deepEqual(monthTotals(s, month), { obs: 3, bill: 1, billed: 1, hours: 2.5, boats: 2 });
+  assert.equal(monthlyReport(s, { month: '1999-01' }), null);
+  const r = monthlyReport(s, { month });
+  assert.equal(r.sheets, 3);
+  assert.equal(r.count, 3);
+  const head = Buffer.from(r.bytes.slice(0, 4)).toString('hex');
+  assert.equal(head, '504b0304', 'archive zip');
+  const txt = Buffer.from(r.bytes).toString('utf8');
+  assert.match(txt, /<sheet name="Synthèse"/);
+  assert.match(txt, /<sheet name="Autre  bateau 2"/);
+  assert.match(txt, /À REFACTURER/);
+  assert.equal(dateSerial('2026-10-30'), 46325);
+  const used = new Set(); sheetName('A', used); assert.equal(sheetName('a', used), 'a (2)');
 });
 
-test('à refacturer : marque, montant, archives et export', () => {
+test('refacturé au client : suit l’observation jusque dans les archives', () => {
+  const s = fresh();
+  const b = s.boats[0];
+  A.addObservations(s, b.id, [{ title: 'Taud déchiré' }]);
+  const t = b.tasks.find((x) => !x.template);
+  A.toggleBill(s, b.id, t.id);
+  A.toggleTask(s, b.id, t.id);
+  A.newReturn(s, b.id);
+  A.setBilled(s, b.id, t.id, true); // cochée après archivage
+  const o = observationsOf(b).find((x) => x.title === 'Taud déchiré');
+  assert.equal(o.billed, true);
+  A.setBilled(s, b.id, t.id, false);
+  assert.equal(observationsOf(b).find((x) => x.title === 'Taud déchiré').billed, false);
+});
+
+test('à refacturer : heures, matériel, archives', () => {
   const s = fresh();
   const b = s.boats[0];
   A.addObservations(s, b.id, [{ title: 'Coussin déchiré par le client' }, { title: 'Ampoule' }]);
@@ -134,9 +163,8 @@ test('à refacturer : marque, montant, archives et export', () => {
   const o = observationsOf(b).find((x) => x.title.startsWith('Coussin'));
   assert.equal(o.bill, true);
   assert.equal(o.where, 'archive');
-  const rows = collectObservations(s, { bill: 'bill' });
-  assert.equal(rows.length, 1);
-  assert.match(observationsCsv(rows), /Coussin déchiré par le client;Réglée;;Oui;1,5;Housse neuve;/);
+  assert.equal(o.hours, '1.5');
+  assert.equal(o.material, 'Housse neuve');
 });
 
 test('annulation : mutate + snapshot JSON restitue l’état', () => {

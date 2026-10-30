@@ -1,6 +1,6 @@
 import { esc, initials, plural, fmtDT, fmtD, norm } from '../util.js';
 import { boatStats, baseLabel, sortBoats, DEFAULT_TEMPLATES } from '../model.js';
-import { collectObservations } from '../exports.js';
+import { monthsAvailable, monthTotals, monthLabel } from '../report.js';
 import { ic } from '../icons.js';
 import { bar, empty } from './common.js';
 import { snapshots, store } from '../store.js';
@@ -57,21 +57,21 @@ export function checklistView(s, ui) {
 
 // ---- Export des observations (refacturation) ---------------------------------------------------
 function obsExportPanel(s, ui) {
-  const o = ui.ox;
-  const n = collectObservations(s, o).length;
+  const months = monthsAvailable(s);
+  const month = ui.xm.month && months.includes(ui.xm.month) ? ui.xm.month : months[0];
+  const t = monthTotals(s, month, ui.xm.boat);
   const opt = (v, l, cur) => `<option value="${esc(v)}"${cur === v ? ' selected' : ''}>${esc(l)}</option>`;
-  return `<div class="panel obsexport"><h3>${ic('file')} Exporter les observations</h3>
-    <p class="mut small">Pour refacturer au propriétaire : chaque observation avec le bateau, son statut et ses dates. Le fichier CSV s’ouvre dans Excel.</p>
+  const h = String(Math.round(t.hours * 100) / 100).replace('.', ',');
+  return `<div class="panel obsexport"><h3>${ic('file')} Rapport mensuel des observations</h3>
+    <p class="mut small">Un fichier Excel : une feuille de synthèse, puis une feuille par bateau. Les observations à refacturer (heures, matériel, refacturé au client) sont mises en évidence, les autres sont listées plus discrètement.</p>
     <div class="grid2">
-      <div class="fld"><label class="k" for="ox-b">Bateau</label><select id="ox-b" data-chg="ox" data-k="boat">${opt('all', 'Toute la flotte', o.boat)}${sortBoats(s.boats).map((b) => opt(b.id, b.name, o.boat)).join('')}</select></div>
-      <div class="fld"><label class="k" for="ox-s">Statut</label><select id="ox-s" data-chg="ox" data-k="status">${opt('all', 'Toutes', o.status)}${opt('done', 'Réglées', o.status)}${opt('open', 'Non réglées', o.status)}</select></div>
-      <div class="fld"><label class="k" for="ox-r">Refacturation</label><select id="ox-r" data-chg="ox" data-k="bill">${opt('all', 'Toutes les observations', o.bill)}${opt('bill', 'Seulement « à refacturer »', o.bill)}</select></div>
-      <div class="fld"></div>
-      <div class="fld"><label class="k" for="ox-f">Du</label><input id="ox-f" type="date" value="${esc(o.from)}" data-chg="ox" data-k="from"></div>
-      <div class="fld"><label class="k" for="ox-t">Au</label><input id="ox-t" type="date" value="${esc(o.to)}" data-chg="ox" data-k="to"></div>
+      <div class="fld"><label class="k" for="xm-m">Mois de constat</label><select id="xm-m" data-chg="xm" data-k="month">${months.map((m) => opt(m, monthLabel(m).replace(/^./, (c) => c.toUpperCase()), month)).join('')}</select></div>
+      <div class="fld"><label class="k" for="xm-b">Bateau</label><select id="xm-b" data-chg="xm" data-k="boat">${opt('all', 'Toute la flotte', ui.xm.boat)}${sortBoats(s.boats).map((b) => opt(b.id, b.name, ui.xm.boat)).join('')}</select></div>
     </div>
-    <p class="small mut">La période porte sur la date de règlement, ou sur la date de constat pour une observation non réglée.</p>
-    <div class="row gap wrap"><button class="btn pri" data-act="obsCsvF" ${n ? '' : 'disabled'}>${ic('download')} Exporter ${plural(n, 'observation', 'observations')}</button></div></div>`;
+    <div class="xmstats">${t.obs
+      ? `<span><b>${plural(t.obs, 'observation', 'observations')}</b> sur ${plural(t.boats, 'bateau', 'bateaux')}</span><span class="t-bill"><b>${t.bill}</b> à refacturer${t.hours ? ` · ${h} h` : ''}</span><span class="t-ok"><b>${t.billed}</b> refacturée${t.billed > 1 ? 's' : ''} au client</span>`
+      : '<span class="mut">Aucune observation constatée ce mois-ci.</span>'}</div>
+    <div class="row gap wrap"><button class="btn pri" data-act="xlsMonth" ${t.obs ? '' : 'disabled'}>${ic('download')} Exporter en Excel</button></div></div>`;
 }
 
 // ---- Sauvegardes et restauration ----------------------------------------------------------

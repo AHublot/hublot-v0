@@ -158,7 +158,7 @@ export function observationsOf(b) {
     if (!t || t.template || !t.title) return;
     map.set(obsKey(t), {
       id: t.id, title: t.title, origin: t.origin || '', done: !!t.done, doneAt: t.doneAt || '',
-      blocked: !!t.blocked, bill: !!t.bill, hours: t.hours || '', material: t.material || '', where, archivedAt: at,
+      blocked: !!t.blocked, bill: !!t.bill, hours: t.hours || '', material: t.material || '', billed: !!t.billed, billedAt: t.billedAt || '', where, archivedAt: at,
     });
   };
   [...arr(b.history)].reverse().forEach((h) => arr(h.tasks).forEach((t) => put(t, 'archive', h.at || h.date || '')));

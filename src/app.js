@@ -6,7 +6,7 @@ import { esc, parseObservations, todayStr, fmtHM, plural, norm, nowIso } from '.
 import { ic } from './icons.js';
 import { overviewView } from './views/overview.js';
 import { boatView } from './views/boat.js';
-import { collectObservations, observationsCsv } from './exports.js';
+import { monthlyReport, monthLabel } from './report.js';
 import { teamView, checklistView, backupView } from './views/pages.js';
 import { tickCountdowns } from './views/common.js';
 import { boatReport, fleetReport } from './whatsapp.js';
@@ -17,7 +17,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const ui = {
   route: { name: 'overview', id: null }, tab: 'prep', filter: 'all', base: 'all', q: '', view: 'cards', drafts: {},
   add: false, techs: false, banner: false, editRec: false, tplNow: true, confirm: null, obsF: 'all',
-  ox: { boat: 'all', status: 'all', from: '', to: '', bill: 'all' },
+  xm: { month: '', boat: 'all' },
   teamEdit: null, cl: null, imp: null, impErr: null, palette: null,
 };
 const LS = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
@@ -117,7 +117,7 @@ function paletteItems(s, q) {
     { label: 'Exporter la sauvegarde', sub: 'Action', run: () => doExport(), icon: 'download' },
     { label: 'Changer de thème', sub: 'Action', run: () => cycleTheme(), icon: 'moon' },
     ...sortBoats(s.boats).map((b) => ({ label: b.name, sub: `Bateau · ${baseLabel(b)}`, run: () => go('boat', b.id), icon: 'boat' })),
-    { label: 'Exporter toutes les observations (CSV)', sub: 'Action', run: () => exportObs(getState(), {}, 'flotte'), icon: 'download' },
+    { label: 'Rapport Excel du mois', sub: 'Action', run: () => go('backup'), icon: 'file' },
     ...sortBoats(s.boats).map((b) => ({ label: `Nouveau retour · ${b.name}`, sub: 'Action', run: () => { go('boat', b.id, 'prep'); ui.confirm = 'ret:' + b.id; render(); }, icon: 'left' })),
   ];
   const n = norm(q).trim();
@@ -211,10 +211,13 @@ function doExport() {
   };
   download(`cap-depart-${todayStr()}.json`, JSON.stringify(out, null, 2));
 }
-function exportObs(s, filter, label) {
-  const rows = collectObservations(s, filter);
-  if (!rows.length) { toast('Aucune observation à exporter pour ce choix'); return; }
-  download(`observations-${slugify(label)}-${todayStr()}.csv`, observationsCsv(rows), 'text/csv;charset=utf-8');
+function exportMonth(s) {
+  const month = ui.xm.month || todayStr().slice(0, 7);
+  const boat = ui.xm.boat;
+  const r = monthlyReport(s, { month, boat });
+  if (!r) { toast(`Aucune observation constatée en ${monthLabel(month)}`); return; }
+  const who = boat === 'all' ? 'flotte' : slugify(s.boats.find((b) => b.id === boat)?.name || 'bateau');
+  download(`observations-${month}-${who}.xlsx`, r.bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 }
 function readImport(file) {
   if (!file) return;
@@ -295,10 +298,7 @@ document.addEventListener('click', (e) => {
     case 'retGo': ui.confirm = null; ui.tab = 'prep'; M(`Nouveau retour · ${nm}`, (st) => A.newReturn(st, id)); break;
     // observations
     case 'obsF': ui.obsF = d.v; render(); break;
-    case 'obsCsv': exportObs(s, { boat: id }, nm); break;
-    case 'obsCsvAll': exportObs(s, {}, 'flotte'); break;
-    case 'obsCsvBill': exportObs(s, { boat: id, bill: 'bill' }, `${nm}-a-refacturer`); break;
-    case 'obsCsvF': exportObs(s, ui.ox, ui.ox.boat === 'all' ? 'flotte' : (s.boats.find((b) => b.id === ui.ox.boat)?.name || 'bateau')); break;
+    case 'xlsMonth': exportMonth(s); break;
     // en-tête bateau
     case 'techs': ui.techs = !ui.techs; render(); break;
     case 'banner': ui.banner = !ui.banner; render(); break;
@@ -380,7 +380,8 @@ document.addEventListener('change', (e) => {
     case 'maint': M('', (st) => A.updateMaint(st, id, d.mid, d.f, el.value)); break;
     case 'hours': M('', (st) => A.setHours(st, id, d.f, el.value)); break;
     case 'billf': M('', (st) => A.setBillField(st, id, d.tid, d.f, el.value)); break;
-    case 'ox': ui.ox = { ...ui.ox, [d.k]: el.value }; render(); break;
+    case 'billed': M(el.checked ? 'Refacturé au client' : 'Refacturation annulée', (st) => A.setBilled(st, id, d.tid, el.checked)); break;
+    case 'xm': ui.xm = { ...ui.xm, [d.k]: el.value }; render(); break;
     case 'pref': M('Préférence enregistrée', (st) => A.setPref(st, d.k, el.checked)); break;
     case 'baseName': M('', (st) => { st.baseName = el.value.trim() || 'Ma base'; }); break;
     default: break;

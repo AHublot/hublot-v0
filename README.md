@@ -21,7 +21,7 @@ npm test           # tests de la logique métier (Node 18+)
 
 - Stockage local (`capdepart:v2`), copies automatiques (12 h et avant import/restauration), annulation (Ctrl+Z / bouton) sur les 30 dernières actions.
 - **Export / import** JSON au format d'origine `cap-depart-backup` : une ancienne sauvegarde s'importe telle quelle.
-- **Export des observations** (CSV Excel) par bateau, statut et période, pour la refacturation aux propriétaires.
+- **Rapport mensuel Excel** des observations (mois de constat, flotte ou un bateau) : synthèse + une feuille par bateau, observations à refacturer mises en évidence (heures, matériel, refacturé au client).
 - Ne versionne jamais tes sauvegardes réelles (le `.gitignore` les exclut).
 - Limite : pas de données partagées entre appareils. Pour cela, brancher un backend (Supabase, Firebase…) en ne modifiant que `src/store.js` (`load` / `persist`).
 
@@ -34,4 +34,4 @@ npm test           # tests de la logique métier (Node 18+)
 
 ## Structure
 
-`src/model.js` (données et règles) · `src/actions.js` (mutations) · `src/exports.js` (export des observations) · `src/store.js` (persistance, annulation) · `src/views/*` (rendu) · `src/app.js` (contrôleur) · `tests/` · `tools/build-preview.mjs` (page unique pour prévisualisation).
+`src/model.js` (données et règles) · `src/actions.js` (mutations) · `src/report.js` (rapport mensuel) · `src/xlsx.js` (écriture Excel sans dépendance) · `src/store.js` (persistance, annulation) · `src/views/*` (rendu) · `src/app.js` (contrôleur) · `tests/` · `tools/build-preview.mjs` (page unique pour prévisualisation).
