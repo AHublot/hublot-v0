@@ -12,6 +12,7 @@ import { tickCountdowns } from './views/common.js';
 import { boatReport, fleetReport } from './whatsapp.js';
 import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
+import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote } from './remote.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const ui = {
@@ -84,12 +85,36 @@ subscribe((info) => {
 function sideHTML(s) {
   const nav = (to, icn, label, n) => `<button type="button" class="nav ${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}" ${ui.route.name === to ? 'aria-current="page"' : ''}>${ic(icn)}<span>${label}</span>${n != null ? `<em class="mono">${n}</em>` : ''}</button>`;
   return `<div class="brand"><span class="mark"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 24h14l-2 3H11z" fill="var(--side)"/><path d="M16 6v15M16 7l7 11h-7z" fill="none" stroke="var(--side)" stroke-width="2" stroke-linejoin="round"/></svg></span><div><b>Cap Départ</b><small>Gestion de flotte</small></div></div>
-    <span class="k side-k">Espace manager</span>
+    <span class="k side-k">${remote.user?.role === 'tech' ? 'Espace technicien' : 'Espace manager'}</span>
     <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${nav('team', 'users', 'Mon équipe', s.team.length)}${nav('checklist', 'list', 'Liste avant départ', s.templates.length)}</nav>
     <div class="grow"></div>
     <div class="sidecard"><span>${ic('wave')}</span><b>Le prochain départ commence ici.</b><small>Une vue claire, un bateau prêt après l’autre.</small></div>
     <button type="button" class="nav small ${ui.route.name === 'backup' ? 'on' : ''}" data-act="nav" data-to="backup">${ic('download')}<span>Sauvegardes et restauration</span></button>
-    <small class="ver">V2 · Espace privé</small>`;
+    ${remote.user ? `<div class="who"><span class="avatar">${esc((remote.user.name || '?').slice(0, 2).toUpperCase())}</span><div><b>${esc(remote.user.name)}</b><small>${remote.user.role === 'manager' ? 'Manager' : 'Technicien'}</small></div><button type="button" class="ibtn" data-act="logout" aria-label="Se déconnecter" title="Se déconnecter">${ic('left')}</button></div>` : ''}
+    <small class="ver">V3 · ${remote.mode === 'server' ? 'Données partagées' : 'Données sur cet appareil'}</small>`;
+}
+function syncBadge(t) {
+  if (remote.mode !== 'server') {
+    return `<span class="sync ${store.persistOk ? '' : 'bad'}" title="${store.persistOk ? 'Enregistré sur cet appareil' : 'Stockage refusé : exporte tes données'}"><i></i><span>${store.persistOk ? (t ? `Enregistré ${esc(fmtHM(t))}` : 'À jour') : 'Non enregistré'}</span></span>`;
+  }
+  const st = remote.status;
+  const [cls, txt, tip] = st === 'offline' ? ['warn', remote.pending ? 'Hors ligne · en attente' : 'Hors ligne', 'Pas de réseau : tes modifications sont gardées sur l’appareil et partiront au retour du réseau.']
+    : st === 'error' ? ['bad', 'Synchro en erreur', remote.error || 'Erreur de synchronisation']
+      : st === 'readonly' ? ['warn', 'Lecture seule', 'Ce compte ne peut pas modifier les données.']
+        : remote.pending ? ['busy', 'Envoi…', 'Envoi des modifications au serveur']
+          : ['', remote.lastSync ? `Synchronisé ${esc(fmtHM(remote.lastSync))}` : 'Connexion…', 'Données partagées avec l’équipe'];
+  return `<span class="sync ${cls}" title="${esc(tip)}" data-sync><i></i><span>${txt}</span></span>`;
+}
+function loginHTML() {
+  return `<div class="login"><form class="panel loginbox" data-form="login" novalidate>
+    <div class="brand"><span class="mark"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 24h14l-2 3H11z" fill="#fff"/><path d="M16 6v15M16 7l7 11h-7z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></span><div><b>Cap Départ</b><small>Gestion de flotte</small></div></div>
+    <h1>Connexion</h1>
+    <div class="fld"><label class="k" for="lg-e">E-mail</label><input id="lg-e" name="email" type="email" autocomplete="username" required value="${esc(ui.loginEmail || '')}"></div>
+    <div class="fld"><label class="k" for="lg-p">Mot de passe</label><input id="lg-p" name="password" type="password" autocomplete="current-password" required></div>
+    ${ui.loginErr ? `<p class="t-bad small" role="alert">${esc(ui.loginErr)}</p>` : ''}
+    <button class="btn pri wide" type="submit" ${ui.loginBusy ? 'disabled' : ''}>${ui.loginBusy ? 'Connexion…' : 'Se connecter'}</button>
+    <p class="mut small">Mot de passe oublié : demande au manager de le réinitialiser.</p>
+  </form></div>`;
 }
 function topHTML(s) {
   const r = ui.route;
@@ -98,7 +123,7 @@ function topHTML(s) {
   const t = store.savedAt;
   return `<div class="trail"><span>${esc(s.baseName)}</span>${ic('chevR')}<b>${esc(b ? b.name : names[r.name] || '')}</b></div>
     <div class="topr">
-      <span class="sync ${store.persistOk ? '' : 'bad'}" title="${store.persistOk ? 'Enregistré sur cet appareil' : 'Stockage refusé : exporte tes données'}"><i></i>${store.persistOk ? (t ? `Enregistré ${esc(fmtHM(t))}` : 'À jour') : 'Non enregistré'}</span>
+      ${syncBadge(t)}
       <button type="button" class="btn icon" data-act="undo" aria-label="Annuler la dernière action" title="Annuler la dernière action" ${store.stack.length ? '' : 'disabled'}>${ic('undo')}</button>
       <button type="button" class="btn icon search-btn" data-act="palette" aria-label="Rechercher (Ctrl+K)" title="Rechercher (Ctrl+K)">${ic('search')}<kbd>Ctrl K</kbd></button>
       <button type="button" class="btn icon" data-act="theme" aria-label="Changer de thème" title="Thème : ${theme === 'system' ? 'automatique' : theme === 'dark' ? 'sombre' : 'clair'}">${ic(isDark() ? 'moon' : 'sun')}</button>
@@ -144,6 +169,15 @@ function render() {
   const key = ae && (ae.dataset?.fk ? `[data-fk="${ae.dataset.fk}"]` : ae.id ? `#${CSS.escape(ae.id)}` : ae.dataset?.draft ? `[data-draft="${ae.dataset.draft}"]` : null);
   const sel = ae && typeof ae.selectionStart === 'number' ? [ae.selectionStart, ae.selectionEnd] : null;
   const inLayer = ae && ae.closest && ae.closest('dialog');
+
+  ui.server = remote.mode === 'server';
+  const gate = ui.server && !remote.user;
+  document.body.classList.toggle('auth', gate);
+  if (gate) {
+    if (!$('#view .login')) { $('#side').innerHTML = ''; $('#top').innerHTML = ''; $('#tabbar').innerHTML = ''; $('#layer').innerHTML = ''; $('#view').innerHTML = loginHTML(); $('#lg-' + (ui.loginEmail ? 'p' : 'e'))?.focus(); }
+    else { const f = $('#view .login'); f.outerHTML = loginHTML(); }
+    return;
+  }
 
   const routeKey = location.hash || '#/';
   const prevBars = routeKey === ui.barRoute ? [...document.querySelectorAll('#view .bar i')].map((i) => i.style.width) : [];
@@ -267,7 +301,8 @@ document.addEventListener('click', (e) => {
     case 'view': ui.view = d.v; render(); break;
     case 'toggleAdd': ui.add = !ui.add; if (!ui.add) { delete ui.drafts['nb-name']; } if (ui.route.name !== 'overview') go('overview'); render(); if (ui.add) $('#nb-name')?.focus(); break;
     case 'goBackup': go('backup'); break;
-    case 'demo': if (s.boats.length) addSnapshot('Avant démo'); replace(demoState(), 'Flotte de démonstration chargée'); go('overview'); break;
+    case 'logout': logout().then(() => { ui.loginErr = ''; render(); }); break;
+    case 'demo': if (ui.server) break; if (s.boats.length) addSnapshot('Avant démo'); replace(demoState(), 'Flotte de démonstration chargée'); go('overview'); break;
     case 'undo': undo(); break;
     case 'theme': cycleTheme(); break;
     case 'palette': openPalette(); break;
@@ -333,7 +368,15 @@ document.addEventListener('click', (e) => {
       });
       break;
     }
-    case 'impReplace': { const raw = ui.imp.raw; ui.imp = null; addSnapshot('Avant import'); try { replace(raw, 'Sauvegarde importée'); } catch (err) { toast(err.message); } break; }
+    case 'impReplace': {
+      const raw = ui.imp.raw; ui.imp = null;
+      if (ui.server) { // le serveur fait une copie de sa base avant de remplacer
+        render();
+        importRemote(raw).then(() => { toast('Sauvegarde importée pour toute l’équipe'); go('overview'); }).catch((err) => toast(err.message));
+        break;
+      }
+      addSnapshot('Avant import'); try { replace(raw, 'Sauvegarde importée'); } catch (err) { toast(err.message); } break;
+    }
     case 'snapRestore': ui.confirm = null; restoreSnapshot(+d.i); break;
     case 'reset': ui.confirm = null; resetAll(); break;
     default: break;
@@ -396,6 +439,20 @@ document.addEventListener('submit', (e) => {
   const id = form.dataset.id || ui.route.id;
   const name = getState().boats.find((b) => b.id === id)?.name || '';
   switch (form.dataset.form) {
+    case 'login': {
+      ui.loginEmail = g('email'); ui.loginErr = ''; ui.loginBusy = true; render();
+      login(g('email'), String(fd.get('password') || ''))
+        .then(() => { ui.loginBusy = false; render(); })
+        .catch((err) => { ui.loginBusy = false; ui.loginErr = err.status === 401 || err.status === 429 ? err.message : 'Serveur injoignable. Vérifie ta connexion.'; render(); $('#lg-p')?.focus(); });
+      return;
+    }
+    case 'pwd': {
+      const cur = String(fd.get('current') || ''), nx = String(fd.get('next') || ''), nx2 = String(fd.get('next2') || '');
+      if (nx !== nx2) { ui.pwdMsg = { bad: true, t: 'Les deux nouveaux mots de passe sont différents.' }; render(); return; }
+      changePassword(cur, nx).then(() => { ui.pwdMsg = { t: 'Mot de passe changé.' }; form.reset(); render(); })
+        .catch((err) => { ui.pwdMsg = { bad: true, t: err.message }; render(); });
+      return;
+    }
     case 'addBoat': {
       if (!g('name')) return;
       ['nb-name', 'nb-model', 'nb-base'].forEach((k) => delete ui.drafts[k]);
@@ -442,6 +499,7 @@ document.addEventListener('submit', (e) => {
 function tick() {
   tickCountdowns();
   const s = getState();
+  if (ui.server && (!remote.user || remote.pending || !remote.lastSync || Date.now() - remote.lastSync > 20000)) return;
   const due = A.dueDepartures(s);
   if (due.length) {
     const names = due.map((i) => s.boats.find((b) => b.id === i).name).join(', ');
@@ -455,10 +513,19 @@ applyTheme();
 const r0 = parseHash();
 ui.route = { name: r0.name, id: r0.id || null };
 if (r0.tab) ui.tab = r0.tab;
-autoSnapshot();
-render();
-tick();
-setInterval(tick, 30000);
+onRemote(() => { // état de synchro : barre du haut et menu seulement (les données passent par subscribe)
+  if (!remote.user && remote.mode === 'server') { render(); return; }
+  const t = $('[data-sync]'); if (t) t.outerHTML = syncBadge(store.savedAt);
+  if (ui.route.name === 'backup' && !$('#view').contains(document.activeElement)) render();
+});
+detect().then(() => {
+  ui.server = remote.mode === 'server';
+  if (!ui.server) autoSnapshot();
+  render();
+  if (ui.server && remote.user) startSync();
+  tick();
+  setInterval(tick, 30000);
+});
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => theme === 'system' && render());
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   navigator.serviceWorker.register('sw.js').catch(() => {});

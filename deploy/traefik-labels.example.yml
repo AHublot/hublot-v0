@@ -1,0 +1,13 @@
+# Si ton projet « flotte » passe par Traefik : ajoute ces lignes au service capdepart de docker-compose.yml,
+# retire le bloc « ports », et branche-le sur le réseau de Traefik (remplace « web » par le nom du tien).
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.capdepart.rule=Host(`capdepart.tondomaine.fr`)
+      - traefik.http.routers.capdepart.entrypoints=websecure
+      - traefik.http.routers.capdepart.tls.certresolver=letsencrypt
+      - traefik.http.services.capdepart.loadbalancer.server.port=8080
+    networks:
+      - web
+networks:
+  web:
+    external: true

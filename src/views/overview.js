@@ -117,7 +117,7 @@ export function overviewView(s, ui, now = new Date()) {
   if (!s.boats.length) {
     return `<div class="page-head"><h1>Vue d’ensemble</h1></div>
       ${empty('boat', 'Aucun bateau pour l’instant', 'Importe ta sauvegarde, charge la flotte de démonstration ou ajoute un premier bateau.',
-        `<div class="row center wrap gap"><button class="btn pri" data-act="goBackup">${ic('upload')} Importer une sauvegarde</button><button class="btn" data-act="demo">${ic('wave')} Charger la démo</button><button class="btn" data-act="toggleAdd">${ic('plus')} Ajouter un bateau</button></div>`)}
+        `<div class="row center wrap gap"><button class="btn pri" data-act="goBackup">${ic('upload')} Importer une sauvegarde</button>${ui.server ? '' : `<button class="btn" data-act="demo">${ic('wave')} Charger la démo</button>`}<button class="btn" data-act="toggleAdd">${ic('plus')} Ajouter un bateau</button></div>`)}
       ${ui.add ? addForm(ui) : ''}`;
   }
   const f = fleetStats(s.boats, now);

@@ -1,0 +1,4 @@
+# À ajouter dans ton Caddyfile (Caddy gère le HTTPS tout seul) :
+capdepart.tondomaine.fr {
+    reverse_proxy 127.0.0.1:8090
+}

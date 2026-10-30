@@ -1,0 +1,17 @@
+# Cap Départ sur ton VPS, à côté de tes autres projets.
+#   docker compose up -d --build
+#   docker compose exec capdepart node server/cli.js add-user ton@email.fr --name Prénom
+services:
+  capdepart:
+    build: .
+    container_name: capdepart
+    restart: unless-stopped
+    environment:
+      - TZ=America/Martinique
+      # - COOKIE_SECURE=1   # à forcer si ton proxy n'envoie pas X-Forwarded-Proto
+    # Écoute seulement en local : c'est ton proxy (Nginx, Caddy, Traefik) qui expose le site en HTTPS.
+    # Change 8090 si ce port est déjà pris sur le VPS.
+    ports:
+      - "127.0.0.1:8090:8080"
+    volumes:
+      - ./data:/data   # base SQLite + copies quotidiennes (data/backups)

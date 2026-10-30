@@ -1,0 +1,9 @@
+.git
+.github
+data
+dist
+node_modules
+tests
+tools
+*.json
+!manifest.webmanifest

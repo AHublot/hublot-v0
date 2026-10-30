@@ -1,6 +1,6 @@
 // État de l'application, enregistrement local, annulation et sauvegardes automatiques.
-// Le stockage est isolé derrière ce fichier : pour partager les données entre plusieurs personnes,
-// il suffira de remplacer persist()/load() par un adaptateur serveur (voir README).
+// Hébergé sur le serveur Cap Départ, remote.js synchronise cet état avec la base partagée :
+// ce fichier garde la copie locale (hors ligne) et prévient remote.js à chaque enregistrement.
 import { emptyState, normalizeState } from './model.js';
 import { nowIso } from './util.js';
 
@@ -19,9 +19,28 @@ export const getState = () => store.state;
 function emit(info = {}) { store.subs.forEach((fn) => fn(info)); }
 export function subscribe(fn) { store.subs.add(fn); return () => store.subs.delete(fn); }
 
+const persistHooks = new Set();
+/** Appelé après chaque enregistrement local (utilisé par la synchronisation serveur). */
+export function onPersist(fn) { persistHooks.add(fn); }
 function persist() {
   store.persistOk = ls.set(KEY, JSON.stringify(store.state));
   store.savedAt = new Date();
+  persistHooks.forEach((fn) => fn());
+}
+
+/** Changements reçus du serveur : appliqués sans entrée d'annulation ni nouvel envoi. */
+export function applyRemote(fn, { clearUndo = false } = {}) {
+  fn(store.state);
+  store.persistOk = ls.set(KEY, JSON.stringify(store.state));
+  if (clearUndo) store.stack = []; // ne pas défaire le travail des autres
+  emit({ remote: true });
+}
+/** Efface la copie locale (déconnexion, autre compte). */
+export function clearLocal() {
+  ls.del(KEY);
+  store.state = emptyState();
+  store.stack = [];
+  emit({});
 }
 
 export function load() {

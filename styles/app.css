@@ -477,3 +477,24 @@ ul.obshist, .hist ul.obshist { display: grid; gap: 0; padding: 0; list-style: no
 .billedck input { accent-color: var(--ok); }
 .xmstats { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--panel2); border: 1px solid var(--line2); margin: 4px 0; }
 .seg button { white-space: nowrap; } .col > .seg { overflow-x: auto; scrollbar-width: none; }
+
+/* ---- connexion, compte, synchro ---- */
+body.auth .side, body.auth .top, body.auth .tabbar { display: none !important; }
+body.auth .app { grid-template-columns: minmax(0, 1fr); }
+body.auth .content { padding: 0; }
+.login { min-height: 100dvh; display: grid; place-items: center; padding: 24px max(16px, env(safe-area-inset-left)); }
+.loginbox { width: min(400px, 100%); display: grid; gap: 14px; padding: 28px; }
+.loginbox .brand { padding: 0 0 6px; }
+.loginbox .brand b { color: var(--tx); }
+.loginbox .brand small { color: var(--mut); }
+.loginbox h1 { font: 700 26px/1.1 var(--f-cond); }
+.who { display: flex; align-items: center; gap: 10px; margin: 6px 4px 8px; padding: 10px; border-radius: var(--r-sm); border: 1px solid var(--side-line); }
+.who > div { flex: 1; min-width: 0; display: grid; line-height: 1.2; } .who b { font-size: 13px; color: var(--side-tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .who small { font-size: 11.5px; color: var(--side-mut); }
+.who .avatar { width: 30px; height: 30px; font-size: 11px; flex: none; }
+.who .ibtn { color: var(--side-mut); }
+.sync.warn i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 25%, transparent); }
+.sync.busy i { background: var(--rent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rent) 25%, transparent); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .sync.busy i { animation: none; } }
+.account p { margin-bottom: 4px; }
+@media (max-width: 860px) { .sync[data-sync] { display: inline-flex !important; } }

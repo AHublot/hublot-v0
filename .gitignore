@@ -5,3 +5,4 @@ dist/
 *.backup.json
 hublot-*.json
 cap-depart-*.json
+data/
