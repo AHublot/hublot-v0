@@ -119,9 +119,14 @@ test('à refacturer : marque, montant, archives et export', () => {
   A.addObservations(s, b.id, [{ title: 'Coussin déchiré par le client' }, { title: 'Ampoule' }]);
   const t = b.tasks.find((x) => x.title.startsWith('Coussin'));
   A.toggleBill(s, b.id, t.id);
-  A.setAmount(s, b.id, t.id, '45,50');
+  A.setBillField(s, b.id, t.id, 'hours', '1,5');
+  A.setBillField(s, b.id, t.id, 'material', 'Housse neuve');
+  A.setBillField(s, b.id, t.id, 'hours', 'abc'); // refusé : nombre attendu
   assert.equal(t.bill, true);
-  assert.equal(t.amount, '45.50');
+  assert.equal(t.hours, undefined);
+  A.setBillField(s, b.id, t.id, 'hours', '1,5');
+  assert.equal(t.hours, '1.5');
+  assert.equal(t.material, 'Housse neuve');
   A.toggleBill(s, b.id, b.tasks[0].id); // tâche habituelle : ignorée
   assert.ok(!b.tasks[0].bill);
   A.toggleTask(s, b.id, t.id);
@@ -131,7 +136,7 @@ test('à refacturer : marque, montant, archives et export', () => {
   assert.equal(o.where, 'archive');
   const rows = collectObservations(s, { bill: 'bill' });
   assert.equal(rows.length, 1);
-  assert.match(observationsCsv(rows), /Coussin déchiré par le client;Réglée;;Oui;45,50;/);
+  assert.match(observationsCsv(rows), /Coussin déchiré par le client;Réglée;;Oui;1,5;Housse neuve;/);
 });
 
 test('annulation : mutate + snapshot JSON restitue l’état', () => {

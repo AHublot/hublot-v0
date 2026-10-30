@@ -33,9 +33,9 @@ export function collectObservations(s, { boat = 'all', status = 'all', from = ''
 
 /** CSV pour Excel (français) : séparateur « ; », BOM UTF-8, dates JJ/MM/AAAA. */
 export function observationsCsv(rows) {
-  const head = ['Bateau', 'Base', 'Observation', 'Statut', 'Bloquante', 'À refacturer', 'Montant (€)', 'Constatée le', 'Réglée le', 'Archivée le'];
+  const head = ['Bateau', 'Base', 'Observation', 'Statut', 'Bloquante', 'À refacturer', 'Heures', 'Matériel', 'Constatée le', 'Réglée le', 'Archivée le'];
   const lines = rows.map((o) => [
-    o.boatName, o.base, o.title, obsState(o).label, o.blocked ? 'Oui' : '', o.bill ? 'Oui' : '', o.amount ? String(o.amount).replace('.', ',') : '',
+    o.boatName, o.base, o.title, obsState(o).label, o.blocked ? 'Oui' : '', o.bill ? 'Oui' : '', o.hours ? String(o.hours).replace('.', ',') : '', o.material || '',
     fr(o.origin), fr(localDay(o.doneAt)), o.where === 'archive' ? fr(o.archivedAt.length > 10 ? localDay(o.archivedAt) : o.archivedAt) : '',
   ]);
   return '﻿' + [head, ...lines].map((r) => r.map(csvCell).join(';')).join('\r\n');

@@ -456,12 +456,18 @@ ul.obshist, .hist ul.obshist { display: grid; gap: 0; padding: 0; list-style: no
 .tbtn.bill.on { color: var(--bill); background: var(--bill-soft); }
 .task.billed { box-shadow: inset 3px 0 0 var(--bill); padding-left: 10px; background: linear-gradient(90deg, var(--bill-soft), transparent 70%); }
 .task.blocked.billed { box-shadow: inset 3px 0 0 var(--bad); }
-.amount { display: inline-flex; align-items: center; gap: 4px; flex: none; }
-.amount input { width: 82px; min-height: 34px; padding: 0 8px; font-size: 13px; text-align: right; }
-.amount span { color: var(--mut); font-size: 13px; }
+.billf { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 7px; }
+.billf .bh { display: inline-flex !important; flex-direction: row !important; align-items: center; gap: 5px; flex: none; margin: 0; }
+.billf input { min-height: 34px; padding: 0 9px; font-size: 13px; }
+.billf .bh input { width: 72px; text-align: right; }
+.billf .bh span { color: var(--mut); font-size: 13px; }
+.billf .bm { flex: 1 1 180px; min-width: 0; }
 .billtag { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font: 600 11px/1 var(--f-cond); letter-spacing: .06em; text-transform: uppercase; color: var(--bill); background: var(--bill-soft); border: 1px solid color-mix(in srgb, var(--bill) 35%, transparent); padding: 4px 8px; border-radius: 99px; vertical-align: 2px; white-space: nowrap; }
 .billtag .ic { width: 12px; height: 12px; }
 .obshist li.billed { background: linear-gradient(90deg, var(--bill-soft), transparent 75%); box-shadow: inset 3px 0 0 var(--bill); padding-left: 10px; }
 .billsum { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--r); border: 1px solid color-mix(in srgb, var(--bill) 35%, transparent); background: linear-gradient(120deg, var(--bill-soft), var(--panel) 70%); color: var(--bill); }
 .billsum span { flex: 1; min-width: 180px; color: var(--tx); } .billsum .ic { color: var(--bill); }
-@media (max-width: 560px) { .task.billed { flex-wrap: wrap; } .task.billed .tbody { flex: 1 1 0; } .task.billed .amount { order: 10; flex-basis: 100%; padding-left: 34px; } }
+
+
+.task.billed { align-items: flex-start; } .task.billed > .chk { margin-top: 2px; }
+@media (max-width: 560px) { .billf .bm { flex-basis: 100%; width: 100%; } }

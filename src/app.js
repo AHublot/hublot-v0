@@ -278,7 +278,7 @@ document.addEventListener('click', (e) => {
     // tâches
     case 'tgl': M('', (st) => A.toggleTask(st, id, d.tid)); break;
     case 'blk': M('', (st) => A.toggleBlock(st, id, d.tid)); break;
-    case 'bill': M('', (st) => A.toggleBill(st, id, d.tid)); setTimeout(() => document.getElementById(`amt-${d.tid}`)?.focus(), 0); break;
+    case 'bill': M('', (st) => A.toggleBill(st, id, d.tid)); setTimeout(() => document.getElementById(`hrs-${d.tid}`)?.focus(), 0); break;
     case 'del': M(`Tâche retirée`, (st) => A.deleteTask(st, id, d.tid)); break;
     case 'delp': M(`Point retiré`, (st) => A.deletePending(st, id, d.tid)); break;
     case 'voice': { const ta = el.closest('form').querySelector('textarea'); toggleVoice(ta, el); break; }
@@ -379,7 +379,7 @@ document.addEventListener('change', (e) => {
     case 'tplNow': ui.tplNow = el.checked; break;
     case 'maint': M('', (st) => A.updateMaint(st, id, d.mid, d.f, el.value)); break;
     case 'hours': M('', (st) => A.setHours(st, id, d.f, el.value)); break;
-    case 'amount': M('', (st) => A.setAmount(st, id, d.tid, el.value)); break;
+    case 'billf': M('', (st) => A.setBillField(st, id, d.tid, d.f, el.value)); break;
     case 'ox': ui.ox = { ...ui.ox, [d.k]: el.value }; render(); break;
     case 'pref': M('Préférence enregistrée', (st) => A.setPref(st, d.k, el.checked)); break;
     case 'baseName': M('', (st) => { st.baseName = el.value.trim() || 'Ma base'; }); break;
