@@ -75,11 +75,11 @@ test('synchronisation : envoi, changements depuis une version, suppression', asy
 
 test('import d’une sauvegarde : remplace la flotte', async () => {
   const { cookie } = await login('chef@base.fr', 'motdepasse-solide');
-  const r = await post('/api/import', { format: 'cap-depart-backup', data: { boats: [{ id: 'x1', name: 'Mahana' }], team: ['Pablo'] } }, { cookie });
+  const r = await post('/api/import', { format: 'cap-depart-backup', data: { boats: [{ id: 'x1', name: 'Ondine' }], team: ['Lucas'] } }, { cookie });
   assert.equal(r.status, 200);
   const all = await (await fetch(base + '/api/changes?since=0', { headers: { cookie } })).json();
-  assert.deepEqual(all.boats.map((b) => b.name), ['Mahana']);
-  assert.deepEqual(all.meta.team, ['Pablo']);
+  assert.deepEqual(all.boats.map((b) => b.name), ['Ondine']);
+  assert.deepEqual(all.meta.team, ['Lucas']);
 });
 
 test('compte technicien : lecture seule pour l’instant', async () => {
