@@ -517,3 +517,10 @@ body.auth .content { padding: 0; }
 .bcard.prep { background: linear-gradient(125deg, color-mix(in srgb, var(--ok) 24%, var(--panel)) 0%, var(--panel) 78%); border-color: color-mix(in srgb, var(--ok) 30%, var(--line)); }
 :root:not([data-theme="dark"]) .bcard.prep { background: linear-gradient(125deg, #BDEBD0 0%, #E3F6EA 45%, #FFFFFF 85%); border-color: #A9DDBF; }
 @media (prefers-reduced-motion: reduce) { .bcard.other { transition: none; } }
+
+/* Mobile : « Ajouter mes observations » passe au-dessus de « Avant le départ » (ordinateur inchangé) */
+@media (max-width: 1100px) {
+  .prepgrid { display: flex; flex-direction: column; gap: 16px; }
+  .prepgrid > .col { display: contents; }
+  .prepgrid .addobs { order: -1; }
+}

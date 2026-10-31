@@ -148,7 +148,7 @@ function tabPrep(s, b, ui, now) {
     ${obs.length ? `<ul class="tasks">${obs.map((t) => taskRow(b, t)).join('')}</ul>${st.obsOpen === 0 ? `<div class="okbar">${ic('check')} Toutes les observations sont traitées.</div>` : ''}`
       : empty('wave', 'Aucune observation', 'Note ce que tu vois sur le bateau avec le champ à droite.')}
   </section>`;
-  return `<div class="two"><div class="col">${recPanel}${obsPanel}</div><aside class="col">${add}${last}</aside></div>`;
+  return `<div class="two prepgrid"><div class="col">${recPanel}${obsPanel}</div><aside class="col">${add}${last}</aside></div>`;
 }
 
 // ---- Entretiens ------------------------------------------------------------------------
