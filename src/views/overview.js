@@ -127,6 +127,7 @@ export function overviewView(s, ui, now = new Date()) {
   const bases = [...new Set(s.boats.map(baseLabel))];
   let list = sortBoats(s.boats).filter((b) => matchFilter(b, ui.filter, now) && (base === 'all' || baseLabel(b) === base) && (!q || norm(b.name + ' ' + baseLabel(b)).includes(q)));
   const counts = Object.fromEntries(FILTERS.map((x) => [x.key, s.boats.filter((b) => matchFilter(b, x.key, now)).length]));
+  const nAct = (ui.filter !== 'all' ? 1 : 0) + (base !== 'all' ? 1 : 0);
   const body = !list.length
     ? empty('search', 'Aucun bateau pour ce filtre', 'Change de filtre ou efface la recherche.', `<button class="btn" data-act="resetFilters">Tout afficher</button>`)
     : ui.filter === 'obs' ? obsOverview(list, now)
@@ -143,10 +144,17 @@ export function overviewView(s, ui, now = new Date()) {
         <div class="seg" role="group" aria-label="Affichage"><button type="button" class="${ui.view === 'cards' ? 'on' : ''}" data-act="view" data-v="cards" aria-pressed="${ui.view === 'cards'}">${ic('grid')} Cartes</button><button type="button" class="${ui.view === 'board' ? 'on' : ''}" data-act="view" data-v="board" aria-pressed="${ui.view === 'board'}">${ic('calendar')} Planning</button></div>
         ${bases.length > 1 ? `<select aria-label="Base" data-chg="baseFilter"><option value="all">Toutes les bases</option>${bases.map((x) => `<option${base === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
         <label class="search">${ic('search')}<input type="search" placeholder="Rechercher un bateau" value="${esc(ui.q)}" data-draft="q" data-live="q" aria-label="Rechercher un bateau"></label>
+        <button type="button" class="fbtn" data-act="fOpen" aria-haspopup="dialog">${ic('sliders')} Filtres${nAct ? ` <b>${nAct}</b>` : ''}</button>
       </div>
     </section>
     <div class="chips" role="group" aria-label="Filtres">${FILTERS.map((x) => `<button type="button" class="chip ${ui.filter === x.key ? 'on' : ''}" data-act="filter" data-v="${x.key}" aria-pressed="${ui.filter === x.key}">${x.label} <span class="mono">${counts[x.key]}</span></button>`).join('')}</div>
-    ${body}`;
+    ${nAct ? `<div class="actf">${ui.filter !== 'all' ? `<button type="button" class="chip on" data-act="filter" data-v="all" aria-label="Retirer le filtre">${esc(FILTERS.find((x) => x.key === ui.filter)?.label || 'Observations à traiter')} <span class="mono">${ui.filter === 'obs' ? f.obsOpen : counts[ui.filter]}</span> <span class="x" aria-hidden="true">✕</span></button>` : ''}${base !== 'all' ? `<button type="button" class="chip on" data-act="baseAll" aria-label="Retirer le filtre de base">${esc(base)} <span class="x" aria-hidden="true">✕</span></button>` : ''}</div>` : ''}
+    ${body}
+    ${ui.fsheet ? `<div class="fsheet-back" data-act="fClose"></div><div class="fsheet" role="dialog" aria-modal="true" aria-label="Filtrer la flotte"><div class="grab"></div><h3>Filtrer la flotte</h3>
+      ${FILTERS.map((x) => `<button type="button" class="fopt ${ui.filter === x.key ? 'on' : ''}" data-act="filter" data-v="${x.key}" aria-pressed="${ui.filter === x.key}"><span class="l"><span class="r"></span>${x.label}</span><span class="mono">${counts[x.key]}</span></button>`).join('')}
+      <div class="frow"><div><label>Affichage</label><div class="seg" role="group" aria-label="Affichage"><button type="button" class="${ui.view === 'cards' ? 'on' : ''}" data-act="view" data-v="cards" aria-pressed="${ui.view === 'cards'}">Cartes</button><button type="button" class="${ui.view === 'board' ? 'on' : ''}" data-act="view" data-v="board" aria-pressed="${ui.view === 'board'}">Planning</button></div></div>
+      ${bases.length > 1 ? `<div><label>Base</label><select aria-label="Base" data-chg="baseFilter"><option value="all">Toutes les bases</option>${bases.map((x) => `<option${base === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></div>` : ''}</div>
+      <button type="button" class="fgo" data-act="fClose">Voir ${plural(list.length, 'bateau', 'bateaux')}</button></div>` : ''}`;
 }
 
 

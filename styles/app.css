@@ -691,3 +691,37 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .fxboat { position: absolute; bottom: 0; left: -30px; width: 22px; height: 16px; opacity: 0; animation: fxsail 2.2s ease-in-out forwards; pointer-events: none; }
 @keyframes fxsail { 0% { left: -30px; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% + 10px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .task.justdone .chk, .task.justdone .chk .ic *, .fxdrop, .fxboat, .tcat.justfull h4 .mono { animation: none !important; } .fxboat { display: none; } }
+
+/* ---- vue d'ensemble : filtres en feuille (téléphone uniquement) ---- */
+.fbtn, .actf, .fsheet, .fsheet-back { display: none; }
+@media (max-width: 700px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; }
+  .kpi { padding: 9px 12px; min-height: 0; } .kpi em { display: none; }
+  .fleet-head { margin-top: 2px; gap: 8px; } .fleet-head h2 { font-size: 20px; }
+  .fleet-head > div:first-child > p { display: none; }
+  .chips, .tools > .seg, .tools > select { display: none; }
+  .tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; width: 100%; }
+  .tools .search { width: auto; min-width: 0; }
+  .fbtn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--tx); font-weight: 600; font-size: 14px; }
+  .fbtn svg { width: 16px; height: 16px; }
+  .fbtn b { background: var(--tx); color: var(--bg); border-radius: 99px; font-size: 11px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 5px; }
+  .actf { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .actf .chip { padding-right: 10px; } .actf .x { font-size: 14px; line-height: 1; opacity: .85; }
+  .fsheet-back { display: block; position: fixed; inset: 0; z-index: 60; background: rgba(5, 15, 25, .5); animation: fadein .18s ease; }
+  .fsheet { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 61; background: var(--panel); border-radius: 18px 18px 0 0; padding: 10px max(16px, env(safe-area-inset-left, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -10px 40px rgba(0, 0, 0, .25); max-height: 88vh; overflow-y: auto; animation: sheetup .22s ease; }
+  .fsheet .grab { width: 38px; height: 4px; border-radius: 9px; background: var(--line); margin: 0 auto 10px; }
+  .fsheet h3 { font: 700 18px var(--f-cond); margin: 0 0 4px; }
+  .fopt { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding: 0 4px; border-bottom: 1px solid var(--line); font-size: 15px; text-align: left; }
+  .fopt .l { display: flex; align-items: center; }
+  .fopt .r { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--faint); margin-right: 12px; flex: none; }
+  .fopt.on .r { border-color: var(--tx); background: radial-gradient(var(--tx) 45%, transparent 50%); }
+  .fopt .mono { opacity: .65; font-size: 13px; }
+  .fsheet .frow { display: flex; gap: 10px; margin-top: 12px; } .fsheet .frow > * { flex: 1; min-width: 0; }
+  .fsheet .frow label { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--mut); margin-bottom: 4px; }
+  .fsheet .frow select { width: 100%; min-width: 0; }
+  .fsheet .seg { display: flex; } .fsheet .seg button { flex: 1; justify-content: center; }
+  .fgo { margin-top: 14px; width: 100%; min-height: 46px; border-radius: 12px; background: var(--tx); color: var(--bg); font-weight: 700; font-size: 15px; }
+}
+@keyframes sheetup { from { transform: translateY(40px); opacity: .6; } }
+@keyframes fadein { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .fsheet, .fsheet-back { animation: none !important; } }

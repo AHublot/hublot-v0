@@ -28,7 +28,7 @@ const isTech = () => remote.mode === 'server' && remote.user?.role === 'tech';
 const TECH_PAGES = new Set(['overview', 'boat', 'backup']); // « backup » = Mon compte pour un technicien
 const TECH_ACTS = new Set(['nav', 'open', 'tab', 'filter', 'resetFilters', 'view', 'undo', 'theme', 'palette', 'palRun', 'print', 'copyWA',
   'tgl', 'blk', 'del', 'delp', 'voice', 'obsF', 'banner', 'logout', 'logoutKeep', 'logoutForce', 'confirmNo',
-  'pjMore', 'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'retYes', 'depNo']);
+  'pjMore', 'fOpen', 'fClose', 'baseAll', 'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'retYes', 'depNo']);
 const TECH_CHG = new Set(['hours', 'baseFilter']);
 const TECH_MAINT = new Set(['date', 'hours', 'notes']);
 const TECH_FORMS = new Set(['obs', 'pwd', 'firstPwd', 'login']);
@@ -57,7 +57,7 @@ function parseHash() {
 function hashFor(r) {
   return r.name === 'boat' ? `#/boat/${encodeURIComponent(r.id)}/${ui.tab}` : r.name === 'overview' ? '#/' : `#/${r.name}`;
 }
-const PAGE_RESET = { techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null };
+const PAGE_RESET = { fsheet: false, techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null };
 function go(name, id = null, tab = null) {
   if (isTech() && !TECH_PAGES.has(name)) { name = 'overview'; id = null; }
   ui.route = { name, id };
@@ -394,9 +394,12 @@ document.addEventListener('click', (e) => {
     case 'open': e.preventDefault(); go('boat', id, d.tab || 'prep'); break;
     case 'tab': ui.tab = d.v; ui.editRec = false; try { history.replaceState(null, '', hashFor(ui.route)); } catch { /* */ } render(); break;
     case 'pjMore': ui.pjAll = !ui.pjAll; render(); break;
-    case 'filter': ui.filter = d.v; if (ui.route.name !== 'overview') go('overview'); else render(); break;
+    case 'fOpen': ui.fsheet = true; render(); break;
+    case 'fClose': ui.fsheet = false; render(); break;
+    case 'baseAll': ui.base = 'all'; render(); break;
+    case 'filter': ui.filter = d.v; ui.fsheet = false; if (ui.route.name !== 'overview') go('overview'); else render(); break;
     case 'resetFilters': ui.filter = 'all'; ui.base = 'all'; ui.q = ''; ui.drafts.q = ''; render(); break;
-    case 'view': ui.view = d.v; render(); break;
+    case 'view': ui.view = d.v; ui.fsheet = false; render(); break;
     case 'toggleAdd': ui.add = !ui.add; if (!ui.add) { delete ui.drafts['nb-name']; } if (ui.route.name !== 'overview') go('overview'); render(); if (ui.add) $('#nb-name')?.focus(); break;
     case 'goBackup': go('backup'); break;
     case 'logout': logout().then((r) => { if (r.blocked) ui.logoutBlock = r; else ui.loginErr = ''; render(); }); break;
