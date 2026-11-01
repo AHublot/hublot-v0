@@ -745,3 +745,4 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .aname input { flex: 1; min-width: 120px; font-weight: 600; }
 .bcard .bico.fp { background: transparent; }
 .bcard .bico.fp img { width: 28px; height: 28px; display: block; }
+.bcard .bico.fp img[src*="lagoon"] { width: 30px; height: 30px; }
