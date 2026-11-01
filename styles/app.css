@@ -583,3 +583,12 @@ body.tech .panel:has(> [data-form="addEvent"]), body.tech [data-form="addEvent"]
   #side .brand b { font-size: 19px; }
   #side .brand small { font-size: 10px; letter-spacing: .12em; }
 }
+
+/* ---- Écran de connexion : grand logo centré ---- */
+.loginbox { width: min(420px, 100%); }
+.loginbox .brand { flex-direction: column; align-items: center; text-align: center; gap: 14px; padding: 4px 0 10px; }
+.loginbox .brand .mark { width: 150px; height: 150px; }
+.loginbox .brand .mark img { border-radius: 33px; box-shadow: 0 12px 28px -14px rgba(5, 36, 64, .55); }
+.loginbox .brand b { font-size: 30px; }
+.loginbox .brand small { white-space: nowrap; letter-spacing: .22em; }
+.loginbox h1 { text-align: center; font-size: 22px; }
