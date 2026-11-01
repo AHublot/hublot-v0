@@ -57,13 +57,22 @@ function parseHash() {
 function hashFor(r) {
   return r.name === 'boat' ? `#/boat/${encodeURIComponent(r.id)}/${ui.tab}` : r.name === 'overview' ? '#/' : `#/${r.name}`;
 }
+const PAGE_RESET = { techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null };
 function go(name, id = null, tab = null) {
   if (isTech() && !TECH_PAGES.has(name)) { name = 'overview'; id = null; }
   ui.route = { name, id };
   if (name === 'boat') ui.tab = tab || 'prep';
   if (name === 'accounts') loadAccounts();
-  Object.assign(ui, { techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null });
-  try { history.replaceState(null, '', hashFor(ui.route)); } catch { /* sandbox */ }
+  Object.assign(ui, PAGE_RESET);
+  // Chaque changement de page ajoute une entrée à l'historique : le bouton « retour » du
+  // téléphone revient à la page précédente (avec sa position de défilement) au lieu de quitter l'appli.
+  try {
+    const next = hashFor(ui.route);
+    if (next !== (location.hash || '#/')) {
+      history.replaceState({ y: window.scrollY }, '', location.hash || '#/');
+      history.pushState(null, '', next);
+    } else history.replaceState(history.state, '', next);
+  } catch { /* sandbox */ }
   render();
   window.scrollTo(0, 0);
 }
@@ -71,8 +80,12 @@ window.addEventListener('hashchange', () => {
   const r = parseHash();
   ui.route = { name: r.name, id: r.id || null };
   if (r.tab) ui.tab = r.tab;
+  Object.assign(ui, PAGE_RESET);
   if (r.name === 'accounts' && ui.server) loadAccounts();
   render();
+  let y = 0;
+  try { y = history.state?.y || 0; } catch { /* */ }
+  window.scrollTo(0, y);
 });
 
 // ---- mutations avec message d'erreur ------------------------------------------------------
