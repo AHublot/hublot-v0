@@ -175,13 +175,13 @@ function tabMaint(s, b, ui, now) {
   const lh = latestHours(b);
   const items = b.maintenance.map((m) => {
     const ms = maintStatus(m, b, now);
+    const eng = /moteur/i.test(m.title) || !!m.intervalHours; // heures moteur : seulement pour l’entretien moteur
     return `<article class="panel mrow ${ms.key}"><header><h3>${esc(m.title)}</h3><span class="mstat ${ms.key}">${esc(ms.label)}</span>
       <button class="ibtn" data-act="maintDel" data-id="${b.id}" data-mid="${m.id}" aria-label="Retirer ${esc(m.title)}">${ic('trash')}</button></header>
-      <div class="grid4">
+      <div class="${eng ? 'grid4' : 'grid2'}">
         <div class="fld"><label class="k" for="md-${m.id}">Dernier contrôle${m.by ? ` · ${esc(m.by)}` : ''}</label><input id="md-${m.id}" type="date" value="${esc(m.date)}" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="date"></div>
         <div class="fld"><label class="k" for="mi-${m.id}">Échéance</label><select id="mi-${m.id}" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="intervalDays">${INTERVALS.map((i) => `<option value="${i.v}"${(m.intervalDays || 0) === i.v ? ' selected' : ''}>${i.l}</option>`).join('')}</select></div>
-        <div class="fld"><label class="k" for="mh-${m.id}">Heures moteur au contrôle</label><input id="mh-${m.id}" inputmode="decimal" value="${esc(m.hours)}" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="hours"></div>
-        <div class="fld"><label class="k" for="mj-${m.id}">Tous les (h)</label><input id="mj-${m.id}" inputmode="numeric" value="${m.intervalHours || ''}" placeholder="—" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="intervalHours"></div>
+${eng ? `<div class="fld"><label class="k" for="mh-${m.id}">Heures moteur au contrôle</label><input id="mh-${m.id}" inputmode="decimal" value="${esc(m.hours)}" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="hours"></div><div class="fld"><label class="k" for="mj-${m.id}">Tous les (h)</label><input id="mj-${m.id}" inputmode="numeric" value="${m.intervalHours || ''}" placeholder="—" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="intervalHours"></div>` : ''}
       </div>
       <div class="fld"><label class="k" for="mn-${m.id}">Notes</label><textarea id="mn-${m.id}" rows="2" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="notes">${esc(m.notes)}</textarea></div></article>`;
   }).join('');

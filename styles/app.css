@@ -593,3 +593,10 @@ body.tech .panel:has(> [data-form="addEvent"]), body.tech [data-form="addEvent"]
 .loginbox .brand small { white-space: nowrap; letter-spacing: .22em; }
 .loginbox h1 { text-align: center; font-size: 22px; }
 .billf .bh { border-left: 0; padding: 0; }
+
+.brandlink { background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; width: 100%; }
+.brandlink .bt { display: block; }
+.brandlink:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 12px; }
+.depask { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.depask li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.depask li:first-child { border-top: 0; }

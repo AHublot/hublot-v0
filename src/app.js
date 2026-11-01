@@ -2,7 +2,7 @@
 import * as A from './actions.js';
 import { store, getState, load, mutate, undo, replace, subscribe, snapshots, addSnapshot, autoSnapshot, restoreSnapshot, resetAll } from './store.js';
 import { normalizeState, baseLabel, sortBoats, boatStats } from './model.js';
-import { esc, parseObservations, todayStr, fmtHM, plural, norm, nowIso } from './util.js';
+import { esc, parseObservations, todayStr, fmtHM, plural, norm, nowIso, fmtD, fmtDT } from './util.js';
 import { ic } from './icons.js';
 import { overviewView } from './views/overview.js';
 import { boatView } from './views/boat.js';
@@ -16,7 +16,7 @@ import { remote, detect, login, logout, startSync, onRemote, changePassword, imp
 
 const $ = (s, r = document) => r.querySelector(s);
 const ui = {
-  route: { name: 'overview', id: null }, tab: 'prep', filter: 'all', base: 'all', q: '', view: 'cards', drafts: {},
+  route: { name: 'overview', id: null }, depLater: {}, depKey: '', tab: 'prep', filter: 'all', base: 'all', q: '', view: 'cards', drafts: {},
   add: false, techs: false, banner: false, editRec: false, tplNow: true, confirm: null, obsF: 'all',
   xm: { month: '', boat: 'all' },
   teamEdit: null, cl: null, imp: null, impErr: null, palette: null, accounts: { list: null, loaded: false }, logoutBlock: null,
@@ -97,7 +97,7 @@ subscribe((info) => {
 // ---- rendu --------------------------------------------------------------------------------------
 function sideHTML(s) {
   const nav = (to, icn, label, n) => `<button type="button" class="nav ${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}" ${ui.route.name === to ? 'aria-current="page"' : ''}>${ic(icn)}<span>${label}</span>${n != null ? `<em class="mono">${n}</em>` : ''}</button>`;
-  return `<div class="brand"><span class="mark"><img src="icons/logo.svg" alt="" width="96" height="96" decoding="async"></span><div><b>Hublot</b><small>ACM Caraïbes</small></div></div>
+  return `<button type="button" class="brand brandlink" data-act="nav" data-to="overview" title="Vue d’ensemble"><span class="mark"><img src="icons/logo.svg" alt="" width="96" height="96" decoding="async"></span><span class="bt"><b>Hublot</b><small>ACM Caraïbes</small></span></button>
     <span class="k side-k">${remote.user?.role === 'tech' ? 'Espace technicien' : 'Espace manager'}</span>
     <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${isTech() ? '' : `${nav('team', 'users', 'Mon équipe', s.team.length)}${nav('checklist', 'list', 'Liste avant départ', s.templates.length)}${ui.server ? nav('accounts', 'users', 'Comptes', ui.accounts?.list ? ui.accounts.list.filter((u) => !u.disabled).length : null) : ''}`}</nav>
     <div class="grow"></div>
@@ -176,7 +176,22 @@ function paletteItems(s, q) {
   const pool = isTech() ? items.filter((i) => i.label === 'Vue d’ensemble' || i.label === 'Changer de thème' || i.sub.startsWith('Bateau')) : items;
   if (ui.server && !isTech()) pool.splice(4, 0, { label: 'Comptes', sub: 'Page', run: () => go('accounts'), icon: 'users' });
   const n = norm(q).trim();
-  return n ? pool.filter((i) => norm(i.label + ' ' + i.sub).includes(n)) : pool.slice(0, 12);
+  if (!n) return pool.slice(0, 12);
+  const words = n.split(/\s+/);
+  const hit = (txt) => { const t = norm(txt); return words.every((w) => t.includes(w)); };
+  const out = pool.filter((i) => hit(i.label + ' ' + i.sub));
+  // observations en cours et historique des préparations (une seule entrée par titre et par bateau)
+  const seen = new Set(), more = [];
+  const add = (b, t, sub, tab) => {
+    if (!t?.title || !hit(`${t.title} ${b.name} ${sub}`)) return;
+    const k = `${b.id}|${tab}|${norm(t.title)}|${sub}`; if (seen.has(k)) return; seen.add(k);
+    more.push({ label: t.title, sub: `${sub} · ${b.name}`, run: () => go('boat', b.id, tab), icon: tab === 'prep' ? 'flag' : 'history' });
+  };
+  sortBoats(s.boats).forEach((b) => {
+    [...b.tasks, ...b.pendingOnReturn].filter((t) => !t.template).forEach((t) => add(b, t, t.done ? 'Observation terminée' : 'Observation', 'prep'));
+    b.history.forEach((h) => (h.tasks || []).filter((t) => !t.template).forEach((t) => add(b, t, `Historique du ${fmtD(h.date)}`, 'archives')));
+  });
+  return [...out, ...more].slice(0, 40);
 }
 const paletteList = (s) => {
   const list = paletteItems(s, ui.palette.q);
@@ -195,7 +210,14 @@ function layerHTML(s, now) {
       <p id="lo-d"><b>${plural(b.blocked, 'modification', 'modifications')}</b> sur ${plural(b.boats, 'bateau', 'bateaux')} ne sont pas encore parties vers le serveur (pas de réseau ?). Si tu te déconnectes maintenant, elles seront perdues.</p>
       <div class="row gap wrap"><button class="btn pri" data-act="logoutKeep" autofocus>Rester connecté</button><button class="btn bad" data-act="logoutForce">Me déconnecter et perdre ces modifications</button></div></div></div>`;
   }
-  if (ui.palette) h += `<dialog class="palette" id="palette" aria-label="Rechercher"><div class="pin">${ic('search')}<input id="pq" placeholder="Bateau, page ou action" autocomplete="off" value="${esc(ui.palette.q)}" data-pal></div><ul id="plist">${paletteList(s)}</ul><footer class="mut small"><kbd>↑</kbd><kbd>↓</kbd> naviguer <kbd>Entrée</kbd> ouvrir <kbd>Échap</kbd> fermer</footer></dialog>`;
+  const dueNow = ui.depKey ? ui.depKey.split(',').map((i) => s.boats.find((b) => b.id === i)).filter(Boolean) : [];
+  if (dueNow.length && !ui.logoutBlock) {
+    h += `<div class="modalback"><div class="panel modalbox" role="alertdialog" aria-labelledby="dp-t"><h3 id="dp-t">${ic('flag')} ${dueNow.length > 1 ? 'Départs à signaler' : 'Départ à signaler'}</h3>
+      <p class="mut small">L’heure de départ prévue est passée. « Signaler le départ » archive la préparation et reporte les observations non terminées au retour.</p>
+      <ul class="depask">${dueNow.map((b) => `<li><div><b>${esc(b.name)}</b><span class="mut small"> · prévu le ${esc(fmtDT(b.departure))}</span></div>
+        <div class="row gap wrap"><button class="btn pri sm" type="button" data-act="depYes" data-id="${b.id}">Signaler le départ</button><button class="btn sm" type="button" data-act="depNo" data-id="${b.id}">Pas encore</button></div></li>`).join('')}</ul></div></div>`;
+  }
+  if (ui.palette) h += `<dialog class="palette" id="palette" aria-label="Rechercher"><div class="pin">${ic('search')}<input id="pq" placeholder="Bateau, observation, historique ou action" autocomplete="off" value="${esc(ui.palette.q)}" data-pal></div><ul id="plist">${paletteList(s)}</ul><footer class="mut small"><kbd>↑</kbd><kbd>↓</kbd> naviguer <kbd>Entrée</kbd> ouvrir <kbd>Échap</kbd> fermer</footer></dialog>`;
   return h;
 }
 
@@ -343,6 +365,8 @@ document.addEventListener('click', (e) => {
     case 'toggleAdd': ui.add = !ui.add; if (!ui.add) { delete ui.drafts['nb-name']; } if (ui.route.name !== 'overview') go('overview'); render(); if (ui.add) $('#nb-name')?.focus(); break;
     case 'goBackup': go('backup'); break;
     case 'logout': logout().then((r) => { if (r.blocked) ui.logoutBlock = r; else ui.loginErr = ''; render(); }); break;
+    case 'depYes': ui.depKey = ''; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
+    case 'depNo': ui.depLater[id] = Date.now() + 30 * 60000; ui.depKey = ''; render(); toast(`${nm} : je te redemande dans 30 min`); break;
     case 'logoutKeep': ui.logoutBlock = null; render(); break;
     case 'logoutForce': ui.logoutBlock = null; logout({ force: true }).then(() => { ui.loginErr = ''; render(); }); break;
     // comptes (manager)
@@ -576,11 +600,10 @@ function tick() {
   tickCountdowns();
   const s = getState();
   if (ui.server && (!remote.user || remote.user.mustChange || remote.user.role !== 'manager' || remote.pending || !remote.lastSync || Date.now() - remote.lastSync > 20000)) return;
-  const due = A.dueDepartures(s);
-  if (due.length) {
-    const names = due.map((i) => s.boats.find((b) => b.id === i).name).join(', ');
-    M(`Départ automatique : ${names}`, (st) => due.forEach((i) => A.confirmDeparture(st, i, { auto: true })));
-  }
+  const now = Date.now();
+  const due = A.dueDepartures(s).filter((i) => !(ui.depLater[i] > now));
+  const key = due.join(',');
+  if (key !== ui.depKey) { ui.depKey = key; render(); } // la fenêtre de question apparaît (ou disparaît)
 }
 
 // ---- démarrage ----------------------------------------------------------------------------------------------

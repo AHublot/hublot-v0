@@ -116,7 +116,7 @@ export function backupView(s, ui) {
         <p class="mut small">Une copie est gardée à l’ouverture (toutes les 12 h) et avant chaque import ou restauration.</p>
         ${snaps.length ? `<ul class="snaps">${snaps.map((x, i) => `<li><div><b class="mono">${esc(fmtDT(x.at))}</b><span class="mut small"> · ${esc(x.label)} · ${plural(x.boats, 'bateau', 'bateaux')}</span></div>${ui.confirm === 'snap' + i ? `<div class="row gap"><button class="btn sm bad solid" data-act="snapRestore" data-i="${i}">Restaurer</button><button class="btn sm" data-act="confirmNo">Annuler</button></div>` : `<button class="btn sm" data-act="confirmAsk" data-v="snap${i}">Restaurer</button>`}</li>`).join('')}</ul>` : '<p class="mut small">Pas encore de copie.</p>'}</div>`}
       <div class="panel"><h3>Préférences</h3>
-        <label class="ck"><input type="checkbox" data-chg="pref" data-k="autoDeparture" ${s.prefs.autoDeparture ? 'checked' : ''}> Signaler automatiquement le départ à l’heure prévue</label>
+        <label class="ck"><input type="checkbox" data-chg="pref" data-k="autoDeparture" ${s.prefs.autoDeparture ? 'checked' : ''}> Me demander de signaler le départ à l’heure prévue</label>
         <div class="fld"><label class="k" for="bn">Nom de la base</label><input id="bn" value="${esc(s.baseName)}" data-chg="baseName"></div></div>
       <div class="panel"><h3>Zone sensible</h3><p class="mut small">${ui.server ? 'Efface toute la flotte pour toute l’équipe. Le serveur garde ses copies quotidiennes.' : 'Charge une flotte fictive pour essayer l’application, ou efface tout. Une copie de sécurité est faite avant.'}</p>
         <div class="row gap wrap">${ui.server ? '' : '<button class="btn" data-act="demo">Charger la démo</button>'}
