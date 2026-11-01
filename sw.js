@@ -1,10 +1,10 @@
 // Fonctionne sans réseau (quai, mer) : l'application est mise en cache à la première visite.
 // Change VERSION à chaque mise en ligne pour forcer le rafraîchissement.
-const VERSION = 'hublot-v3.3.2';
+const VERSION = 'hublot-v3.4.0';
 const SHELL = [
-  './', 'index.html', 'styles/app.css', 'manifest.webmanifest', 'icons/icon.svg',
+  './', 'index.html', 'styles/app.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/logo.svg',
   'src/app.js', 'src/util.js', 'src/model.js', 'src/actions.js', 'src/store.js', 'src/demo.js', 'src/icons.js',
-  'src/whatsapp.js', 'src/voice.js', 'src/xlsx.js', 'src/report.js', 'src/remote.js', 'src/views/common.js', 'src/views/overview.js', 'src/views/boat.js', 'src/views/pages.js',
+  'src/whatsapp.js', 'src/voice.js', 'src/xlsx.js', 'src/report.js', 'src/remote.js', 'src/merge.js', 'src/views/common.js', 'src/views/overview.js', 'src/views/boat.js', 'src/views/pages.js',
 ];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

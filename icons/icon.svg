@@ -1,1 +1,95 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0A1621"/><path d="M144 372h224l-32 52H176z" fill="#E8590C"/><path d="M256 96v250M256 112l112 176H256z" fill="none" stroke="#E8590C" stroke-width="30" stroke-linejoin="round" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title desc">
+  <title id="title">Hublot</title>
+  <desc id="desc">A white catamaran with turquoise bows, seen through a protective porthole above a lively blue sea at sunset.</desc>
+  <defs>
+    <clipPath id="window"><circle cx="256" cy="254" r="190"/></clipPath>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#103D60"/><stop offset="1" stop-color="#00517A"/>
+    </linearGradient>
+    <linearGradient id="sunset" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#FFBF8C"/><stop offset="1" stop-color="#FFD2A5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded application tile and protective porthole. -->
+  <rect width="512" height="512" rx="76" fill="#052440"/>
+  <circle cx="256" cy="254" r="218" fill="#F8F8F2"/>
+  <circle cx="256" cy="254" r="198" fill="#052440"/>
+
+  <!-- All scenery is clipped to the porthole glass. -->
+  <g clip-path="url(#window)">
+    <path fill="url(#sky)" d="M60 60H452V450H60Z"/>
+    <path fill="url(#sunset)" d="M144 275A128 128 0 0 1 368 275Z"/>
+    <path fill="#004B71" d="M60 275H452V450H60Z"/>
+    <path stroke="#FFCC95" stroke-width="4" d="M65 275H447"/>
+    <g fill="#FFCB93">
+      <path d="M87 284Q114 281 139 284Q115 287 87 284Z"/>
+      <path d="M107 294Q121 292 133 294Q121 296 107 294Z"/>
+      <path d="M365 284Q388 281 414 284Q389 287 365 284Z"/>
+      <path d="M379 295Q391 292 404 295Q391 297 379 295Z"/>
+    </g>
+
+    <!-- Broad vector waves: the more agitated version. -->
+    <g fill="#30BBD0">
+      <path d="M66 299C87 291 100 291 117 300S145 307 165 303L166 309C142 316 127 310 111 304S83 301 66 306Z"/>
+      <path d="M345 307C366 319 389 315 410 305S437 302 452 306V314C431 304 422 312 408 316S368 324 345 314Z"/>
+      <path d="M66 326C92 312 108 320 128 328S157 341 173 336C155 345 140 340 119 331S91 327 66 337Z"/>
+      <path d="M300 335C323 329 336 340 351 338S373 319 392 324C403 327 410 331 418 332C398 332 394 327 384 333S365 348 348 346S323 334 300 343Z"/>
+      <path d="M82 340C109 332 124 353 150 350S196 326 222 328S264 351 291 352S335 340 359 343S400 334 428 334L434 345C405 344 393 356 366 353S322 360 296 362S255 349 231 342S194 344 173 353S140 366 116 353S96 344 82 346Z"/>
+      <path d="M109 375C139 377 158 358 183 357C208 354 227 376 251 384L266 389C239 385 223 375 205 374S174 386 150 391S124 392 109 390Z"/>
+      <path d="M159 421C192 412 229 385 268 383C302 380 328 390 353 402S383 417 403 413L407 427C382 433 360 419 339 407S300 394 275 400S229 422 208 432Z"/>
+    </g>
+    <g fill="#F9F9F2">
+      <path d="M142 368C159 359 174 353 189 355C207 356 220 368 230 376C212 371 207 366 200 366C204 373 195 373 191 368C179 360 159 366 142 368Z"/>
+      <path d="M302 387C320 378 338 378 352 385S369 401 382 404C365 404 355 394 346 393C349 398 343 398 337 391C328 385 314 386 302 387Z"/>
+    </g>
+
+    <!-- Two subtle stays; the starboard one passes behind the sail. -->
+    <g fill="none" stroke="#83B3C6" stroke-width="1" stroke-linecap="round">
+      <path d="M255 86L189 283"/>
+      <path d="M257 86L323 283"/>
+    </g>
+
+    <!-- Cabin and connecting bridge deck. -->
+    <path fill="#F9F8EE" d="M183 283L199 276L207 263Q232 258 256 260Q281 259 305 263L313 277L330 283L342 291H170Z"/>
+    <path fill="#062D49" d="M208 265L201 279H310L303 265Z"/>
+    <path fill="#155477" d="M230 265H235L231 279H225ZM279 265H283L289 279H282Z"/>
+    <path fill="#E7F2F0" d="M176 287H336L327 297H185Z"/>
+    <path fill="#8FC5D2" d="M208 290Q256 307 304 290L295 302Q256 309 217 302Z"/>
+
+    <!-- Twin bows, with paint following the outboard hull faces. -->
+    <g>
+      <path fill="#FBF8ED" d="M176 290Q164 290 162 306L159 339Q158 355 164 356L208 340Q213 337 211 323L208 303Q207 290 198 290Z"/>
+      <path fill="#A5D1D8" d="M200 291Q208 292 209 305L212 329Q213 337 208 340L201 338Q206 331 204 317Z"/>
+      <path fill="#51B7B1" d="M163 316L160 341Q159 354 164 356L207 340Z"/>
+      <path fill="#249DAA" d="M164 356L207 340L201 338L164 351Z"/>
+      <path fill="#FBF8ED" d="M336 290Q348 290 350 306L353 339Q354 355 348 356L304 340Q299 337 301 323L304 303Q305 290 314 290Z"/>
+      <path fill="#A5D1D8" d="M312 291Q304 292 303 305L300 329Q299 337 304 340L311 338Q306 331 308 317Z"/>
+      <path fill="#51B7B1" d="M349 316L352 341Q353 354 348 356L305 340Z"/>
+      <path fill="#249DAA" d="M348 356L305 340L311 338L348 351Z"/>
+    </g>
+
+    <!-- Mainsail: straight luff and a gently convex positive roach. -->
+    <path fill="#FCF8EC" d="M261 95C279 119 290 139 300 164C313 194 324 229 332 261L261 254Z"/>
+    <path fill="#C5DFE8" d="M261 101C262 163 265 209 278 231C285 242 296 249 310 254L261 250Z"/>
+    <g fill="none" stroke="#C3DEE7" stroke-width=".9">
+      <path d="M262 139Q280 145 299 159"/>
+      <path d="M262 197Q295 209 322 230"/>
+    </g>
+    <path d="M261 255L334 263" fill="none" stroke="#123D55" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M256 83V286" fill="none" stroke="#FCF9EE" stroke-width="4" stroke-linecap="round"/>
+    <g fill="#E4F2F3">
+      <path d="M188 279L187 285H190L191 280Z"/>
+      <path d="M322 279L323 285H326L325 280Z"/>
+    </g>
+
+    <!-- Glass highlight. -->
+    <path d="M119 154Q139 121 179 106" fill="none" stroke="#99C5DA" stroke-width="12" stroke-linecap="round"/>
+  </g>
+
+  <!-- Lower porthole closure tabs. -->
+  <g fill="#F8F8F2" stroke="#052440" stroke-width="5" stroke-linejoin="round">
+    <rect x="60" y="365" width="31" height="47" rx="7" transform="rotate(-39 75.5 388.5)"/>
+    <rect x="421" y="365" width="31" height="47" rx="7" transform="rotate(39 436.5 388.5)"/>
+  </g>
+</svg>
