@@ -46,35 +46,34 @@ function kpis(f, ui) {
 function card(b, now) {
   const st = boatStats(b), stt = boatStatus(b), mc = maintCounts(b, now), miss = missingDates(b, now);
   const dep = !b.inRental && parseLocal(b.departure);
-  const notes = [];
+  // l'essentiel, en haut : où en est la préparation, ce qu'il reste à traiter
+  const key = [];
   if (!b.inRental) {
-    notes.push(`<span>${plural(st.obsOpen, 'observation', 'observations')} à traiter</span>`);
-    if (st.blocked) notes.push(`<span class="t-bad">${ic('flag')} ${plural(st.blocked, 'bloquant', 'bloquants')}</span>`);
+    key.push(st.obsOpen ? `<span class="kchip warn">${ic('tool')} ${plural(st.obsOpen, 'observation', 'observations')} à traiter</span>` : `<span class="kchip ok">${ic('check')} Aucune observation</span>`);
+    if (st.blocked) key.push(`<span class="kchip bad">${ic('flag')} ${plural(st.blocked, 'bloquant', 'bloquants')}</span>`);
   } else {
     const n = b.pendingOnReturn.length;
-    notes.push(`<span>${n ? plural(n, 'point à reprendre', 'points à reprendre') + ' au retour' : 'Rien en attente pour le retour'}</span>`);
+    key.push(n ? `<span class="kchip rent">${ic('tool')} ${n} à reprendre au retour</span>` : `<span class="kchip calm">Rien à reprendre au retour</span>`);
   }
-  if (mc.late) notes.push(`<button type="button" class="chipbtn t-warn" data-act="open" data-id="${b.id}" data-tab="maint">${ic('tool')} ${plural(mc.late, 'entretien en retard', 'entretiens en retard')}</button>`);
-  if (miss) notes.push(`<button type="button" class="chipbtn t-mut" data-act="open" data-id="${b.id}" data-tab="maint">${plural(miss, 'date à renseigner', 'dates à renseigner')}</button>`);
-  const when = b.inRental
-    ? `<div class="fld"><label class="k" for="r-${b.id}">Retour prévu</label><input id="r-${b.id}" type="datetime-local" value="${esc(b.returnDate)}" data-chg="ret" data-id="${b.id}"></div>`
-    : `<div class="fld"><label class="k" for="d-${b.id}">Prochain départ · heure locale</label><input id="d-${b.id}" type="datetime-local" value="${esc(b.departure)}" data-chg="dep" data-id="${b.id}"></div>`;
-  const foot = b.inRental
-    ? `<span class="mut small">${ic('clock')} Parti ${b.lastDeparture ? esc(fmtDT(b.lastDeparture)) : ''}</span>`
-    : dep ? `<span class="small">${ic('clock')} ${dep > now ? 'Départ dans' : 'Départ'} ${cd(b.departure, now)}</span>` : `<span class="mut small">Pas de départ planifié</span>`;
+  const minor = [];
+  if (mc.late) minor.push(`<button type="button" class="chipbtn t-warn" data-act="open" data-id="${b.id}" data-tab="maint">${ic('tool')} ${plural(mc.late, 'entretien en retard', 'entretiens en retard')}</button>`);
+  if (miss) minor.push(`<button type="button" class="chipbtn t-mut" data-act="open" data-id="${b.id}" data-tab="maint">${plural(miss, 'date à renseigner', 'dates à renseigner')}</button>`);
+  const prep = b.inRental ? '' : `<div class="prep"><div class="row between"><span class="pcount mono">${st.done}/${st.total} tâches</span><b class="mono">${st.pct} %</b></div>${bar(st.pct, st.blocked ? 'bad' : st.open ? '' : 'ok')}</div>`;
+  const dateStr = b.inRental ? b.returnDate : b.departure;
+  const dateTxt = dateStr
+    ? `<span class="dcol"><b>${b.inRental ? 'Retour' : 'Départ'} ${esc(fmtWDT(dateStr))}</b><em>${b.inRental || dep > now ? 'dans' : 'dépassé depuis'} ${cd(dateStr, now)}</em></span>`
+    : `<span class="mut">${b.inRental ? 'Retour à renseigner' : 'Pas de départ planifié'}</span>`;
   return `<article class="bcard ${stt.key}${b.base === 'Martinique' ? '' : ' other'}" data-open="${b.id}">
     <header><span class="bico">${ic('boat')}</span><h3>${esc(b.name)}</h3>${pill(stt)}</header>
-    <div class="fld"><label class="k" for="b-${b.id}">Base</label>
-      <select id="b-${b.id}" data-chg="base" data-id="${b.id}">
-        <option value="">Sans base</option>${BASES.map((x) => `<option${b.base === x ? ' selected' : ''}>${x}</option>`).join('')}
-      </select>${b.base === 'Autre' && b.otherBase ? `<span class="mut small">${esc(b.otherBase)}</span>` : ''}</div>
-    ${when}
-    ${b.inRental ? '' : `<div class="prep"><div class="row between small"><span class="mut">Préparation ${st.done}/${st.total}</span><b class="mono">${st.pct} %</b></div>${bar(st.pct, st.blocked ? 'bad' : st.open ? '' : 'ok')}</div>`}
-    <div class="notes small">${notes.join('')}</div>
-    <div class="foot">${foot}</div>
+    ${prep}
+    <div class="bkey">${key.join('')}</div>
+    <div class="bwhen small"><span class="dwrap">${ic('clock')} ${dateTxt}</span><label class="editdate" title="Modifier la date"><span class="vh">Modifier la date</span>${ic('edit')}<input type="datetime-local" value="${esc(dateStr || '')}" data-chg="${b.inRental ? 'ret' : 'dep'}" data-id="${b.id}" aria-label="${b.inRental ? 'Retour prévu' : 'Prochain départ'} : ${esc(b.name)}"></label></div>
+    ${minor.length ? `<div class="notes small">${minor.join('')}</div>` : ''}
     <footer>
+      <select class="basesel" aria-label="Base de ${esc(b.name)}" data-chg="base" data-id="${b.id}">
+        <option value="">Sans base</option>${BASES.map((x) => `<option${b.base === x ? ' selected' : ''}>${x}</option>`).join('')}
+      </select>
       <button type="button" class="btn sm ${b.inRental ? '' : 'ghost'}" data-act="${b.inRental ? 'retAsk' : 'depAsk'}" data-id="${b.id}">${ic(b.inRental ? 'left' : 'send')} ${b.inRental ? 'Signaler le retour' : 'Signaler le départ'}</button>
-      <button type="button" class="btn sm link icon" data-act="open" data-id="${b.id}" aria-label="Ouvrir ${esc(b.name)}" title="Ouvrir">${ic('right')}</button>
     </footer>
   </article>`;
 }

@@ -405,7 +405,7 @@ document.addEventListener('click', (e) => {
     case 'recReset': M('Liste remise à celle de la flotte', (st) => A.resetBoatTemplates(st, id)); break;
     case 'addMissing': M('Tâches habituelles ajoutées', (st) => A.addMissingTemplates(st, id)); break;
     // départ / retour
-    case 'depAsk': ui.confirm = 'dep:' + id; render(); break;
+    case 'depAsk': if (ui.route.name !== 'boat' || ui.route.id !== id) go('boat', id, 'prep'); ui.confirm = 'dep:' + id; render(); break;
     case 'dep': ui.confirm = null; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
     case 'retAsk': if (ui.route.name !== 'boat' || ui.route.id !== id) go('boat', id, 'prep'); ui.confirm = 'ret:' + id; render(); break;
     case 'retGo': ui.confirm = null; ui.tab = 'prep'; M(`Retour signalé · ${nm}`, (st) => A.newReturn(st, id)); break;
