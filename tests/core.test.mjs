@@ -246,3 +246,19 @@ test('import de la vraie sauvegarde (si présente)', { skip: !existsSync(real) }
   const n = raw.data.boats.reduce((a, b) => a + b.tasks.length, 0);
   assert.equal(s.boats.reduce((a, b) => a + b.tasks.length, 0), n);
 });
+
+test('catégories des tâches habituelles : classement automatique et choix manuel', async () => {
+  const { guessTplCat, tplCatOf, TPL_CATS } = await import('../src/model.js');
+  const { setTplCat } = await import('../src/actions.js');
+  const g = Object.fromEntries([
+    ['Récupérer le linge et le déposer à la laverie.', 0], ['Vider les approvisionnements du bateau.', 0], ['Vider et rincer les réservoirs d’eaux noires', 0], ['Faire le plein eau', 0],
+    ['Verifier gaz (3 bouteiles)', 1], ['Remplacer le filtre du dessalinisateur si besoin', 1], ['Vérifier l’entretien moteur', 1], ['Nettoyer les bacs à eaux grises', 1],
+    ['Nettoyer les fonds de cale', 2], ['Nettoyer les cales moteur', 2], ['Nettoyer l’annexe', 2], ['Nettoyer les coffres extérieurs et le caillebotis', 2],
+    ['Nettoyer les contours des hublots', 3], ['Nettoyer le pont', 4], ['Ranger le bateau', 4],
+  ]);
+  for (const [t, i] of Object.entries(g)) assert.equal(guessTplCat(t), TPL_CATS[i], t);
+  const s = { tplCats: {} };
+  assert.equal(tplCatOf(s, 'Inconnue'), 'Autres');
+  setTplCat(s, 'Inconnue', 'Finitions');
+  assert.equal(tplCatOf(s, 'Inconnue'), 'Finitions');
+});

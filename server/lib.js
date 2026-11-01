@@ -80,7 +80,7 @@ export function setPassword(db, email, password) {
 }
 
 // ---- données de la flotte ---------------------------------------------------------
-const META_KEYS = ['baseName', 'team', 'templates', 'prefs'];
+const META_KEYS = ['baseName', 'team', 'templates', 'prefs', 'tplCats'];
 export function nextVersion(db) {
   db.prepare("UPDATE counter SET v = v + 1 WHERE k = 'seq'").run();
   return db.prepare("SELECT v FROM counter WHERE k = 'seq'").get().v;
@@ -131,7 +131,7 @@ export function importBackup(db, userId, raw) {
   const team = (d.team || []).map((x) => (typeof x === 'string' ? x : x?.name)).filter(Boolean);
   const templates = Array.isArray(d.templates) && d.templates.length ? d.templates : (d.boats.find((b) => b.templates?.length)?.templates || []);
   return applySync(db, userId, {
-    meta: { baseName: d.baseName || 'Ma base', team, templates, prefs: { autoDeparture: true, ...(d.prefs || {}) } },
+    meta: { baseName: d.baseName || 'Ma base', team, templates, tplCats: d.tplCats && typeof d.tplCats === 'object' ? d.tplCats : {}, prefs: { autoDeparture: true, ...(d.prefs || {}) } },
     boats: d.boats.filter((b) => b && b.id),
     deleted: existing.filter((id) => !ids.has(id)),
   });

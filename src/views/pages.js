@@ -1,5 +1,5 @@
 import { esc, initials, plural, fmtDT, fmtD, norm } from '../util.js';
-import { boatStats, baseLabel, sortBoats, DEFAULT_TEMPLATES } from '../model.js';
+import { boatStats, baseLabel, sortBoats, DEFAULT_TEMPLATES, TPL_CATS, TPL_OTHER, tplCatOf } from '../model.js';
 import { monthsAvailable, monthTotals, monthLabel } from '../report.js';
 import { ic } from '../icons.js';
 import { bar, empty } from './common.js';
@@ -44,6 +44,7 @@ export function checklistView(s, ui) {
   return `<div class="page-head"><div><h1>Liste avant départ</h1><p class="mut">Les tâches habituelles de toute la flotte. Chaque bateau garde sa propre copie, modifiable depuis sa page.</p></div></div>
     <div class="two even"><section class="col"><div class="panel"><div class="phead"><h3>Liste de la flotte</h3><span class="count mono">${list.length}</span></div>
       <ol class="tasks">${list.map((t, i) => `<li class="task edit"><span class="num mono">${i + 1}</span><div class="tbody"><div class="ttl">${esc(t)}</div></div>
+        <select class="catsel" data-chg="tplCat" data-i="${i}" aria-label="Catégorie : ${esc(t)}">${[...TPL_CATS, TPL_OTHER].map((c) => `<option${tplCatOf(s, t) === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
         <button class="ibtn" data-act="clUp" data-i="${i}" aria-label="Monter" ${i ? '' : 'disabled'}>${ic('up')}</button><button class="ibtn" data-act="clDn" data-i="${i}" aria-label="Descendre" ${i < list.length - 1 ? '' : 'disabled'}>${ic('down')}</button><button class="ibtn" data-act="clDel" data-i="${i}" aria-label="Retirer">${ic('trash')}</button></li>`).join('')}</ol>
       <form class="inl" data-form="addDefTpl"><input name="title" placeholder="Nouvelle tâche pour toute la flotte" aria-label="Nouvelle tâche" autocomplete="off" data-draft="cl-new"><button class="btn pri" type="submit">Ajouter</button></form>
       <div class="actions-col">

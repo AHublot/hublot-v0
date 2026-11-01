@@ -21,6 +21,20 @@ export const DEFAULT_TEMPLATES = [
   'Récupérer le linge et le déposer à la laverie',
 ];
 
+// Catégories des tâches habituelles (affichage « Avant le départ »). Ordre = ordre d'affichage.
+export const TPL_CATS = ['À l’arrivée du bateau', 'Technique courante', 'Nettoyage courant', 'Nettoyage fin', 'Finitions'];
+export const TPL_OTHER = 'Autres';
+export function guessTplCat(title = '') {
+  const t = norm(title);
+  if (/linge|approvision|noires|plein/.test(t)) return TPL_CATS[0];
+  if (/\bgaz|dessal|entretien|grises/.test(t)) return TPL_CATS[1];
+  if (/hublot/.test(t)) return TPL_CATS[3];
+  if (/\bpont\b|ranger|video/.test(t)) return TPL_CATS[4];
+  if (/cale|annexe|coffre|caillebot/.test(t)) return TPL_CATS[2];
+  return TPL_OTHER;
+}
+export const tplCatOf = (s, title) => { const c = s.tplCats && s.tplCats[title]; return c && (TPL_CATS.includes(c) || c === TPL_OTHER) ? c : guessTplCat(title); };
+
 export const BASES = ['Martinique', 'Guadeloupe', 'Autre'];
 export const ZONES = [
   'Coque et pont', 'Gréement et voiles', 'Moteurs', 'Annexe',
@@ -48,7 +62,7 @@ export const mkTask = (title, tpl = false, extra = {}) => ({
 
 export function emptyState() {
   return {
-    schema: SCHEMA, baseName: 'Ma base', team: [], templates: DEFAULT_TEMPLATES.slice(), boats: [],
+    schema: SCHEMA, baseName: 'Ma base', team: [], templates: DEFAULT_TEMPLATES.slice(), tplCats: {}, boats: [],
     prefs: { autoDeparture: true }, updatedAt: nowIso(),
   };
 }
@@ -102,7 +116,7 @@ export function normalizeState(raw) {
   const first = boats.find((b) => b.templates.length);
   const templates = arr(d.templates).length ? d.templates.slice() : first ? first.templates.slice() : DEFAULT_TEMPLATES.slice();
   return {
-    schema: SCHEMA, baseName: d.baseName || 'Ma base', team, templates, boats,
+    schema: SCHEMA, baseName: d.baseName || 'Ma base', team, templates, tplCats: d.tplCats && typeof d.tplCats === 'object' ? { ...d.tplCats } : {}, boats,
     prefs: { autoDeparture: true, ...(d.prefs || {}) }, updatedAt: nowIso(),
   };
 }

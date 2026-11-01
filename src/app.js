@@ -241,7 +241,7 @@ function doExport() {
   const s = getState();
   const out = {
     format: 'cap-depart-backup', version: 1, savedAt: nowIso(),
-    data: { checklistVersion: 1, schemaVersion: 2, boats: s.boats, team: s.team, templates: s.templates, baseName: s.baseName, prefs: s.prefs },
+    data: { checklistVersion: 1, schemaVersion: 2, boats: s.boats, team: s.team, templates: s.templates, tplCats: s.tplCats || {}, baseName: s.baseName, prefs: s.prefs },
   };
   download(`hublot-${todayStr()}.json`, JSON.stringify(out, null, 2));
 }
@@ -419,6 +419,7 @@ document.addEventListener('change', (e) => {
     case 'baseFilter': ui.base = el.value; render(); break;
     case 'tech': M('', (st) => { const b = st.boats.find((x) => x.id === id); const set = new Set(b.techs); el.checked ? set.add(d.name) : set.delete(d.name); A.setTechs(st, id, [...set]); }); break;
     case 'assign': M('', (st) => A.toggleAssign(st, d.name, id)); break;
+    case 'tplCat': M('', (st) => A.setTplCat(st, st.templates[+d.i], el.value)); break;
     case 'tplNow': ui.tplNow = el.checked; break;
     case 'maint': M('', (st) => A.updateMaint(st, id, d.mid, d.f, el.value)); break;
     case 'hours': M('', (st) => A.setHours(st, id, d.f, el.value)); break;

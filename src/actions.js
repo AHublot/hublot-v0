@@ -266,6 +266,10 @@ export function toggleAssign(s, name, id) {
 export function setFleetTemplates(s, list) {
   s.templates = list;
 }
+export function setTplCat(s, title, cat) {
+  if (!title) return;
+  s.tplCats = { ...(s.tplCats || {}), [title]: cat };
+}
 export function applyTemplatesToFleet(s) {
   s.boats.forEach((b) => { b.templates = s.templates.slice(); });
 }

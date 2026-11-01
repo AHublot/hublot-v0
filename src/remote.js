@@ -20,7 +20,7 @@ function hash(str) {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 const hb = (b) => hash(JSON.stringify(b));
-const metaOf = (s) => ({ baseName: s.baseName, team: s.team, templates: s.templates, prefs: s.prefs });
+const metaOf = (s) => ({ baseName: s.baseName, team: s.team, templates: s.templates, prefs: s.prefs, tplCats: s.tplCats || {} });
 const hm = (s) => hash(JSON.stringify(metaOf(s)));
 
 const LS = {
@@ -123,7 +123,7 @@ async function pull() {
   if (d.meta || d.boats.length || d.deleted.length) {
     applyRemote((st) => {
       if (d.meta && hash(JSON.stringify(d.meta)) !== synced.meta) { // sinon : notre propre envoi qui revient
-        const incoming = { baseName: d.meta.baseName || 'Ma base', team: d.meta.team || [], templates: d.meta.templates?.length ? d.meta.templates : DEFAULT_TEMPLATES.slice(), prefs: { autoDeparture: true, ...(d.meta.prefs || {}) } };
+        const incoming = { baseName: d.meta.baseName || 'Ma base', team: d.meta.team || [], templates: d.meta.templates?.length ? d.meta.templates : DEFAULT_TEMPLATES.slice(), prefs: { autoDeparture: true, ...(d.meta.prefs || {}) }, tplCats: d.meta.tplCats || {} };
         const localDirty = synced.meta && hm(st) !== synced.meta;
         const ih = hash(JSON.stringify(incoming));
         if (!localDirty && hm(st) !== ih) { Object.assign(st, incoming); changed++; }

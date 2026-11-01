@@ -1,7 +1,7 @@
 import { esc, fmtD, fmtDT, fmtWDT, plural, parseLocal } from '../util.js';
 import {
   boatStats, boatStatus, maintStatus, maintCounts, baseLabel, tplsOf, pinnedEvents, latestHours,
-  observationsOf, obsState, BASES, CATEGORIES, INTERVALS,
+  observationsOf, obsState, BASES, CATEGORIES, INTERVALS, TPL_CATS, TPL_OTHER, tplCatOf,
 } from '../model.js';
 import { returnPlan } from '../actions.js';
 import { ic } from '../icons.js';
@@ -40,6 +40,17 @@ function taskRow(b, t, { edit = false, pending = false } = {}) {
         ${billedBox(b, t)}</div>` : ''}</div>
     ${bill}${pending ? '' : `<button type="button" class="tbtn ${t.blocked ? 'on' : ''}" data-act="blk" data-id="${b.id}" data-tid="${t.id}" data-fk="blk-${t.id}" aria-pressed="${!!t.blocked}">${ic('flag')}<span>Bloquer</span></button>`}
     <button type="button" class="ibtn" data-act="${pending ? 'delp' : 'del'}" data-id="${b.id}" data-tid="${t.id}" aria-label="Retirer : ${esc(t.title)}">${ic('x')}</button></li>`;
+}
+
+/** Tâches habituelles rangées par catégorie (ordre des catégories, puis ordre de la liste). */
+function recGroups(s, b, rec) {
+  const order = [...TPL_CATS, TPL_OTHER];
+  const by = new Map(order.map((c) => [c, []]));
+  rec.forEach((t) => by.get(tplCatOf(s, t.template))?.push(t));
+  return order.filter((c) => by.get(c).length).map((c) => {
+    const l = by.get(c), done = l.filter((t) => t.done).length;
+    return `<div class="tcat ${done === l.length ? 'ok' : ''}"><h4><span>${esc(c)}</span><span class="mono">${done}/${l.length}</span></h4><ul class="tasks">${l.map((t) => taskRow(b, t)).join('')}</ul></div>`;
+  }).join('');
 }
 
 function tplEditRow(b, title, i, n) {
@@ -140,7 +151,7 @@ function tabPrep(s, b, ui, now) {
         <form class="inl" data-form="addTpl" data-id="${b.id}"><input name="title" placeholder="Nouvelle tâche habituelle" aria-label="Nouvelle tâche habituelle" autocomplete="off" data-draft="tpl-${b.id}"><button class="btn pri" type="submit">Ajouter</button></form>
         <label class="ck"><input type="checkbox" name="now" data-keep-now ${ui.tplNow !== false ? 'checked' : ''} data-chg="tplNow"> Ajouter aussi à la préparation en cours</label>
         <div class="row gap"><button class="btn" data-act="recEdit">${ic('check')} Terminer</button><button class="btn ghost" data-act="recReset" data-id="${b.id}">Reprendre la liste de la flotte</button></div>`
-      : `${rec.length ? `<ul class="tasks">${rec.map((t) => taskRow(b, t)).join('')}</ul>` : empty('list', 'Aucune tâche habituelle', 'Définis la liste qui revient à chaque retour.')}
+      : `${rec.length ? recGroups(s, b, rec) : empty('list', 'Aucune tâche habituelle', 'Définis la liste qui revient à chaque retour.')}
         <div class="row gap wrap"><button class="btn sm" data-act="recEdit">${ic('edit')} Modifier la liste</button>${missing ? `<button class="btn sm" data-act="addMissing" data-id="${b.id}">${ic('plus')} Ajouter les ${missing} manquante${missing > 1 ? 's' : ''}</button>` : ''}</div>`}
   </section>`;
   const obsPanel = `<section class="panel"><div class="phead"><h3>${ic('tool')} Observations ajoutées</h3><span class="count mono">${st.obsOpen} restante${st.obsOpen > 1 ? 's' : ''}</span></div>

@@ -524,3 +524,11 @@ body.auth .content { padding: 0; }
   .prepgrid > .col { display: contents; }
   .prepgrid .addobs { order: -1; }
 }
+
+/* ---- Catégories des tâches habituelles ---- */
+.tcat + .tcat { margin-top: 14px; }
+.tcat h4 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0 0 4px; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--mut, #5b6b7a); font-weight: 650; }
+.tcat h4 .mono { font-size: 11.5px; letter-spacing: 0; }
+.tcat.ok h4 { color: var(--ok, #1d8a5b); }
+.catsel { max-width: 150px; font-size: 12px; padding: 5px 6px; border-radius: 8px; border: 1px solid var(--line, #d8e2ea); background: var(--card, #fff); color: inherit; }
+@media (max-width: 600px) { .catsel { max-width: 110px; } }
