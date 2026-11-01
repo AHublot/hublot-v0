@@ -145,7 +145,9 @@ export function accountsView(s, ui) {
     const me = remote.user && u.id === remote.user.id;
     const ask = ui.confirm === 'acct-reset:' + u.id;
     return `<li class="acct ${u.disabled ? 'off' : ''}"><span class="avatar">${esc((u.name || u.email).slice(0, 2).toUpperCase())}</span>
-      <div class="ainfo"><b>${esc(u.name || u.email.split('@')[0])}${me ? ' <span class="mut">(toi)</span>' : ''}</b><span class="mut small">${esc(u.email)}</span>
+      <div class="ainfo">${ui.acctEdit === u.id
+        ? `<form class="aname" data-form="acctName" data-uid="${u.id}"><input name="name" value="${esc(u.name || '')}" aria-label="Prénom" autocomplete="off" required maxlength="60"><button class="btn sm pri" type="submit">OK</button><button class="btn sm" type="button" data-act="acctEditNo">Annuler</button></form>`
+        : `<b><button type="button" class="clttl" data-act="acctEdit" data-uid="${u.id}" title="Modifier le prénom" aria-label="Modifier le prénom de ${esc(u.name || u.email)}">${esc(u.name || u.email.split('@')[0])} ${ic('edit')}</button>${me ? ' <span class="mut">(toi)</span>' : ''}</b>`}<span class="mut small">${esc(u.email)}</span>
         <span class="small mut">${u.disabled ? 'Compte désactivé' : u.mustChange ? 'Doit choisir son mot de passe à la première connexion' : esc(ago(u.lastLogin))}</span></div>
       <div class="arole"><select data-chg="acctRole" data-uid="${u.id}" aria-label="Rôle de ${esc(u.name || u.email)}" ${me ? 'disabled' : ''}><option value="tech"${u.role === 'tech' ? ' selected' : ''}>Technicien</option><option value="manager"${u.role === 'manager' ? ' selected' : ''}>Manager</option></select></div>
       <div class="aact">${ask

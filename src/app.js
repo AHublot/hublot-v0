@@ -57,7 +57,7 @@ function parseHash() {
 function hashFor(r) {
   return r.name === 'boat' ? `#/boat/${encodeURIComponent(r.id)}/${ui.tab}` : r.name === 'overview' ? '#/' : `#/${r.name}`;
 }
-const PAGE_RESET = { fsheet: false, clEdit: null, techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null };
+const PAGE_RESET = { fsheet: false, clEdit: null, acctEdit: null, techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null };
 function go(name, id = null, tab = null) {
   if (isTech() && !TECH_PAGES.has(name)) { name = 'overview'; id = null; }
   ui.route = { name, id };
@@ -411,6 +411,8 @@ document.addEventListener('click', (e) => {
     // comptes (manager)
     case 'acctReset': ui.confirm = 'acct-reset:' + d.uid; render(); break;
     case 'acctResetGo': ui.confirm = null; resetAccount(+d.uid).then((r) => { ui.accounts.created = { email: r.email, password: r.password }; return loadAccounts(); }).catch((err) => { ui.accounts.err = err.message; render(); }); break;
+    case 'acctEdit': ui.acctEdit = +d.uid; render(); setTimeout(() => { const el = document.querySelector('.aname input'); if (el) { el.focus(); el.select(); } }); break;
+    case 'acctEditNo': ui.acctEdit = null; render(); break;
     case 'acctToggle': updateAccount({ id: +d.uid, disabled: d.off === '1' }).then((r) => { ui.accounts.list = r.users; ui.accounts.err = ''; render(); }).catch((err) => { ui.accounts.err = err.message; render(); }); break;
     case 'acctCopy': try { navigator.clipboard.writeText(d.v).then(() => toast('Mot de passe copié'), () => toast('Sélectionne le mot de passe pour le copier')); } catch { toast('Sélectionne le mot de passe pour le copier'); } break;
     case 'acctDismiss': ui.accounts.created = null; render(); break;
@@ -631,6 +633,15 @@ document.addEventListener('submit', (e) => {
       if (r) ui.clEdit = null;
       if (r) toast(`Tâche renommée${r.prep || r.next ? ` sur ${plural(r.prep + r.next, 'bateau', 'bateaux')}` : ''}`, { undo: true });
       else render();
+      break;
+    }
+    case 'acctName': {
+      const uid = +form.dataset.uid, n = g('name'); if (!n) return;
+      updateAccount({ id: uid, name: n }).then((r) => {
+        ui.accounts.list = r.users; ui.accounts.err = ''; ui.acctEdit = null;
+        if (remote.user && remote.user.id === uid) remote.user.name = n;
+        toast(`Prénom enregistré : ${n}`); render();
+      }).catch((err) => { ui.accounts.err = err.message; render(); });
       break;
     }
     case 'addDefTpl': {

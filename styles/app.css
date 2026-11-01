@@ -741,3 +741,5 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
   .task.edit .tbody { flex: 1 1 calc(100% - 40px); }
   .task.edit .catsel { margin-left: 34px; flex: 1; min-width: 0; max-width: none; }
 }
+.aname { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.aname input { flex: 1; min-width: 120px; font-weight: 600; }
