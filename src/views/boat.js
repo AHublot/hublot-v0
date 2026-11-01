@@ -68,6 +68,15 @@ function tplEditRow(b, title, i, n) {
     <button type="button" class="ibtn" data-act="recDel" data-id="${b.id}" data-i="${i}" aria-label="Retirer de la liste">${ic('trash')}</button></li>`;
 }
 
+/** Confirmation avant de signaler un départ. */
+function depConfirm(b) {
+  const open = b.tasks.filter((t) => !t.done).length;
+  return `<section class="panel retconfirm" aria-label="Valider le départ"><h3>${ic('send')} Signaler le départ · ${esc(b.name)}</h3>
+    <ul><li>${ic('history')}<span>La préparation en cours part dans <b>Archives &amp; suivi</b>.</span></li>
+    <li>${ic('flag')}<span>${open ? `<b>${plural(open, 'tâche non terminée est reportée', 'tâches non terminées sont reportées')}</b> au retour.` : 'Toutes les tâches sont terminées.'}</span></li></ul>
+    <div class="row gap wrap"><button class="btn pri" data-act="dep" data-id="${b.id}">${ic('check')} Valider le départ</button><button class="btn" data-act="confirmNo">Annuler</button></div></section>`;
+}
+
 /** Récapitulatif avant de valider un nouveau retour. */
 function retConfirm(s, b) {
   const p = returnPlan(s, b);
@@ -113,10 +122,11 @@ function header(s, b, ui, now) {
     <span class="tag">${ic('pin')} ${esc(baseLabel(b))}</span>
     ${b.inRental
       ? `<button type="button" class="btn sm" data-act="retAsk" data-id="${b.id}">${ic('left')} Signaler le retour</button>`
-      : `<button type="button" class="btn sm ghost" data-act="dep" data-id="${b.id}">${ic('send')} Signaler le départ</button>`}
+      : `<button type="button" class="btn sm ghost" data-act="depAsk" data-id="${b.id}">${ic('send')} Signaler le départ</button>`}
     <span class="tech">${techs} <button type="button" class="linkbtn" data-act="techs" aria-expanded="${!!ui.techs}">${ui.techs ? 'Fermer' : 'Modifier'}</button></span>
   </div>
   ${ui.confirm === 'ret:' + b.id ? retConfirm(s, b) : ''}
+  ${ui.confirm === 'dep:' + b.id ? depConfirm(b) : ''}
   ${ui.techs ? `<div class="panel techpanel">${s.team.length ? s.team.map((n) => `<label class="ck"><input type="checkbox" data-chg="tech" data-id="${b.id}" data-name="${esc(n)}" ${b.techs.includes(n) ? 'checked' : ''}> ${esc(n)}</label>`).join('') : `<span class="mut">Aucune personne dans l’équipe. <button class="linkbtn" data-act="nav" data-to="team">Ajouter des personnes</button></span>`}</div>` : ''}
   ${pins.length ? `<button type="button" class="banner" data-act="banner" aria-expanded="${!!ui.banner}">${ic('bookmark')}<span><b>À retenir</b> · ${esc(pins[0].title)}${pins.length > 1 ? ` <em>+${pins.length - 1}</em>` : ''}</span>${ic(ui.banner ? 'down' : 'chevR')}</button>
     ${ui.banner ? `<ul class="panel pinlist">${pins.map((e) => `<li><span class="mono mut">${esc(fmtD(e.date))}</span> <b>${esc(e.title)}</b>${e.details ? `<p class="mut small">${esc(e.details)}</p>` : ''}</li>`).join('')}</ul>` : ''}` : ''}
@@ -225,7 +235,7 @@ function tabArchives(s, b, ui) {
     const obs = e.tasks.filter((t) => !t.template), rec = e.tasks.filter((t) => t.template);
     const recDone = rec.filter((t) => t.done).length, obsDone = obs.filter((t) => t.done).length;
     const label = e.kind === 'departure' ? `Départ${e.automatic ? ' automatique' : ''}` : e.kind === 'return' ? 'Retour' : 'Archive';
-    return `<details class="panel hist"><summary><b>${label}</b><span class="mono mut">${esc(e.at ? fmtDT(e.at) : fmtD(e.date))}</span>
+    return `<details class="panel hist"><summary><b>${label}</b><span class="mono mut">${esc(e.at ? fmtDT(e.at) : fmtD(e.date))}${e.by ? ` · ${esc(e.by)}` : ''}</span>
       <span class="mut">${obs.length ? `${obsDone}/${plural(obs.length, 'observation réglée', 'observations réglées')}` : 'Aucune observation'}</span></summary>
       ${obs.length ? `<ul class="obshist">${obs.map((t) => `<li class="${t.bill ? 'billed' : ''}"><span class="ost ${t.done ? 'done' : 'carry'}">${t.done ? 'Réglée' : 'Reportée'}</span><div><div class="ttl">${esc(t.title)}${t.bill ? ` <span class="billtag">${ic('euro')} ${billText(t)}</span>` : ''}</div><div class="tmeta">${t.origin ? `Constatée le ${esc(fmtD(t.origin))}` : ''}${t.done && t.doneAt ? ` · réglée le ${esc(fmtD(t.doneAt))}` : ''}</div></div></li>`).join('')}</ul>` : ''}
       <p class="mut small">Préparation du ${esc(fmtD(e.date))} · tâches habituelles : ${recDone}/${rec.length} terminées.</p></details>`;

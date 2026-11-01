@@ -535,11 +535,11 @@ body.auth .content { padding: 0; }
 @media (max-width: 600px) { .catsel { max-width: 110px; } }
 
 /* ---- Espace technicien : on masque ce qui est réservé au manager (le serveur le refuse aussi) ---- */
-body.tech [data-act="dep"], body.tech [data-act="ret"], body.tech [data-act="retAsk"], body.tech [data-act="techs"],
+body.tech [data-act="techs"],
 body.tech [data-act="bill"], body.tech [data-act="toggleAdd"], body.tech [data-act="recEdit"], body.tech [data-act="addMissing"],
 body.tech [data-act="maintDel"], body.tech [data-act="evPin"], body.tech [data-act="evDel"], body.tech [data-act="delBoat"],
 body.tech [data-act="xlsMonth"], body.tech #tab-reglages, body.tech .techpanel, body.tech .tech, body.tech .billf,
-body.tech [data-form="addMaint"], body.tech [data-form="addEvent"], body.tech .retconfirm,
+body.tech [data-form="addMaint"], body.tech [data-form="addEvent"],
 body.tech .fld:has([data-chg="dep"]), body.tech .fld:has([data-chg="ret"]),
 body.tech .fld:has([data-f="intervalDays"]), body.tech .fld:has([data-f="intervalHours"]),
 body.tech .panel:has(> [data-form="addEvent"]), body.tech [data-form="addEvent"] { display: none !important; }
@@ -618,3 +618,20 @@ body.tech .panel:has(> [data-form="addEvent"]), body.tech [data-form="addEvent"]
 .pj2-i { margin-left: auto; font-size: 12px; color: #A9BBCB; white-space: nowrap; } .pj2-i i { font-style: normal; color: #FF9C7A; font-weight: 600; }
 @media (max-width: 700px) { .pj2-grid { grid-template-columns: minmax(0, 1fr); } .pj2-grid > div + div { border-left: 0; padding-left: 0; border-top: 1px solid var(--side-line); padding-top: 10px; } }
 .hero.pj2::after { display: none; }
+
+/* Téléphone : en-tête de bateau plus bas, pour que le formulaire d'observations soit vite atteint */
+@media (max-width: 700px) {
+  .crumbs { display: none; }
+  .statcard { display: flex !important; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 14px !important; }
+  .statcard > div { padding: 0 !important; border: 0 !important; margin: 0; }
+  .statcard > div:nth-child(1) { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 2px 8px; flex-wrap: wrap; }
+  .statcard .eyebrow { display: none; }
+  .statcard .sbig { font-size: 15px; }
+  .statcard > div:nth-child(2) { flex: none; width: 118px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0 8px; }
+  .statcard > div:nth-child(2) .mut { display: none; }
+  .statcard > div:nth-child(2) .bar { height: 5px; margin: 0; }
+  .statcard > div:nth-child(3) { display: none; }
+  .statcard > div:nth-child(3):has(.t-bad) { display: block; flex-basis: 100%; }
+  .boat-head h1 { font-size: 30px; }
+  body.tech .boat-head .actions .acc, body.tech .boat-head [data-act="print"], body.tech .back { display: none !important; }
+}

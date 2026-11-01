@@ -68,6 +68,7 @@ export function applyOps(boat, ops, { by = '' } = {}) {
       if (i >= 0) continue; // déjà là (envoi rejoué)
       const it = clone(o.item);
       if (by && (o.a === 'tasks' || o.a === 'pendingOnReturn') && !it.addedBy) it.addedBy = by;
+      if (by && o.a === 'history') it.by = by; // qui a signalé le départ ou le retour
       if (LISTS[o.a] === 'start') list.unshift(it); else list.push(it);
     } else if (o.op === 'upd') {
       if (i < 0) continue; // retiré entre-temps par quelqu'un d'autre
@@ -99,7 +100,18 @@ const TECH_MAINT = new Set(['date', 'hours', 'notes']);
  */
 export function deniedOps(role, ops, boat) {
   if (role === 'manager') return [];
-  return ops.filter((o) => !techMay(o, boat));
+  // Départ ou retour signalé : le technicien peut faire passer le bateau d'un état à l'autre (et seulement ça).
+  const flips = (v) => ops.some((o) => o.op === 'set' && o.k === 'inRental' && !!o.v === v && !!boat?.inRental !== v);
+  const adds = (a) => ops.some((o) => o.op === 'add' && o.a === a);
+  // un départ archive la préparation ; un retour archive et/ou relance les tâches : jamais une simple bascule
+  const life = (flips(true) && adds('history')) || (flips(false) && (adds('history') || adds('tasks')));
+  return ops.filter((o) => !techMay(o, boat) && !(life && lifeMay(o)));
+}
+const LIFE_KEYS = new Set(['inRental', 'departureArchived', 'lastDeparture', 'departure', 'returnDate', 'cycle']);
+function lifeMay(o) {
+  if (o.op === 'set' || o.op === 'unset') return LIFE_KEYS.has(o.k);
+  if (o.a === 'history') return o.op === 'add';
+  return o.a === 'tasks' || o.a === 'pendingOnReturn';
 }
 function techMay(o, boat) {
   if (o.op === 'set') return o.k === 'hours';

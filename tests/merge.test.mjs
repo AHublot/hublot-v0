@@ -87,3 +87,25 @@ test('droits technicien', () => {
   assert.ok(!ok(mk((c) => { c.maintenance.push({ id: 'mm', title: 'Winchs' }); })));
   assert.equal(deniedOps('manager', diffBoat(b, mk((c) => { c.inRental = true; })), b).length, 0);
 });
+
+test('technicien : peut signaler un départ et un retour, rien d’autre au passage', () => {
+  const b = boat();
+  const dep = boat();
+  dep.history.unshift({ id: 'h2', date: '2026-11-01', kind: 'departure', tasks: [] });
+  dep.pendingOnReturn = [{ id: 't2', title: 'Pompe de douche', done: false }];
+  dep.tasks = []; dep.departureArchived = true; dep.inRental = true; dep.lastDeparture = '2026-11-01T10:00'; dep.logs.unshift({ date: 'x', text: 'Départ signalé' });
+  assert.equal(deniedOps('tech', diffBoat(b, dep), b).length, 0, 'départ');
+  const s = applyOps(b, diffBoat(b, dep), { by: 'Léa' });
+  assert.equal(s.history[0].by, 'Léa', 'auteur posé par le serveur');
+  const back = JSON.parse(JSON.stringify(s)); back.inRental = false; back.departureArchived = false; back.departure = ''; back.returnDate = '';
+  back.cycle = '2026-11-05'; back.pendingOnReturn = []; back.tasks = [{ id: 'n1', title: 'Nettoyer le pont', template: 'Nettoyer le pont', done: false }];
+  back.history.unshift({ id: 'h3', date: '2026-11-05', kind: 'return', tasks: [] });
+  assert.equal(deniedOps('tech', diffBoat(s, back), s).length, 0, 'retour');
+  // hors départ / retour : toujours refusé
+  const sneaky = boat(); sneaky.departure = '2026-12-01T10:00'; sneaky.tasks = [];
+  assert.ok(deniedOps('tech', diffBoat(b, sneaky), b).length > 0, 'dates et suppression en masse');
+  // une bascule ne donne pas le droit de toucher au reste
+  const mix = JSON.parse(JSON.stringify(dep)); mix.team = ['x']; mix.maintenance[0].intervalDays = 1; mix.name = 'Pirate';
+  const bad = deniedOps('tech', diffBoat(b, mix), b);
+  assert.ok(bad.length >= 2 && bad.every((o) => o.k === 'name' || o.a === 'maintenance' || o.k === 'team'));
+});

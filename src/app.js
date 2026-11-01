@@ -27,7 +27,8 @@ const LS = { get: (k) => { try { return localStorage.getItem(k); } catch { retur
 const isTech = () => remote.mode === 'server' && remote.user?.role === 'tech';
 const TECH_PAGES = new Set(['overview', 'boat', 'backup']); // « backup » = Mon compte pour un technicien
 const TECH_ACTS = new Set(['nav', 'open', 'tab', 'filter', 'resetFilters', 'view', 'undo', 'theme', 'palette', 'palRun', 'print', 'copyWA',
-  'tgl', 'blk', 'del', 'delp', 'voice', 'obsF', 'banner', 'logout', 'logoutKeep', 'logoutForce', 'confirmNo']);
+  'tgl', 'blk', 'del', 'delp', 'voice', 'obsF', 'banner', 'logout', 'logoutKeep', 'logoutForce', 'confirmNo',
+  'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'depNo']);
 const TECH_CHG = new Set(['hours', 'baseFilter']);
 const TECH_MAINT = new Set(['date', 'hours', 'notes']);
 const TECH_FORMS = new Set(['obs', 'pwd', 'firstPwd', 'login']);
@@ -173,7 +174,7 @@ function paletteItems(s, q) {
     { label: 'Rapport Excel du mois', sub: 'Action', run: () => go('backup'), icon: 'file' },
     ...sortBoats(s.boats).map((b) => ({ label: `Nouveau retour · ${b.name}`, sub: 'Action', run: () => { go('boat', b.id, 'prep'); ui.confirm = 'ret:' + b.id; render(); }, icon: 'left' })),
   ];
-  const pool = isTech() ? items.filter((i) => i.label === 'Vue d’ensemble' || i.label === 'Changer de thème' || i.sub.startsWith('Bateau')) : items;
+  const pool = isTech() ? items.filter((i) => i.label === 'Vue d’ensemble' || i.label === 'Changer de thème' || i.sub.startsWith('Bateau') || i.label.startsWith('Nouveau retour')) : items;
   if (ui.server && !isTech()) pool.splice(4, 0, { label: 'Comptes', sub: 'Page', run: () => go('accounts'), icon: 'users' });
   const n = norm(q).trim();
   if (!n) return pool.slice(0, 12);
@@ -401,7 +402,8 @@ document.addEventListener('click', (e) => {
     case 'recReset': M('Liste remise à celle de la flotte', (st) => A.resetBoatTemplates(st, id)); break;
     case 'addMissing': M('Tâches habituelles ajoutées', (st) => A.addMissingTemplates(st, id)); break;
     // départ / retour
-    case 'dep': M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
+    case 'depAsk': ui.confirm = 'dep:' + id; render(); break;
+    case 'dep': ui.confirm = null; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
     case 'retAsk': if (ui.route.name !== 'boat' || ui.route.id !== id) go('boat', id, 'prep'); ui.confirm = 'ret:' + id; render(); break;
     case 'retGo': ui.confirm = null; ui.tab = 'prep'; M(`Nouveau retour · ${nm}`, (st) => A.newReturn(st, id)); break;
     // observations
@@ -599,7 +601,7 @@ function loadAccounts() {
 function tick() {
   tickCountdowns();
   const s = getState();
-  if (ui.server && (!remote.user || remote.user.mustChange || remote.user.role !== 'manager' || remote.pending || !remote.lastSync || Date.now() - remote.lastSync > 20000)) return;
+  if (ui.server && (!remote.user || remote.user.mustChange || remote.pending || !remote.lastSync || Date.now() - remote.lastSync > 20000)) return;
   const now = Date.now();
   const due = A.dueDepartures(s).filter((i) => !(ui.depLater[i] > now));
   const key = due.join(',');
