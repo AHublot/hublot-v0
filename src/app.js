@@ -28,7 +28,7 @@ const isTech = () => remote.mode === 'server' && remote.user?.role === 'tech';
 const TECH_PAGES = new Set(['overview', 'boat', 'backup']); // « backup » = Mon compte pour un technicien
 const TECH_ACTS = new Set(['nav', 'open', 'tab', 'filter', 'resetFilters', 'view', 'undo', 'theme', 'palette', 'palRun', 'print', 'copyWA',
   'tgl', 'blk', 'del', 'delp', 'voice', 'obsF', 'banner', 'logout', 'logoutKeep', 'logoutForce', 'confirmNo',
-  'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'retYes', 'depNo']);
+  'pjMore', 'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'retYes', 'depNo']);
 const TECH_CHG = new Set(['hours', 'baseFilter']);
 const TECH_MAINT = new Set(['date', 'hours', 'notes']);
 const TECH_FORMS = new Set(['obs', 'pwd', 'firstPwd', 'login']);
@@ -361,6 +361,7 @@ document.addEventListener('click', (e) => {
     case 'nav': e.preventDefault(); go(d.to); break;
     case 'open': e.preventDefault(); go('boat', id, d.tab || 'prep'); break;
     case 'tab': ui.tab = d.v; ui.editRec = false; try { history.replaceState(null, '', hashFor(ui.route)); } catch { /* */ } render(); break;
+    case 'pjMore': ui.pjAll = !ui.pjAll; render(); break;
     case 'filter': ui.filter = d.v; if (ui.route.name !== 'overview') go('overview'); else render(); break;
     case 'resetFilters': ui.filter = 'all'; ui.base = 'all'; ui.q = ''; ui.drafts.q = ''; render(); break;
     case 'view': ui.view = d.v; render(); break;

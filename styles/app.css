@@ -635,3 +635,9 @@ body.tech .panel:has(> [data-form="addEvent"]), body.tech [data-form="addEvent"]
   .boat-head h1 { font-size: 30px; }
   body.tech .boat-head .actions .acc, body.tech .boat-head [data-act="print"], body.tech .back { display: none !important; }
 }
+
+.pj2-more { text-align: left; padding: 4px 10px; font: 600 12px var(--f-cond); letter-spacing: .06em; color: #8FD3E8; cursor: pointer; }
+.pj2-more:hover { color: #fff; }
+.pj2-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pj2-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 4px 9px; border-radius: 8px; background: #12293C; color: #E7EEF4; font-size: 12px; border: 1px solid transparent; cursor: pointer; }
+.pj2-chip:hover { border-color: var(--acc); } .pj2-chip b { font-weight: 700; } .pj2-chip span { color: #A9BBCB; } .pj2-chip i { font-style: normal; color: #8FD3E8; font: 500 11px var(--f-mono); }
