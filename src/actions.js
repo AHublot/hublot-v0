@@ -186,6 +186,11 @@ export function newReturn(s, id, now = new Date()) {
 }
 /** Ancien nom, gardé pour compatibilité. */
 export const returnToBase = (s, id) => newReturn(s, id);
+/** Retours prévus dont l'heure est passée, bateau toujours en location. */
+export function dueReturns(s, now = new Date()) {
+  if (!s.prefs?.autoDeparture) return [];
+  return s.boats.filter((b) => b.inRental && b.returnDate && new Date(b.returnDate) <= now).map((b) => b.id);
+}
 /** Départs dont l'heure est passée et qui n'ont pas encore été signalés. */
 export function dueDepartures(s, now = new Date()) {
   if (!s.prefs?.autoDeparture) return [];

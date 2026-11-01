@@ -80,7 +80,7 @@ function depConfirm(b) {
 /** Récapitulatif avant de valider un nouveau retour. */
 function retConfirm(s, b) {
   const p = returnPlan(s, b);
-  return `<section class="panel retconfirm" aria-label="Valider le nouveau retour"><h3>${ic('left')} Nouveau retour · ${esc(b.name)}</h3>
+  return `<section class="panel retconfirm" aria-label="Valider le retour"><h3>${ic('left')} Signaler le retour · ${esc(b.name)}</h3>
     <ul>
       <li>${ic('history')}<span>${p.archived ? `La préparation en cours (<b>${plural(p.archived, 'tâche', 'tâches')}</b>${p.obsDone ? `, dont ${plural(p.obsDone, 'observation réglée', 'observations réglées')}` : ''}) part dans <b>Archives &amp; suivi</b>.` : 'Rien à archiver : la préparation est vide.'}</span></li>
       <li>${ic('flag')}<span>${p.kept.length ? `<b>${plural(p.kept.length, 'observation non terminée reste', 'observations non terminées restent')}</b> dans la préparation : ${p.kept.slice(0, 4).map((t) => esc(t.title)).join(' · ')}${p.kept.length > 4 ? ` · +${p.kept.length - 4}` : ''}` : 'Aucune observation en cours à reporter.'}</span></li>
@@ -103,7 +103,6 @@ function header(s, b, ui, now) {
       <h1>${esc(b.name)} ${pill(stt)}</h1><p class="mut">${esc(b.model || '—')} · ${esc(baseLabel(b))}</p></div>
     <div class="row gap wrap actions">
       <a class="btn acc" target="_blank" rel="noopener" href="${waLink(report)}" data-act="copyWA" data-kind="boat" data-id="${b.id}">${ic('send')} Exporter pour WhatsApp</a>
-      <button class="btn" type="button" data-act="retAsk" data-id="${b.id}">${ic('left')} Nouveau retour</button>
       <button class="btn icon" type="button" data-act="print" aria-label="Imprimer la feuille de préparation" title="Imprimer">${ic('print')}</button>
     </div>
   </div>
@@ -145,17 +144,14 @@ function tabPrep(s, b, ui, now) {
         ${voiceSupported() ? `<button type="button" class="btn sm" data-act="voice" aria-pressed="false">${ic('mic')} Dicter</button>` : `<span class="small mut">Sur mobile, utilise le micro du clavier pour dicter.</span>`}</div>
       <button class="btn pri wide" type="submit" data-submit-label>Préparer les tâches ${ic('right')}</button>
     </form></section>`;
-  const last = `<section class="panel lastret"><h3>${ic('left')} Retour de location</h3>
-    <p class="mut small">« Nouveau retour » archive la préparation en cours, garde les observations non terminées et relance les tâches habituelles.</p>
-    <button class="btn sm" type="button" data-act="retAsk" data-id="${b.id}">${ic('left')} Nouveau retour</button></section>`;
 
   if (b.inRental) {
     const p = b.pendingOnReturn;
     return `<div class="two"><div class="col"><section class="panel"><div class="phead"><h3>À reprendre au retour</h3><span class="count mono">${p.length}</span></div>
       <p class="mut small">Le bateau est en location. Ces points seront remis dans la préparation au retour, avec les tâches habituelles.</p>
       ${p.length ? `<ul class="tasks">${p.map((t) => taskRow(b, t, { pending: true })).join('')}</ul>` : empty('check', 'Rien en attente', 'Ajoute ici ce qu’il faudra regarder au retour.')}
-      <div class="row gap"><button class="btn pri" data-act="retAsk" data-id="${b.id}">${ic('left')} Enregistrer le retour</button></div></section></div>
-      <aside class="col">${add}${last}</aside></div>`;
+      <div class="row gap"><button class="btn pri" data-act="retAsk" data-id="${b.id}">${ic('left')} Signaler le retour</button></div></section></div>
+      <aside class="col">${add}</aside></div>`;
   }
   const rec = b.tasks.filter((t) => t.template);
   const obs = b.tasks.filter((t) => !t.template).sort((a, c) => ((c.blocked && !c.done) - (a.blocked && !a.done)) || (a.done - c.done));
@@ -177,7 +173,7 @@ function tabPrep(s, b, ui, now) {
     ${obs.length ? `<ul class="tasks">${obs.map((t) => taskRow(b, t)).join('')}</ul>${st.obsOpen === 0 ? `<div class="okbar">${ic('check')} Toutes les observations sont traitées.</div>` : ''}`
       : empty('wave', 'Aucune observation', 'Note ce que tu vois sur le bateau avec le champ à droite.')}
   </section>`;
-  return `<div class="two prepgrid"><div class="col">${recPanel}${obsPanel}</div><aside class="col">${add}${last}</aside></div>`;
+  return `<div class="two prepgrid"><div class="col">${recPanel}${obsPanel}</div><aside class="col">${add}</aside></div>`;
 }
 
 // ---- Entretiens ------------------------------------------------------------------------

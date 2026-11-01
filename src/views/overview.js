@@ -68,7 +68,7 @@ function card(b, now) {
     <div class="notes small">${notes.join('')}</div>
     <div class="foot">${foot}</div>
     <footer>
-      <button type="button" class="btn sm ${b.inRental ? '' : 'ghost'}" data-act="${b.inRental ? 'ret' : 'dep'}" data-id="${b.id}">${ic(b.inRental ? 'left' : 'send')} ${b.inRental ? 'Signaler le retour' : 'Signaler le départ'}</button>
+      <button type="button" class="btn sm ${b.inRental ? '' : 'ghost'}" data-act="${b.inRental ? 'retAsk' : 'depAsk'}" data-id="${b.id}">${ic(b.inRental ? 'left' : 'send')} ${b.inRental ? 'Signaler le retour' : 'Signaler le départ'}</button>
       <button type="button" class="btn sm link icon" data-act="open" data-id="${b.id}" aria-label="Ouvrir ${esc(b.name)}" title="Ouvrir">${ic('right')}</button>
     </footer>
   </article>`;

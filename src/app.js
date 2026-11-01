@@ -28,7 +28,7 @@ const isTech = () => remote.mode === 'server' && remote.user?.role === 'tech';
 const TECH_PAGES = new Set(['overview', 'boat', 'backup']); // « backup » = Mon compte pour un technicien
 const TECH_ACTS = new Set(['nav', 'open', 'tab', 'filter', 'resetFilters', 'view', 'undo', 'theme', 'palette', 'palRun', 'print', 'copyWA',
   'tgl', 'blk', 'del', 'delp', 'voice', 'obsF', 'banner', 'logout', 'logoutKeep', 'logoutForce', 'confirmNo',
-  'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'depNo']);
+  'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'retYes', 'depNo']);
 const TECH_CHG = new Set(['hours', 'baseFilter']);
 const TECH_MAINT = new Set(['date', 'hours', 'notes']);
 const TECH_FORMS = new Set(['obs', 'pwd', 'firstPwd', 'login']);
@@ -172,7 +172,7 @@ function paletteItems(s, q) {
     { label: 'Changer de thème', sub: 'Action', run: () => cycleTheme(), icon: 'moon' },
     ...sortBoats(s.boats).map((b) => ({ label: b.name, sub: `Bateau · ${baseLabel(b)}`, run: () => go('boat', b.id), icon: 'boat' })),
     { label: 'Rapport Excel du mois', sub: 'Action', run: () => go('backup'), icon: 'file' },
-    ...sortBoats(s.boats).map((b) => ({ label: `Nouveau retour · ${b.name}`, sub: 'Action', run: () => { go('boat', b.id, 'prep'); ui.confirm = 'ret:' + b.id; render(); }, icon: 'left' })),
+    ...sortBoats(s.boats).map((b) => ({ label: `Signaler le retour · ${b.name}`, sub: 'Action', run: () => { go('boat', b.id, 'prep'); ui.confirm = 'ret:' + b.id; render(); }, icon: 'left' })),
   ];
   const pool = isTech() ? items.filter((i) => i.label === 'Vue d’ensemble' || i.label === 'Changer de thème' || i.sub.startsWith('Bateau') || i.label.startsWith('Nouveau retour')) : items;
   if (ui.server && !isTech()) pool.splice(4, 0, { label: 'Comptes', sub: 'Page', run: () => go('accounts'), icon: 'users' });
@@ -211,12 +211,13 @@ function layerHTML(s, now) {
       <p id="lo-d"><b>${plural(b.blocked, 'modification', 'modifications')}</b> sur ${plural(b.boats, 'bateau', 'bateaux')} ne sont pas encore parties vers le serveur (pas de réseau ?). Si tu te déconnectes maintenant, elles seront perdues.</p>
       <div class="row gap wrap"><button class="btn pri" data-act="logoutKeep" autofocus>Rester connecté</button><button class="btn bad" data-act="logoutForce">Me déconnecter et perdre ces modifications</button></div></div></div>`;
   }
-  const dueNow = ui.depKey ? ui.depKey.split(',').map((i) => s.boats.find((b) => b.id === i)).filter(Boolean) : [];
+  const dueNow = ui.depKey ? ui.depKey.split(',').map((k) => ({ kind: k[0], b: s.boats.find((x) => x.id === k.slice(2)) })).filter((x) => x.b) : [];
   if (dueNow.length && !ui.logoutBlock) {
-    h += `<div class="modalback"><div class="panel modalbox" role="alertdialog" aria-labelledby="dp-t"><h3 id="dp-t">${ic('flag')} ${dueNow.length > 1 ? 'Départs à signaler' : 'Départ à signaler'}</h3>
-      <p class="mut small">L’heure de départ prévue est passée. « Signaler le départ » archive la préparation et reporte les observations non terminées au retour.</p>
-      <ul class="depask">${dueNow.map((b) => `<li><div><b>${esc(b.name)}</b><span class="mut small"> · prévu le ${esc(fmtDT(b.departure))}</span></div>
-        <div class="row gap wrap"><button class="btn pri sm" type="button" data-act="depYes" data-id="${b.id}">Signaler le départ</button><button class="btn sm" type="button" data-act="depNo" data-id="${b.id}">Pas encore</button></div></li>`).join('')}</ul></div></div>`;
+    const onlyRet = dueNow.every((x) => x.kind === 'r'), onlyDep = dueNow.every((x) => x.kind === 'd');
+    h += `<div class="modalback"><div class="panel modalbox" role="alertdialog" aria-labelledby="dp-t"><h3 id="dp-t">${ic('flag')} ${onlyRet ? (dueNow.length > 1 ? 'Retours à signaler' : 'Retour à signaler') : onlyDep ? (dueNow.length > 1 ? 'Départs à signaler' : 'Départ à signaler') : 'Départs et retours à signaler'}</h3>
+      <p class="mut small">${onlyRet ? 'L’heure de retour prévue est passée. Le bateau est-il rentré ?' : 'L’heure prévue est passée. Signaler un départ archive la préparation et reporte les observations non terminées ; signaler un retour relance la préparation.'}</p>
+      <ul class="depask">${dueNow.map(({ kind, b }) => `<li><div><b>${esc(b.name)}</b><span class="mut small"> · ${kind === 'd' ? `départ prévu le ${esc(fmtDT(b.departure))}` : `retour prévu le ${esc(fmtDT(b.returnDate))}`}</span></div>
+        <div class="row gap wrap"><button class="btn pri sm" type="button" data-act="${kind === 'd' ? 'depYes' : 'retYes'}" data-id="${b.id}">${kind === 'd' ? 'Signaler le départ' : 'Signaler le retour'}</button><button class="btn sm" type="button" data-act="depNo" data-id="${b.id}">Pas encore</button></div></li>`).join('')}</ul></div></div>`;
   }
   if (ui.palette) h += `<dialog class="palette" id="palette" aria-label="Rechercher"><div class="pin">${ic('search')}<input id="pq" placeholder="Bateau, observation, historique ou action" autocomplete="off" value="${esc(ui.palette.q)}" data-pal></div><ul id="plist">${paletteList(s)}</ul><footer class="mut small"><kbd>↑</kbd><kbd>↓</kbd> naviguer <kbd>Entrée</kbd> ouvrir <kbd>Échap</kbd> fermer</footer></dialog>`;
   return h;
@@ -367,6 +368,7 @@ document.addEventListener('click', (e) => {
     case 'goBackup': go('backup'); break;
     case 'logout': logout().then((r) => { if (r.blocked) ui.logoutBlock = r; else ui.loginErr = ''; render(); }); break;
     case 'depYes': ui.depKey = ''; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
+    case 'retYes': ui.depKey = ''; go('boat', id, 'prep'); ui.confirm = 'ret:' + id; render(); break;
     case 'depNo': ui.depLater[id] = Date.now() + 30 * 60000; ui.depKey = ''; render(); toast(`${nm} : je te redemande dans 30 min`); break;
     case 'logoutKeep': ui.logoutBlock = null; render(); break;
     case 'logoutForce': ui.logoutBlock = null; logout({ force: true }).then(() => { ui.loginErr = ''; render(); }); break;
@@ -405,7 +407,7 @@ document.addEventListener('click', (e) => {
     case 'depAsk': ui.confirm = 'dep:' + id; render(); break;
     case 'dep': ui.confirm = null; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
     case 'retAsk': if (ui.route.name !== 'boat' || ui.route.id !== id) go('boat', id, 'prep'); ui.confirm = 'ret:' + id; render(); break;
-    case 'retGo': ui.confirm = null; ui.tab = 'prep'; M(`Nouveau retour · ${nm}`, (st) => A.newReturn(st, id)); break;
+    case 'retGo': ui.confirm = null; ui.tab = 'prep'; M(`Retour signalé · ${nm}`, (st) => A.newReturn(st, id)); break;
     // observations
     case 'obsF': ui.obsF = d.v; render(); break;
     case 'xlsMonth': exportMonth(s); break;
@@ -603,7 +605,7 @@ function tick() {
   const s = getState();
   if (ui.server && (!remote.user || remote.user.mustChange || remote.pending || !remote.lastSync || Date.now() - remote.lastSync > 20000)) return;
   const now = Date.now();
-  const due = A.dueDepartures(s).filter((i) => !(ui.depLater[i] > now));
+  const due = [...A.dueDepartures(s).map((i) => `d:${i}`), ...A.dueReturns(s).map((i) => `r:${i}`)].filter((k) => !(ui.depLater[k.slice(2)] > now));
   const key = due.join(',');
   if (key !== ui.depKey) { ui.depKey = key; render(); } // la fenêtre de question apparaît (ou disparaît)
 }
