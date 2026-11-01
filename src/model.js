@@ -99,6 +99,7 @@ export function normalizeBoat(raw, i = 0) {
     return {
       id: m.id || uid(), title: m.title || 'Entretien', date: m.date || '', hours: m.hours || '', notes: m.notes || '',
       intervalDays: m.intervalDays ?? g.intervalDays, intervalHours: m.intervalHours ?? g.intervalHours,
+      ...(m.by ? { by: m.by } : {}),
     };
   });
   return b;

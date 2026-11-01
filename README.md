@@ -81,6 +81,23 @@ Les mots de passe sont chiffrés (scrypt). La session est un cookie `HttpOnly`, 
 
 L'application garde une copie sur l'appareil. Sans réseau (sur le ponton), tu continues à travailler, et les modifications partent au retour du réseau. Si deux personnes modifient le même bateau au même moment, la dernière modification envoyée l'emporte pour ce bateau.
 
+## Comptes et rôles
+
+Les comptes se gèrent depuis le site : **Comptes** dans le menu (manager uniquement). On y crée une personne (prénom, e-mail, rôle), le site affiche **une seule fois** un mot de passe provisoire, et la personne en choisit un nouveau à sa première connexion. Le manager peut aussi réinitialiser un mot de passe, changer un rôle ou désactiver un compte (il reste toujours un manager actif). La ligne de commande (`server/cli.js`) reste disponible pour dépanner.
+
+| | Manager | Technicien |
+|---|---|---|
+| Voir toute la flotte | oui | oui |
+| Cocher / bloquer des tâches, ajouter ou retirer ses observations | oui | oui |
+| Noter les heures moteur et les entretiens | oui | oui |
+| Retours, départs, dates, refacturation, listes, équipe, comptes, import | oui | non |
+
+Ces limites sont **appliquées par le serveur** : un technicien qui contournerait l'interface serait refusé. Chaque tâche cochée ou ajoutée garde le nom du compte qui l'a faite (posé par le serveur, pas par le navigateur).
+
+## Modifications simultanées
+
+Le site n'envoie plus le bateau entier : il envoie ce qui a changé (une tâche cochée, une observation ajoutée, une date…) et le serveur fusionne avec ce qu'un autre poste a fait entre-temps. Deux personnes sur le même bateau ne s'écrasent plus ; seul le même champ modifié au même moment garde la dernière valeur. Hors réseau, les modifications restent sur l'appareil et partent au retour du réseau ; la déconnexion est refusée tant qu'il en reste (avec un avertissement).
+
 ## Déployer sur GitHub Pages (version locale, sans connexion)
 
 1. Pousser le dépôt sur GitHub (branche `main`).

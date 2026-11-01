@@ -25,8 +25,8 @@ function taskRow(b, t, { edit = false, pending = false } = {}) {
   if (t.bill) meta.push(`<b class="t-bill">${billText(t)}</b>`);
   if (t.bill && t.billed) meta.push(`<b class="t-ok">${ic('check')} Refacturé au client</b>`);
   if (t.carried) meta.push(`Reportée · depuis le ${esc(fmtD(t.origin))}`);
-  else if (!t.template && t.origin) meta.push(`Ajoutée le ${esc(fmtD(t.origin))}`);
-  if (t.done && t.doneAt) meta.push(`Terminée le ${esc(fmtDT(t.doneAt))}`);
+  else if (!t.template && t.origin) meta.push(`Ajoutée le ${esc(fmtD(t.origin))}${t.addedBy ? ` · ${esc(t.addedBy)}` : ''}`);
+  if (t.done && t.doneAt) meta.push(`Terminée le ${esc(fmtDT(t.doneAt))}${t.doneBy ? ` · ${esc(t.doneBy)}` : ''}`);
   const chk = pending
     ? `<span class="chk off" aria-hidden="true"></span>`
     : `<button type="button" class="chk" role="checkbox" aria-checked="${!!t.done}" aria-label="${esc(t.title)}" data-act="tgl" data-id="${b.id}" data-tid="${t.id}" data-fk="tgl-${t.id}">${ic('check')}</button>`;
@@ -170,7 +170,7 @@ function tabMaint(s, b, ui, now) {
     return `<article class="panel mrow ${ms.key}"><header><h3>${esc(m.title)}</h3><span class="mstat ${ms.key}">${esc(ms.label)}</span>
       <button class="ibtn" data-act="maintDel" data-id="${b.id}" data-mid="${m.id}" aria-label="Retirer ${esc(m.title)}">${ic('trash')}</button></header>
       <div class="grid4">
-        <div class="fld"><label class="k" for="md-${m.id}">Dernier contrôle</label><input id="md-${m.id}" type="date" value="${esc(m.date)}" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="date"></div>
+        <div class="fld"><label class="k" for="md-${m.id}">Dernier contrôle${m.by ? ` · ${esc(m.by)}` : ''}</label><input id="md-${m.id}" type="date" value="${esc(m.date)}" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="date"></div>
         <div class="fld"><label class="k" for="mi-${m.id}">Échéance</label><select id="mi-${m.id}" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="intervalDays">${INTERVALS.map((i) => `<option value="${i.v}"${(m.intervalDays || 0) === i.v ? ' selected' : ''}>${i.l}</option>`).join('')}</select></div>
         <div class="fld"><label class="k" for="mh-${m.id}">Heures moteur au contrôle</label><input id="mh-${m.id}" inputmode="decimal" value="${esc(m.hours)}" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="hours"></div>
         <div class="fld"><label class="k" for="mj-${m.id}">Tous les (h)</label><input id="mj-${m.id}" inputmode="numeric" value="${m.intervalHours || ''}" placeholder="—" data-chg="maint" data-id="${b.id}" data-mid="${m.id}" data-f="intervalHours"></div>

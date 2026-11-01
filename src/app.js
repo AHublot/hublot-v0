@@ -7,21 +7,30 @@ import { ic } from './icons.js';
 import { overviewView } from './views/overview.js';
 import { boatView } from './views/boat.js';
 import { monthlyReport, monthLabel } from './report.js';
-import { teamView, checklistView, backupView } from './views/pages.js';
+import { teamView, checklistView, backupView, accountsView } from './views/pages.js';
 import { tickCountdowns } from './views/common.js';
 import { boatReport, fleetReport } from './whatsapp.js';
 import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
-import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote } from './remote.js';
+import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount } from './remote.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const ui = {
   route: { name: 'overview', id: null }, tab: 'prep', filter: 'all', base: 'all', q: '', view: 'cards', drafts: {},
   add: false, techs: false, banner: false, editRec: false, tplNow: true, confirm: null, obsF: 'all',
   xm: { month: '', boat: 'all' },
-  teamEdit: null, cl: null, imp: null, impErr: null, palette: null,
+  teamEdit: null, cl: null, imp: null, impErr: null, palette: null, accounts: { list: null, loaded: false }, logoutBlock: null,
 };
 const LS = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
+
+// ---- rôles : le technicien a un espace réduit (le serveur applique les mêmes limites) -------
+const isTech = () => remote.mode === 'server' && remote.user?.role === 'tech';
+const TECH_PAGES = new Set(['overview', 'boat', 'backup']); // « backup » = Mon compte pour un technicien
+const TECH_ACTS = new Set(['nav', 'open', 'tab', 'filter', 'resetFilters', 'view', 'undo', 'theme', 'palette', 'palRun', 'print', 'copyWA',
+  'tgl', 'blk', 'del', 'delp', 'voice', 'obsF', 'banner', 'logout', 'logoutKeep', 'logoutForce', 'confirmNo']);
+const TECH_CHG = new Set(['hours', 'baseFilter']);
+const TECH_MAINT = new Set(['date', 'hours', 'notes']);
+const TECH_FORMS = new Set(['obs', 'pwd', 'firstPwd', 'login']);
 
 // ---- thème --------------------------------------------------------------------------
 let theme = LS.get('capdepart:theme') || 'system';
@@ -41,14 +50,17 @@ function parseHash() {
   if (/^#\/team/.test(h)) return { name: 'team' };
   if (/^#\/checklist/.test(h)) return { name: 'checklist' };
   if (/^#\/backup/.test(h)) return { name: 'backup' };
+  if (/^#\/accounts/.test(h)) return { name: 'accounts' };
   return { name: 'overview' };
 }
 function hashFor(r) {
   return r.name === 'boat' ? `#/boat/${encodeURIComponent(r.id)}/${ui.tab}` : r.name === 'overview' ? '#/' : `#/${r.name}`;
 }
 function go(name, id = null, tab = null) {
+  if (isTech() && !TECH_PAGES.has(name)) { name = 'overview'; id = null; }
   ui.route = { name, id };
   if (name === 'boat') ui.tab = tab || 'prep';
+  if (name === 'accounts') loadAccounts();
   Object.assign(ui, { techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null });
   try { history.replaceState(null, '', hashFor(ui.route)); } catch { /* sandbox */ }
   render();
@@ -58,6 +70,7 @@ window.addEventListener('hashchange', () => {
   const r = parseHash();
   ui.route = { name: r.name, id: r.id || null };
   if (r.tab) ui.tab = r.tab;
+  if (r.name === 'accounts' && ui.server) loadAccounts();
   render();
 });
 
@@ -86,10 +99,10 @@ function sideHTML(s) {
   const nav = (to, icn, label, n) => `<button type="button" class="nav ${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}" ${ui.route.name === to ? 'aria-current="page"' : ''}>${ic(icn)}<span>${label}</span>${n != null ? `<em class="mono">${n}</em>` : ''}</button>`;
   return `<div class="brand"><span class="mark"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 24h14l-2 3H11z" fill="var(--side)"/><path d="M16 6v15M16 7l7 11h-7z" fill="none" stroke="var(--side)" stroke-width="2" stroke-linejoin="round"/></svg></span><div><b>Hublot</b><small>Gestion de flotte</small></div></div>
     <span class="k side-k">${remote.user?.role === 'tech' ? 'Espace technicien' : 'Espace manager'}</span>
-    <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${nav('team', 'users', 'Mon équipe', s.team.length)}${nav('checklist', 'list', 'Liste avant départ', s.templates.length)}</nav>
+    <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${isTech() ? '' : `${nav('team', 'users', 'Mon équipe', s.team.length)}${nav('checklist', 'list', 'Liste avant départ', s.templates.length)}${ui.server ? nav('accounts', 'users', 'Comptes', ui.accounts?.list ? ui.accounts.list.filter((u) => !u.disabled).length : null) : ''}`}</nav>
     <div class="grow"></div>
     <div class="sidecard"><span>${ic('wave')}</span><b>Le prochain départ commence ici.</b><small>Une vue claire, un bateau prêt après l’autre.</small></div>
-    <button type="button" class="nav small ${ui.route.name === 'backup' ? 'on' : ''}" data-act="nav" data-to="backup">${ic('download')}<span>Sauvegardes et restauration</span></button>
+    <button type="button" class="nav small ${ui.route.name === 'backup' ? 'on' : ''}" data-act="nav" data-to="backup">${ic(isTech() ? 'users' : 'download')}<span>${isTech() ? 'Mon compte' : 'Sauvegardes et restauration'}</span></button>
     ${remote.user ? `<div class="who"><span class="avatar">${esc((remote.user.name || '?').slice(0, 2).toUpperCase())}</span><div><b>${esc(remote.user.name)}</b><small>${remote.user.role === 'manager' ? 'Manager' : 'Technicien'}</small></div><button type="button" class="ibtn" data-act="logout" aria-label="Se déconnecter" title="Se déconnecter">${ic('left')}</button></div>` : ''}
     <small class="ver">V3 · ${remote.mode === 'server' ? 'Données partagées' : 'Données sur cet appareil'}</small>`;
 }
@@ -116,10 +129,24 @@ function loginHTML() {
     <p class="mut small">Mot de passe oublié : demande au manager de le réinitialiser.</p>
   </form></div>`;
 }
+function firstPwdHTML() {
+  return `<div class="login"><form class="panel loginbox" data-form="firstPwd" novalidate>
+    <div class="brand"><span class="mark"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="currentColor"/><path d="M9 24h14l-2 3H11z" fill="#fff"/><path d="M16 6v15M16 7l7 11h-7z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></span><div><b>Hublot</b><small>Gestion de flotte</small></div></div>
+    <h1>Choisis ton mot de passe</h1>
+    <p class="mut small">Bonjour ${esc(remote.user?.name || '')}. Ton mot de passe provisoire ne sert qu’une fois : choisis-en un nouveau (10 caractères minimum).</p>
+    <input type="text" name="username" value="${esc(remote.user?.email || '')}" autocomplete="username" hidden>
+    <div class="fld"><label class="k" for="fp-c">Mot de passe provisoire</label><input id="fp-c" name="current" type="password" autocomplete="current-password" required></div>
+    <div class="fld"><label class="k" for="fp-n">Nouveau mot de passe</label><input id="fp-n" name="next" type="password" autocomplete="new-password" minlength="10" required></div>
+    <div class="fld"><label class="k" for="fp-2">Confirmation</label><input id="fp-2" name="next2" type="password" autocomplete="new-password" minlength="10" required></div>
+    ${ui.loginErr ? `<p class="t-bad small" role="alert">${esc(ui.loginErr)}</p>` : ''}
+    <button class="btn pri wide" type="submit" ${ui.loginBusy ? 'disabled' : ''}>${ui.loginBusy ? 'Enregistrement…' : 'Enregistrer et entrer'}</button>
+    <button class="btn ghost wide" type="button" data-act="logoutForce">Me déconnecter</button>
+  </form></div>`;
+}
 function topHTML(s) {
   const r = ui.route;
   const b = r.name === 'boat' ? s.boats.find((x) => x.id === r.id) : null;
-  const names = { overview: 'Vue d’ensemble', team: 'Mon équipe', checklist: 'Liste avant départ', backup: 'Sauvegardes et restauration' };
+  const names = { overview: 'Vue d’ensemble', team: 'Mon équipe', checklist: 'Liste avant départ', accounts: 'Comptes', backup: isTech() ? 'Mon compte' : 'Sauvegardes et restauration' };
   const t = store.savedAt;
   return `<div class="trail"><span>${esc(s.baseName)}</span>${ic('chevR')}<b>${esc(b ? b.name : names[r.name] || '')}</b></div>
     <div class="topr">
@@ -131,7 +158,8 @@ function topHTML(s) {
 }
 function tabbarHTML() {
   const t = (to, icn, label) => `<button type="button" class="${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}">${ic(icn)}<span>${label}</span></button>`;
-  return `${t('overview', 'grid', 'Flotte')}${t('team', 'users', 'Équipe')}${t('checklist', 'list', 'Liste')}${t('backup', 'download', 'Données')}`;
+  if (isTech()) return `${t('overview', 'grid', 'Flotte')}${t('backup', 'users', 'Compte')}`;
+  return `${t('overview', 'grid', 'Flotte')}${t('team', 'users', 'Équipe')}${t('checklist', 'list', 'Liste')}${ui.server ? t('accounts', 'users', 'Comptes') : ''}${t('backup', 'download', 'Données')}`;
 }
 function paletteItems(s, q) {
   const items = [
@@ -145,8 +173,10 @@ function paletteItems(s, q) {
     { label: 'Rapport Excel du mois', sub: 'Action', run: () => go('backup'), icon: 'file' },
     ...sortBoats(s.boats).map((b) => ({ label: `Nouveau retour · ${b.name}`, sub: 'Action', run: () => { go('boat', b.id, 'prep'); ui.confirm = 'ret:' + b.id; render(); }, icon: 'left' })),
   ];
+  const pool = isTech() ? items.filter((i) => i.label === 'Vue d’ensemble' || i.label === 'Changer de thème' || i.sub.startsWith('Bateau')) : items;
+  if (ui.server && !isTech()) pool.splice(4, 0, { label: 'Comptes', sub: 'Page', run: () => go('accounts'), icon: 'users' });
   const n = norm(q).trim();
-  return n ? items.filter((i) => norm(i.label + ' ' + i.sub).includes(n)) : items.slice(0, 12);
+  return n ? pool.filter((i) => norm(i.label + ' ' + i.sub).includes(n)) : pool.slice(0, 12);
 }
 const paletteList = (s) => {
   const list = paletteItems(s, ui.palette.q);
@@ -159,6 +189,12 @@ const paletteList = (s) => {
 
 function layerHTML(s, now) {
   let h = '';
+  if (ui.logoutBlock) {
+    const b = ui.logoutBlock;
+    h += `<div class="modalback"><div class="panel modalbox" role="alertdialog" aria-labelledby="lo-t" aria-describedby="lo-d"><h3 id="lo-t">${ic('flag')} Modifications non envoyées</h3>
+      <p id="lo-d"><b>${plural(b.blocked, 'modification', 'modifications')}</b> sur ${plural(b.boats, 'bateau', 'bateaux')} ne sont pas encore parties vers le serveur (pas de réseau ?). Si tu te déconnectes maintenant, elles seront perdues.</p>
+      <div class="row gap wrap"><button class="btn pri" data-act="logoutKeep" autofocus>Rester connecté</button><button class="btn bad" data-act="logoutForce">Me déconnecter et perdre ces modifications</button></div></div></div>`;
+  }
   if (ui.palette) h += `<dialog class="palette" id="palette" aria-label="Rechercher"><div class="pin">${ic('search')}<input id="pq" placeholder="Bateau, page ou action" autocomplete="off" value="${esc(ui.palette.q)}" data-pal></div><ul id="plist">${paletteList(s)}</ul><footer class="mut small"><kbd>↑</kbd><kbd>↓</kbd> naviguer <kbd>Entrée</kbd> ouvrir <kbd>Échap</kbd> fermer</footer></dialog>`;
   return h;
 }
@@ -171,13 +207,17 @@ function render() {
   const inLayer = ae && ae.closest && ae.closest('dialog');
 
   ui.server = remote.mode === 'server';
-  const gate = ui.server && !remote.user;
+  const first = ui.server && remote.user?.mustChange; // mot de passe provisoire à remplacer
+  const gate = ui.server && (!remote.user || first);
   document.body.classList.toggle('auth', gate);
+  document.body.classList.toggle('tech', isTech());
   if (gate) {
-    if (!$('#view .login')) { $('#side').innerHTML = ''; $('#top').innerHTML = ''; $('#tabbar').innerHTML = ''; $('#layer').innerHTML = ''; $('#view').innerHTML = loginHTML(); $('#lg-' + (ui.loginEmail ? 'p' : 'e'))?.focus(); }
-    else { const f = $('#view .login'); f.outerHTML = loginHTML(); }
+    const html = first ? firstPwdHTML() : loginHTML();
+    if (!$('#view .login')) { $('#side').innerHTML = ''; $('#top').innerHTML = ''; $('#tabbar').innerHTML = ''; $('#layer').innerHTML = ''; $('#view').innerHTML = html; (first ? $('#fp-c') : $('#lg-' + (ui.loginEmail ? 'p' : 'e')))?.focus(); }
+    else { const f = $('#view .login'); f.outerHTML = html; }
     return;
   }
+  if (isTech() && !TECH_PAGES.has(ui.route.name)) ui.route = { name: 'overview', id: null };
 
   const routeKey = location.hash || '#/';
   const prevBars = routeKey === ui.barRoute ? [...document.querySelectorAll('#view .bar i')].map((i) => i.style.width) : [];
@@ -188,7 +228,7 @@ function render() {
   $('#tabbar').innerHTML = tabbarHTML();
   const r = ui.route;
   $('#view').innerHTML = r.name === 'boat' ? boatView(s, ui, r.id, now) : r.name === 'team' ? teamView(s, ui)
-    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
+    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'accounts' ? accountsView(s, ui) : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
   document.querySelectorAll('#view [data-draft]').forEach((el) => { if (ui.drafts[el.dataset.draft] != null) el.value = ui.drafts[el.dataset.draft]; });
   document.querySelectorAll('#view textarea[data-parse]').forEach(updateParse);
   tickCountdowns();
@@ -289,6 +329,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   const a = el.dataset.act, d = el.dataset, s = getState();
+  if (isTech() && !TECH_ACTS.has(a)) return;
   const id = d.id || (ui.route.name === 'boat' ? ui.route.id : null);
   const boat = s.boats.find((b) => b.id === id);
   const nm = boat ? boat.name : '';
@@ -301,7 +342,15 @@ document.addEventListener('click', (e) => {
     case 'view': ui.view = d.v; render(); break;
     case 'toggleAdd': ui.add = !ui.add; if (!ui.add) { delete ui.drafts['nb-name']; } if (ui.route.name !== 'overview') go('overview'); render(); if (ui.add) $('#nb-name')?.focus(); break;
     case 'goBackup': go('backup'); break;
-    case 'logout': logout().then(() => { ui.loginErr = ''; render(); }); break;
+    case 'logout': logout().then((r) => { if (r.blocked) ui.logoutBlock = r; else ui.loginErr = ''; render(); }); break;
+    case 'logoutKeep': ui.logoutBlock = null; render(); break;
+    case 'logoutForce': ui.logoutBlock = null; logout({ force: true }).then(() => { ui.loginErr = ''; render(); }); break;
+    // comptes (manager)
+    case 'acctReset': ui.confirm = 'acct-reset:' + d.uid; render(); break;
+    case 'acctResetGo': ui.confirm = null; resetAccount(+d.uid).then((r) => { ui.accounts.created = { email: r.email, password: r.password }; return loadAccounts(); }).catch((err) => { ui.accounts.err = err.message; render(); }); break;
+    case 'acctToggle': updateAccount({ id: +d.uid, disabled: d.off === '1' }).then((r) => { ui.accounts.list = r.users; ui.accounts.err = ''; render(); }).catch((err) => { ui.accounts.err = err.message; render(); }); break;
+    case 'acctCopy': try { navigator.clipboard.writeText(d.v).then(() => toast('Mot de passe copié'), () => toast('Sélectionne le mot de passe pour le copier')); } catch { toast('Sélectionne le mot de passe pour le copier'); } break;
+    case 'acctDismiss': ui.accounts.created = null; render(); break;
     case 'demo': if (ui.server) break; if (s.boats.length) addSnapshot('Avant démo'); replace(demoState(), 'Flotte de démonstration chargée'); go('overview'); break;
     case 'undo': undo(); break;
     case 'theme': cycleTheme(); break;
@@ -411,8 +460,10 @@ document.addEventListener('change', (e) => {
   if (el.id === 'importFile') { readImport(el.files?.[0]); return; }
   if (d.quick) { const f = el.form.elements[d.quick]; if (f) f.value = el.value; return; }
   if (!d.chg) return;
+  if (isTech() && !TECH_CHG.has(d.chg) && !(d.chg === 'maint' && TECH_MAINT.has(d.f))) return;
   const id = d.id;
   switch (d.chg) {
+    case 'acctRole': updateAccount({ id: +d.uid, role: el.value }).then((r) => { ui.accounts.list = r.users; ui.accounts.err = ''; render(); }).catch((err) => { ui.accounts.err = err.message; loadAccounts(); }); break;
     case 'dep': M('', (st) => A.setDeparture(st, id, el.value)); break;
     case 'ret': M('', (st) => A.setReturnDate(st, id, el.value)); break;
     case 'base': M('', (st) => A.updateBoat(st, id, { base: el.value, otherBase: el.value === 'Autre' ? st.boats.find((b) => b.id === id).otherBase : '' })); break;
@@ -436,6 +487,7 @@ document.addEventListener('submit', (e) => {
   const form = e.target.closest('form[data-form]');
   if (!form) return;
   e.preventDefault();
+  if (isTech() && !TECH_FORMS.has(form.dataset.form)) return;
   const fd = new FormData(form), g = (k) => String(fd.get(k) ?? '').trim();
   const id = form.dataset.id || ui.route.id;
   const name = getState().boats.find((b) => b.id === id)?.name || '';
@@ -452,6 +504,23 @@ document.addEventListener('submit', (e) => {
       if (nx !== nx2) { ui.pwdMsg = { bad: true, t: 'Les deux nouveaux mots de passe sont différents.' }; render(); return; }
       changePassword(cur, nx).then(() => { ui.pwdMsg = { t: 'Mot de passe changé.' }; form.reset(); render(); })
         .catch((err) => { ui.pwdMsg = { bad: true, t: err.message }; render(); });
+      return;
+    }
+    case 'firstPwd': {
+      const cur = String(fd.get('current') || ''), nx = String(fd.get('next') || ''), nx2 = String(fd.get('next2') || '');
+      if (nx !== nx2) { ui.loginErr = 'Les deux nouveaux mots de passe sont différents.'; render(); return; }
+      ui.loginErr = ''; ui.loginBusy = true; render();
+      changePassword(cur, nx).then(() => { ui.loginBusy = false; render(); })
+        .catch((err) => { ui.loginBusy = false; ui.loginErr = err.message; render(); });
+      return;
+    }
+    case 'addAccount': {
+      ui.accounts.busy = true; ui.accounts.formErr = ''; render();
+      createAccount({ name: g('name'), email: g('email'), role: g('role') }).then((r) => {
+        ui.accounts.busy = false; ui.accounts.created = { email: r.user.email, password: r.password };
+        delete ui.drafts['ac-n']; delete ui.drafts['ac-e'];
+        return loadAccounts();
+      }).catch((err) => { ui.accounts.busy = false; ui.accounts.formErr = err.message; render(); });
       return;
     }
     case 'addBoat': {
@@ -496,11 +565,17 @@ document.addEventListener('submit', (e) => {
   }
 });
 
+function loadAccounts() {
+  ui.accounts = ui.accounts || { list: null, loaded: false };
+  return listAccounts().then((r) => { ui.accounts.list = r.users; ui.accounts.loaded = true; ui.accounts.err = ''; render(); })
+    .catch((e) => { ui.accounts.loaded = true; ui.accounts.err = e.message; render(); });
+}
+
 // ---- minuteur : compte à rebours, départs automatiques ---------------------------------------------------
 function tick() {
   tickCountdowns();
   const s = getState();
-  if (ui.server && (!remote.user || remote.pending || !remote.lastSync || Date.now() - remote.lastSync > 20000)) return;
+  if (ui.server && (!remote.user || remote.user.mustChange || remote.user.role !== 'manager' || remote.pending || !remote.lastSync || Date.now() - remote.lastSync > 20000)) return;
   const due = A.dueDepartures(s);
   if (due.length) {
     const names = due.map((i) => s.boats.find((b) => b.id === i).name).join(', ');
@@ -516,6 +591,7 @@ ui.route = { name: r0.name, id: r0.id || null };
 if (r0.tab) ui.tab = r0.tab;
 onRemote(() => { // état de synchro : barre du haut et menu seulement (les données passent par subscribe)
   if (!remote.user && remote.mode === 'server') { render(); return; }
+  if (remote.notice) { toast(remote.notice); remote.notice = ''; }
   const t = $('[data-sync]'); if (t) t.outerHTML = syncBadge(store.savedAt);
   if (ui.route.name === 'backup' && !$('#view').contains(document.activeElement)) render();
 });
@@ -524,6 +600,7 @@ detect().then(() => {
   if (!ui.server) autoSnapshot();
   render();
   if (ui.server && remote.user) startSync();
+  if (ui.route.name === 'accounts' && ui.server && remote.user?.role === 'manager') loadAccounts();
   tick();
   setInterval(tick, 30000);
 });

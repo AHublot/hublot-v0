@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { scryptSync, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import { applyOps, deniedOps, stable, LISTS } from '../src/merge.js';
 
 export const DATA_DIR = process.env.DATA_DIR || join(process.cwd(), 'data');
 export const ROLES = ['manager', 'tech'];
@@ -34,6 +35,9 @@ export function openDb(file = join(DATA_DIR, 'hublot.sqlite')) {
     INSERT OR IGNORE INTO counter (k, v) VALUES ('seq', 0);
     CREATE INDEX IF NOT EXISTS boats_version ON boats(version);
   `);
+  if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'must_change')) {
+    db.exec('ALTER TABLE users ADD COLUMN must_change INTEGER NOT NULL DEFAULT 0');
+  }
   return db;
 }
 
@@ -72,11 +76,47 @@ export function addUser(db, { email, name = '', role = 'manager', password }) {
   db.prepare('INSERT INTO users (email, name, role, pass, created_at) VALUES (?, ?, ?, ?, ?)').run(e, String(name).trim(), role, hashPassword(password), now());
   return db.prepare('SELECT id, email, name, role FROM users WHERE email = ?').get(e);
 }
-export function setPassword(db, email, password) {
+export function setPassword(db, email, password, { temp = false } = {}) {
   const pb = passwordProblem(password); if (pb) throw new Error(pb);
-  const r = db.prepare('UPDATE users SET pass = ? WHERE email = ?').run(hashPassword(password), String(email).trim().toLowerCase());
+  const e = String(email).trim().toLowerCase();
+  const r = db.prepare('UPDATE users SET pass = ?, must_change = ? WHERE email = ?').run(hashPassword(password), temp ? 1 : 0, e);
   if (!r.changes) throw new Error('Utilisateur introuvable.');
-  db.prepare('DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE email = ?)').run(String(email).trim().toLowerCase());
+  db.prepare('DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE email = ?)').run(e);
+}
+
+/** Mot de passe provisoire lisible (sans caractères ambigus), affiché une seule fois au manager. */
+export function tempPassword() {
+  const A = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const b = randomBytes(12);
+  return Array.from(b, (x) => A[x % A.length]).join('');
+}
+export const listUsers = (db) => db.prepare('SELECT id, email, name, role, disabled, must_change, created_at, last_login FROM users ORDER BY disabled, role, name, email').all()
+  .map((u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, disabled: !!u.disabled, mustChange: !!u.must_change, createdAt: u.created_at, lastLogin: u.last_login }));
+/** Création depuis le site : mot de passe provisoire, à changer à la première connexion. */
+export function createManagedUser(db, { email, name, role }) {
+  const pw = tempPassword();
+  const u = addUser(db, { email, name, role, password: pw });
+  db.prepare('UPDATE users SET must_change = 1 WHERE id = ?').run(u.id);
+  return { user: u, password: pw };
+}
+export function resetManagedUser(db, id) {
+  const u = db.prepare('SELECT id, email FROM users WHERE id = ?').get(id);
+  if (!u) throw new Error('Compte introuvable.');
+  const pw = tempPassword();
+  setPassword(db, u.email, pw, { temp: true });
+  return { email: u.email, password: pw };
+}
+/** Nom, rôle, activation. Garde-fous : on ne se retire pas soi-même et il reste toujours un manager actif. */
+export function updateManagedUser(db, actorId, id, { name, role, disabled }) {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!u) throw new Error('Compte introuvable.');
+  const nextRole = role ?? u.role, nextDisabled = disabled == null ? !!u.disabled : !!disabled;
+  if (!ROLES.includes(nextRole)) throw new Error('Rôle inconnu.');
+  if (u.id === actorId && (nextDisabled || nextRole !== 'manager')) throw new Error('Tu ne peux pas retirer ton propre accès manager.');
+  const others = db.prepare("SELECT COUNT(*) n FROM users WHERE role = 'manager' AND disabled = 0 AND id != ?").get(id).n;
+  if (!others && (nextDisabled || nextRole !== 'manager') && u.role === 'manager' && !u.disabled) throw new Error('Il doit rester au moins un manager actif.');
+  db.prepare('UPDATE users SET name = ?, role = ?, disabled = ? WHERE id = ?').run(name == null ? u.name : String(name).trim().slice(0, 60), nextRole, nextDisabled ? 1 : 0, id);
+  if (nextDisabled || nextRole !== u.role) db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
 }
 
 // ---- données de la flotte ---------------------------------------------------------
@@ -100,9 +140,18 @@ export function changesSince(db, since = 0) {
   };
 }
 
-/** Applique un lot de modifications (bateaux complets, suppressions, réglages communs). */
-export function applySync(db, userId, { meta, boats = [], deleted = [] }) {
+const OPS = new Set(['set', 'unset', 'add', 'upd', 'del']);
+const okOp = (o) => o && OPS.has(o.op) && (o.op === 'set' || o.op === 'unset' ? typeof o.k === 'string' : (o.a === 'logs' || o.a in LISTS) && (o.op === 'add' ? o.item && typeof o.item === 'object' : typeof o.key === 'string'));
+
+/**
+ * Applique un lot de modifications : réglages communs, bateaux complets (nouveaux), suppressions
+ * et « patches » (modifications d'un bateau existant, fusionnées tâche par tâche).
+ * `actor` : qui écrit. Un technicien ne passe que par des patches, filtrés par ses droits.
+ * Retourne { version, rejected } : `rejected` = bateaux dont une partie a été refusée ou qui n'existent plus.
+ */
+export function applySync(db, userId, { meta, boats = [], deleted = [], patches = [] }, actor = { role: 'manager', name: '' }) {
   const at = now();
+  const rejected = [];
   db.exec('BEGIN IMMEDIATE');
   try {
     if (meta && typeof meta === 'object') {
@@ -117,9 +166,32 @@ export function applySync(db, userId, { meta, boats = [], deleted = [] }) {
     }
     const del = db.prepare("UPDATE boats SET deleted = 1, data = '{}', version = ?, updated_at = ?, updated_by = ? WHERE id = ? AND deleted = 0");
     for (const id of deleted) if (typeof id === 'string') del.run(nextVersion(db), at, userId, id);
+
+    const get = db.prepare('SELECT data FROM boats WHERE id = ? AND deleted = 0');
+    for (const p of patches) {
+      if (!p || typeof p.id !== 'string' || !Array.isArray(p.ops) || p.ops.length > 5000) continue;
+      const row = get.get(p.id);
+      if (!row) { rejected.push(p.id); continue; }
+      const cur = JSON.parse(row.data);
+      let ops = p.ops.filter(okOp);
+      let refused = ops.length !== p.ops.length;
+      if (actor.role !== 'manager') {
+        const bad = new Set(deniedOps(actor.role, ops, cur));
+        if (bad.size) { refused = true; ops = ops.filter((o) => !bad.has(o)); }
+        ops = ops.map((o) => (o.op === 'add' && o.item ? { ...o, item: Object.fromEntries(Object.entries(o.item).filter(([k]) => !['addedBy', 'doneBy', 'by'].includes(k))) } : o));
+      }
+      if (refused) rejected.push(p.id);
+      const next = applyOps(cur, ops, { by: actor.name || '' });
+      if (stable(next) !== stable(cur)) up.run(p.id, JSON.stringify(next), nextVersion(db), at, userId);
+    }
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
-  return currentVersion(db);
+  return { version: currentVersion(db), rejected };
+}
+
+export function getBoat(db, id) {
+  const row = db.prepare('SELECT data, deleted FROM boats WHERE id = ?').get(id);
+  return !row || row.deleted ? null : JSON.parse(row.data);
 }
 
 /** Remplace toute la flotte par une sauvegarde « cap-depart-backup » (ou un état). */
@@ -134,7 +206,7 @@ export function importBackup(db, userId, raw) {
     meta: { baseName: d.baseName || 'Ma base', team, templates, tplCats: d.tplCats && typeof d.tplCats === 'object' ? d.tplCats : {}, prefs: { autoDeparture: true, ...(d.prefs || {}) } },
     boats: d.boats.filter((b) => b && b.id),
     deleted: existing.filter((id) => !ids.has(id)),
-  });
+  }).version;
 }
 
 export function audit(db, userId, action, detail = '') {

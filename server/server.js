@@ -6,7 +6,7 @@ import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   openDb, now, checkPassword, newToken, sha256, changesSince, applySync, importBackup, audit, backup,
-  setPassword, passwordProblem,
+  setPassword, passwordProblem, getBoat, listUsers, createManagedUser, resetManagedUser, updateManagedUser,
 } from './lib.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -53,11 +53,11 @@ export function createApp({ db = openDb(), log = console } = {}) {
   const userOf = (req) => {
     const tok = cookies(req)[COOKIE];
     if (!tok) return null;
-    const row = db.prepare(`SELECT s.token, s.expires_at, u.id, u.email, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id
+    const row = db.prepare(`SELECT s.token, s.expires_at, u.id, u.email, u.name, u.role, u.must_change FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token = ? AND s.expires_at > ? AND u.disabled = 0`).get(sha256(tok), now());
     return row || null;
   };
-  const pub = (u) => ({ id: u.id, email: u.email, name: u.name || u.email.split('@')[0], role: u.role });
+  const pub = (u) => ({ id: u.id, email: u.email, name: u.name || u.email.split('@')[0], role: u.role, mustChange: !!u.must_change });
 
   // Requêtes qui modifient : en-tête dédié + même origine (protection CSRF en plus de SameSite=Strict).
   const sameOrigin = (req) => {
@@ -100,6 +100,8 @@ export function createApp({ db = openDb(), log = console } = {}) {
       return send(res, 200, { ok: true });
     }
     if (!user) return send(res, 401, { error: 'Connexion requise.' });
+    // Mot de passe provisoire : tant qu'il n'est pas changé, seuls /me, /password et /logout répondent.
+    if (user.must_change && p !== '/api/me' && p !== '/api/password') return send(res, 403, { error: 'Choisis d’abord ton mot de passe.', code: 'must_change' });
 
     if (p === '/api/me' && req.method === 'GET') {
       // session glissante : prolongée si elle expire dans moins de 25 jours
@@ -113,6 +115,7 @@ export function createApp({ db = openDb(), log = console } = {}) {
       const u = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
       if (!checkPassword(b.current, u.pass)) return send(res, 400, { error: 'Mot de passe actuel incorrect.' });
       const pb = passwordProblem(b.next); if (pb) return send(res, 400, { error: pb });
+      if (b.next === b.current) return send(res, 400, { error: 'Choisis un mot de passe différent de l’actuel.' });
       setPassword(db, u.email, b.next); // ferme toutes les sessions…
       const tok = newToken(); // …puis rouvre celle-ci
       db.prepare('INSERT INTO sessions (token, user_id, created_at, expires_at, ip, ua) VALUES (?, ?, ?, ?, ?, ?)').run(sha256(tok), u.id, now(), new Date(Date.now() + SESSION_DAYS * 864e5).toISOString(), ipOf(req), '');
@@ -123,19 +126,55 @@ export function createApp({ db = openDb(), log = console } = {}) {
     if (p === '/api/changes' && req.method === 'GET') {
       return send(res, 200, changesSince(db, Math.max(0, parseInt(url.searchParams.get('since'), 10) || 0)));
     }
-    // Écriture : réservée au manager pour l'instant (les accès technicien viendront ensuite).
-    if (user.role !== 'manager') return send(res, 403, { error: 'Accès en lecture seule pour ce compte.' });
+    if (p === '/api/boat' && req.method === 'GET') { // un seul bateau (resynchronisation après un refus)
+      const boat = getBoat(db, String(url.searchParams.get('id') || ''));
+      return send(res, 200, boat ? { boat } : { deleted: true });
+    }
+    const manager = user.role === 'manager';
+    const author = pub(user).name;
     if (p === '/api/sync' && req.method === 'POST') {
       const b = await readJson(req);
-      const version = applySync(db, user.id, b);
-      return send(res, 200, { version });
+      // Un technicien n'envoie que des modifications de bateaux existants (cocher, observations, heures, entretiens).
+      if (!manager && (b.meta || (b.boats || []).length || (b.deleted || []).length)) return send(res, 403, { error: 'Accès limité pour ce compte.' });
+      return send(res, 200, applySync(db, user.id, b, { role: user.role, name: author }));
     }
+    if (!manager) return send(res, 403, { error: 'Réservé au manager.' });
     if (p === '/api/import' && req.method === 'POST') {
       const b = await readJson(req);
       backup(db);
       const version = importBackup(db, user.id, b);
       audit(db, user.id, 'import', `${(b.data || b).boats?.length || 0} bateaux`);
       return send(res, 200, { version });
+    }
+    // ---- comptes (manager) ----
+    const guard = (fn) => {
+      try { return fn(); } catch (e) {
+        const msg = /UNIQUE/.test(e.message) ? 'Cette adresse e-mail a déjà un compte.' : e.message;
+        send(res, 400, { error: msg }); return undefined;
+      }
+    };
+    if (p === '/api/users' && req.method === 'GET') return send(res, 200, { users: listUsers(db) });
+    if (p === '/api/users' && req.method === 'POST') {
+      const b = await readJson(req);
+      const r = guard(() => createManagedUser(db, { email: b.email, name: b.name, role: b.role || 'tech' }));
+      if (!r) return undefined;
+      audit(db, user.id, 'user-create', `${r.user.email} ${r.user.role}`);
+      return send(res, 200, { user: r.user, password: r.password });
+    }
+    if (p === '/api/users/reset' && req.method === 'POST') {
+      const b = await readJson(req);
+      const r = guard(() => resetManagedUser(db, +b.id));
+      if (!r) return undefined;
+      audit(db, user.id, 'user-reset', r.email);
+      return send(res, 200, { email: r.email, password: r.password });
+    }
+    if (p === '/api/users/update' && req.method === 'POST') {
+      const b = await readJson(req);
+      if (guard(() => { updateManagedUser(db, user.id, +b.id, { name: b.name, role: b.role, disabled: b.disabled }); return true; })) {
+        audit(db, user.id, 'user-update', `${b.id} ${JSON.stringify({ role: b.role, disabled: b.disabled })}`);
+        return send(res, 200, { users: listUsers(db) });
+      }
+      return undefined;
     }
     return send(res, 404, { error: 'Introuvable.' });
   }

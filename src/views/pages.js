@@ -93,6 +93,9 @@ function accountPanel(ui) {
 
 // ---- Sauvegardes et restauration ----------------------------------------------------------
 export function backupView(s, ui) {
+  if (remote.user?.role === 'tech') { // le technicien n'a que son compte
+    return `<div class="page-head"><div><h1>Mon compte</h1><p class="mut">Ton mot de passe et ta déconnexion.</p></div></div><div class="one">${accountPanel(ui)}</div>`;
+  }
   const snaps = snapshots();
   const imp = ui.imp;
   return `<div class="page-head"><div><h1>Sauvegardes et restauration</h1><p class="mut">${ui.server ? 'Les données sont partagées sur le serveur avec ton équipe, qui en garde une copie chaque jour. Tu peux aussi exporter un fichier.' : 'Tes données sont enregistrées sur cet appareil. Exporte un fichier pour les garder ailleurs ou les ouvrir sur un autre appareil.'}</p></div></div>
@@ -118,4 +121,42 @@ export function backupView(s, ui) {
       <div class="panel"><h3>Zone sensible</h3><p class="mut small">${ui.server ? 'Efface toute la flotte pour toute l’équipe. Le serveur garde ses copies quotidiennes.' : 'Charge une flotte fictive pour essayer l’application, ou efface tout. Une copie de sécurité est faite avant.'}</p>
         <div class="row gap wrap">${ui.server ? '' : '<button class="btn" data-act="demo">Charger la démo</button>'}
         ${ui.confirm === 'reset' ? `<button class="btn bad solid" data-act="reset">Oui, tout effacer</button><button class="btn" data-act="confirmNo">Annuler</button>` : `<button class="btn bad" data-act="confirmAsk" data-v="reset">Tout effacer</button>`}</div></div></section></div>`;
+}
+
+// ---- Comptes (manager) -------------------------------------------------------------------
+const ago = (iso) => {
+  if (!iso) return 'Jamais connecté';
+  const d = Math.floor((Date.now() - new Date(iso)) / 864e5);
+  return d <= 0 ? 'Connecté aujourd’hui' : d === 1 ? 'Dernière connexion hier' : `Dernière connexion il y a ${d} jours`;
+};
+export function accountsView(s, ui) {
+  const a = ui.accounts || {};
+  const list = a.list || [];
+  const created = a.created;
+  const rows = list.map((u) => {
+    const me = remote.user && u.id === remote.user.id;
+    const ask = ui.confirm === 'acct-reset:' + u.id;
+    return `<li class="acct ${u.disabled ? 'off' : ''}"><span class="avatar">${esc((u.name || u.email).slice(0, 2).toUpperCase())}</span>
+      <div class="ainfo"><b>${esc(u.name || u.email.split('@')[0])}${me ? ' <span class="mut">(toi)</span>' : ''}</b><span class="mut small">${esc(u.email)}</span>
+        <span class="small mut">${u.disabled ? 'Compte désactivé' : u.mustChange ? 'Doit choisir son mot de passe à la première connexion' : esc(ago(u.lastLogin))}</span></div>
+      <div class="arole"><select data-chg="acctRole" data-uid="${u.id}" aria-label="Rôle de ${esc(u.name || u.email)}" ${me ? 'disabled' : ''}><option value="tech"${u.role === 'tech' ? ' selected' : ''}>Technicien</option><option value="manager"${u.role === 'manager' ? ' selected' : ''}>Manager</option></select></div>
+      <div class="aact">${ask
+        ? `<span class="small">Nouveau mot de passe provisoire ?</span><button class="btn sm bad solid" data-act="acctResetGo" data-uid="${u.id}">Oui</button><button class="btn sm" data-act="confirmNo">Non</button>`
+        : `<button class="btn sm" data-act="acctReset" data-uid="${u.id}">Nouveau mot de passe</button>${me ? '' : `<button class="btn sm ${u.disabled ? '' : 'ghost'}" data-act="acctToggle" data-uid="${u.id}" data-off="${u.disabled ? 0 : 1}">${u.disabled ? 'Réactiver' : 'Désactiver'}</button>`}`}</div></li>`;
+  }).join('');
+  return `<div class="page-head"><div><h1>Comptes</h1><p class="mut">${plural(list.filter((u) => !u.disabled).length, 'compte actif', 'comptes actifs')} · les techniciens cochent les tâches, ajoutent des observations, notent les heures moteur et les entretiens.</p></div></div>
+    ${created ? `<div class="panel okbox" role="status"><h3>${ic('check')} Compte prêt : ${esc(created.email)}</h3>
+      <p class="small">Donne-lui ce mot de passe provisoire. <b>Il ne sera plus affiché.</b> À sa première connexion, il devra en choisir un nouveau.</p>
+      <div class="pwbox"><code id="tmp-pw">${esc(created.password)}</code><button class="btn sm" data-act="acctCopy" data-v="${esc(created.password)}">${ic('file')} Copier</button></div>
+      <div class="row gap"><button class="btn" data-act="acctDismiss">J’ai noté le mot de passe</button></div></div>` : ''}
+    <div class="acctpage"><section class="col"><div class="panel"><div class="phead"><h3>Personnes</h3><span class="count mono">${list.length}</span></div>
+      ${a.err ? `<p class="t-bad small" role="alert">${esc(a.err)}</p>` : ''}
+      ${a.loaded ? (rows ? `<ul class="acctlist">${rows}</ul>` : empty('users', 'Aucun compte')) : '<p class="mut small">Chargement…</p>'}</div></section>
+    <section class="col"><form class="panel formrow" data-form="addAccount"><h3>${ic('plus')} Ajouter un compte</h3>
+      <div class="fld"><label class="k" for="ac-n">Prénom</label><input id="ac-n" name="name" autocomplete="off" required data-draft="ac-n"></div>
+      <div class="fld"><label class="k" for="ac-e">E-mail (sert d’identifiant)</label><input id="ac-e" name="email" type="email" autocomplete="off" required data-draft="ac-e"></div>
+      <div class="fld"><label class="k" for="ac-r">Rôle</label><select id="ac-r" name="role"><option value="tech">Technicien</option><option value="manager">Manager</option></select></div>
+      <p class="mut small">Technicien : cocher et bloquer des tâches, ajouter des observations, noter les heures moteur et les entretiens. Le reste (retours, refacturation, dates, équipe, listes, comptes) reste réservé au manager.</p>
+      ${a.formErr ? `<p class="t-bad small" role="alert">${esc(a.formErr)}</p>` : ''}
+      <div><button class="btn pri" type="submit" ${a.busy ? 'disabled' : ''}>Créer le compte</button></div></form></section></div>`;
 }
