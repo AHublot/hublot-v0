@@ -676,3 +676,18 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 [data-theme="dark"] .kchip.warn { background: linear-gradient(90deg, color-mix(in srgb, var(--acc) 26%, transparent) 0%, transparent 100%); }
 [data-theme="dark"] .kchip.bad { background: linear-gradient(90deg, color-mix(in srgb, var(--bad) 26%, transparent) 0%, transparent 100%); }
 [data-theme="dark"] .kchip.rent { background: linear-gradient(90deg, color-mix(in srgb, var(--rent) 26%, transparent) 0%, transparent 100%); }
+
+/* Tâche cochée : rebond, coche dessinée, gouttes ; catégorie complète : voilier */
+.chk { position: relative; overflow: visible; }
+.task.justdone .chk { animation: chkpop .42s cubic-bezier(.3, 1.6, .5, 1); }
+.task.justdone .chk .ic * { stroke-dasharray: 24; animation: chkdraw .3s ease .08s both; }
+@keyframes chkpop { 0% { transform: scale(1); } 35% { transform: scale(.78); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes chkdraw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+.fxdrop { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; animation: fxdrop .6s ease-out forwards; }
+@keyframes fxdrop { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.3); opacity: 0; } }
+.tcat h4 { position: relative; overflow: hidden; }
+.tcat.justfull h4 .mono { display: inline-block; animation: catpulse .6s ease; }
+@keyframes catpulse { 40% { transform: scale(1.35); } }
+.fxboat { position: absolute; bottom: 0; left: -30px; width: 22px; height: 16px; opacity: 0; animation: fxsail 2.2s ease-in-out forwards; pointer-events: none; }
+@keyframes fxsail { 0% { left: -30px; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% + 10px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .task.justdone .chk, .task.justdone .chk .ic *, .fxdrop, .fxboat, .tcat.justfull h4 .mono { animation: none !important; } .fxboat { display: none; } }

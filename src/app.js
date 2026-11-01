@@ -257,6 +257,7 @@ function render() {
   document.querySelectorAll('#view textarea[data-parse]').forEach(updateParse);
   tickCountdowns();
   animateBars(prevBars);
+  if (ui.fx) checkFx(ui.fx);
 
   if (!inLayer) $('#layer').innerHTML = layerHTML(s, now);
   const pal = $('#palette'); if (pal && !pal.open) { pal.showModal(); $('#pq')?.focus(); }
@@ -265,6 +266,24 @@ function render() {
     const t = document.querySelector(key);
     if (t && t !== document.activeElement) { try { t.focus({ preventScroll: true }); if (sel && t.setSelectionRange && t.type !== 'datetime-local' && t.type !== 'date') t.setSelectionRange(sel[0], sel[1]); } catch { /* ignore */ } }
   }
+}
+
+/** Tâche cochée : la case rebondit, quelques gouttes jaillissent ; catégorie complète : un petit voilier traverse. */
+const FX_BOAT = '<svg class="fxboat" viewBox="0 0 22 16" aria-hidden="true"><path d="M11 1v10M11 2l7 8h-7z" fill="#2BB8AB" stroke="#2BB8AB" stroke-linejoin="round"/><path d="M11 3l-5 7h5z" fill="#E5521F"/><path d="M2 11h18l-3 4H5z" fill="#0C2B3D"/></svg>';
+function checkFx(tid) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const btn = document.querySelector(`#view [data-act="tgl"][data-tid="${CSS.escape(tid)}"]`);
+  const row = btn?.closest('.task');
+  if (!row || !row.classList.contains('done')) return;
+  row.classList.add('justdone');
+  const cols = ['#2BB8AB', '#46A6E0', '#E5521F'];
+  for (let i = 0; i < 9; i++) {
+    const d = document.createElement('span'), a = (i / 9) * Math.PI * 2 + Math.random() * 0.4, r = 18 + Math.random() * 14;
+    d.className = 'fxdrop'; d.style.setProperty('--dx', `${Math.cos(a) * r}px`); d.style.setProperty('--dy', `${Math.sin(a) * r}px`); d.style.background = cols[i % 3];
+    btn.appendChild(d); setTimeout(() => d.remove(), 700);
+  }
+  const cat = row.closest('.tcat');
+  if (cat?.classList.contains('ok')) { cat.classList.add('justfull'); cat.querySelector('h4')?.insertAdjacentHTML('beforeend', FX_BOAT); }
 }
 
 /** Les barres de préparation partent de leur ancienne valeur (ou de 0 à l'arrivée sur une page) et glissent vers la nouvelle. */
@@ -391,7 +410,7 @@ document.addEventListener('click', (e) => {
       return; // laisse le lien s'ouvrir
     }
     // tâches
-    case 'tgl': M('', (st) => A.toggleTask(st, id, d.tid)); break;
+    case 'tgl': { const t = boat?.tasks.find((x) => x.id === d.tid); ui.fx = t && !t.done ? d.tid : null; M('', (st) => A.toggleTask(st, id, d.tid)); ui.fx = null; break; }
     case 'blk': M('', (st) => A.toggleBlock(st, id, d.tid)); break;
     case 'bill': M('', (st) => A.toggleBill(st, id, d.tid)); setTimeout(() => document.getElementById(`hrs-${d.tid}`)?.focus(), 0); break;
     case 'del': M(`Tâche retirée`, (st) => A.deleteTask(st, id, d.tid)); break;
