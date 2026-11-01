@@ -600,3 +600,21 @@ body.tech .panel:has(> [data-form="addEvent"]), body.tech [data-form="addEvent"]
 .depask { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
 .depask li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
 .depask li:first-child { border-top: 0; }
+
+/* Le point du jour (encart de la vue d'ensemble) */
+.hero.pj2 { display: block; padding: 14px 18px 16px; }
+.hero.pj2 h2 { font: 700 22px/1.2 var(--f-cond); margin: 0 0 8px; display: flex; align-items: baseline; gap: 6px; }
+.hero.pj2 h2 span { font: 500 13px var(--f-body, inherit); color: #8FA4B8; }
+.pj2-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 22px; }
+.pj2-grid > div { display: grid; gap: 4px; align-content: start; min-width: 0; }
+.pj2-grid > div + div { border-left: 1px solid var(--side-line); padding-left: 22px; }
+.pj2 h3 { display: flex; align-items: center; gap: 6px; font: 600 11px var(--f-cond); letter-spacing: .14em; text-transform: uppercase; color: #8FA4B8; margin: 0 0 2px; }
+.pj2 h3 svg { width: 14px; height: 14px; }
+.pj2-row { display: flex; align-items: baseline; gap: 10px; padding: 7px 10px; border-radius: 9px; background: #12293C; color: #E7EEF4; text-align: left; min-width: 0; border: 1px solid transparent; cursor: pointer; }
+.pj2-row:hover { border-color: var(--acc); }
+.pj2-row.hot { border-color: color-mix(in srgb, var(--acc) 65%, transparent); }
+.pj2-n { font-weight: 700; flex: none; } .pj2-w { font-size: 12.5px; color: #fff; white-space: nowrap; }
+.pj2-row.hot .pj2-w { color: #FF9C7A; font-weight: 600; }
+.pj2-i { margin-left: auto; font-size: 12px; color: #A9BBCB; white-space: nowrap; } .pj2-i i { font-style: normal; color: #FF9C7A; font-weight: 600; }
+@media (max-width: 700px) { .pj2-grid { grid-template-columns: minmax(0, 1fr); } .pj2-grid > div + div { border-left: 0; padding-left: 0; border-top: 1px solid var(--side-line); padding-top: 10px; } }
+.hero.pj2::after { display: none; }

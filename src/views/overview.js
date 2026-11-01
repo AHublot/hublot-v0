@@ -7,27 +7,24 @@ import { ic } from '../icons.js';
 import { pill, bar, cd, empty } from './common.js';
 import { fleetReport, waLink } from '../whatsapp.js';
 
+/** « Le point du jour » : départs à préparer et retours des prochains jours, chaque ligne ouvre le bateau. */
 function hero(s, now) {
-  const next = nextDepartures(s.boats, now);
-  if (!next.length) {
-    return `<section class="hero idle"><div><span class="eyebrow">Prochain départ clients</span>
-      <h2>Aucun départ planifié</h2><p class="mut">Renseigne une date de départ sur un bateau pour lancer le compte à rebours.</p></div></section>`;
-  }
-  const b = next[0], st = boatStats(b), rest = next.slice(1, 4);
-  return `<section class="hero">
-    <div class="hero-main">
-      <span class="eyebrow">${ic('clock')} Prochain départ clients · ${esc(baseLabel(b))}</span>
-      <h2><a href="#/boat/${b.id}/prep" data-act="open" data-id="${b.id}">${esc(b.name)}</a></h2>
-      <p class="mut">${esc(fmtWDT(b.departure))} · heure locale ${esc(utcLabel())}</p>
-    </div>
-    <div class="hero-count"><span class="big mono">${cd(b.departure, now)}</span><span class="mut">avant le départ</span></div>
-    <div class="hero-prep">
-      <div class="row between"><span class="eyebrow">Préparation</span><span class="mono">${st.done}/${st.total}</span></div>
-      ${bar(st.pct, st.blocked ? 'bad' : st.open ? '' : 'ok')}
-      <p class="mut small">${st.blocked ? `<b class="t-bad">${plural(st.blocked, 'bloquant', 'bloquants')}</b> · ` : ''}${plural(st.open, 'tâche restante', 'tâches restantes')}${st.obsOpen ? ` dont ${plural(st.obsOpen, 'observation', 'observations')}` : ''}</p>
-    </div>
-    ${rest.length ? `<div class="hero-next"><span class="eyebrow">Ensuite</span>${rest.map((r) => `<button type="button" class="linkrow" data-act="open" data-id="${r.id}"><span>${esc(r.name)}</span><span class="mono mut">${cd(r.departure, now)}</span></button>`).join('')}</div>` : ''}
-  </section>`;
+  const day0 = startOfDay(now), horizon = addDays(day0, 4);
+  const dw = (d) => {
+    const n = Math.round((startOfDay(d) - day0) / 864e5);
+    return n < 0 ? 'En retard' : n === 0 ? 'Auj.' : n === 1 ? 'Demain' : `Dans ${n} j`;
+  };
+  const deps = s.boats.filter((b) => !b.inRental && b.departure && parseLocal(b.departure) < horizon)
+    .map((b) => ({ b, st: boatStats(b), d: parseLocal(b.departure) })).sort((x, y) => x.d - y.d);
+  const todo = deps.filter((x) => x.st.open > 0).slice(0, 3);
+  const rets = s.boats.filter((b) => b.inRental && b.returnDate && parseLocal(b.returnDate) >= day0 && parseLocal(b.returnDate) < horizon)
+    .sort((x, y) => parseLocal(x.returnDate) - parseLocal(y.returnDate)).slice(0, 3);
+  const chip = (id, name, when, info, hot) => `<button type="button" class="pj2-row ${hot ? 'hot' : ''}" data-act="open" data-id="${id}"><b class="pj2-n">${esc(name)}</b><span class="pj2-w">${esc(when)}</span><span class="pj2-i">${info}</span></button>`;
+  const dRows = todo.map(({ b, st, d }, i) => chip(b.id, b.name, dw(d), `${st.open} à finir${st.blocked ? ' · <i>bloquant</i>' : ''}`, i === 0 && d < addDays(day0, 1) && st.pct < 50)).join('');
+  const rRows = rets.map((b) => chip(b.id, b.name, dw(parseLocal(b.returnDate)), 'retour')).join('');
+  return `<section class="hero pj2"><h2>Le point du jour <span>· ${esc(fmtWDT(now).split(',')[0])}</span></h2>
+    <div class="pj2-grid"><div><h3>${ic('boat')} Départs</h3>${dRows || '<p class="mut small">Rien à préparer</p>'}</div>
+    <div><h3>${ic('left')} Retours</h3>${rRows || '<p class="mut small">Aucun retour prévu</p>'}</div></div></section>`;
 }
 
 function kpis(f, ui) {
