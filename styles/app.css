@@ -743,3 +743,5 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 }
 .aname { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .aname input { flex: 1; min-width: 120px; font-weight: 600; }
+.bcard .bico.fp { background: transparent; }
+.bcard .bico.fp img { width: 28px; height: 28px; display: block; }
