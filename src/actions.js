@@ -271,6 +271,26 @@ export function toggleAssign(s, name, id) {
 export function setFleetTemplates(s, list) {
   s.templates = list;
 }
+/**
+ * Renomme une tâche de la liste avant départ partout : liste de la flotte, liste propre à chaque
+ * bateau (utilisée au prochain retour) et tâches en cours. Les tâches gardent leur identifiant et
+ * leurs réponses (cochée, par qui, bloquée, notes…) : seul l'intitulé change.
+ */
+export function renameTemplate(s, from, to) {
+  to = String(to || '').trim();
+  if (!to || to === from) return null;
+  if (s.templates.includes(to)) throw new Error('cette tâche existe déjà dans la liste');
+  s.templates = s.templates.map((t) => (t === from ? to : t));
+  if (s.tplCats && from in s.tplCats) { const c = { ...s.tplCats }; c[to] = c[from]; delete c[from]; s.tplCats = c; }
+  let prep = 0, next = 0;
+  s.boats.forEach((b) => {
+    if (b.templates?.includes(from)) { b.templates = b.templates.map((t) => (t === from ? to : t)); if (b.inRental) next++; }
+    let hit = false;
+    b.tasks.forEach((t) => { if (t.template === from) { t.template = to; t.title = to; hit = true; } });
+    if (hit) { if (!b.inRental) prep++; log(b, `Tâche habituelle renommée : ${from} → ${to}`); }
+  });
+  return { prep, next };
+}
 export function setTplCat(s, title, cat) {
   if (!title) return;
   s.tplCats = { ...(s.tplCats || {}), [title]: cat };

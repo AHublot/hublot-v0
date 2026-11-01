@@ -725,3 +725,19 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 @keyframes sheetup { from { transform: translateY(40px); opacity: .6; } }
 @keyframes fadein { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .fsheet, .fsheet-back { animation: none !important; } }
+
+/* ---- liste avant départ : renommer une tâche ---- */
+.task.renaming .catsel, .task.renaming > .ibtn { display: none; }
+.clren { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.clren input { width: 100%; font-weight: 600; }
+.clren p { margin: 0; }
+@media (max-width: 700px) { .actions-col .btn { white-space: normal; text-align: left; justify-content: flex-start; padding-block: 8px; max-width: 100%; } }
+.task.edit .tbody { flex: 1; min-width: 0; }
+.clttl { text-align: left; font: inherit; color: inherit; padding: 2px 0; }
+.clttl .ic { width: 13px; height: 13px; margin-left: 4px; vertical-align: -1px; color: var(--faint); }
+.clttl:hover .ic, .clttl:focus-visible .ic { color: var(--tx); }
+@media (max-width: 700px) {
+  .task.edit { flex-wrap: wrap; row-gap: 4px; }
+  .task.edit .tbody { flex: 1 1 calc(100% - 40px); }
+  .task.edit .catsel { margin-left: 34px; flex: 1; min-width: 0; max-width: none; }
+}

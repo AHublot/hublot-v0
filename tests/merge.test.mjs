@@ -109,3 +109,23 @@ test('technicien : peut signaler un départ et un retour, rien d’autre au pass
   const bad = deniedOps('tech', diffBoat(b, mix), b);
   assert.ok(bad.length >= 2 && bad.every((o) => o.k === 'name' || o.a === 'maintenance' || o.k === 'team'));
 });
+
+test('liste avant départ : renommer une tâche garde les réponses et suit sur toute la flotte', async () => {
+  const A = await import('../src/actions.js');
+  const M = await import('../src/model.js');
+  const s = M.emptyState ? M.emptyState() : null;
+  if (!s) return;
+  const from = s.templates[0];
+  const prep = M.newBoat({ name: 'Prep' }, s.templates); const rent = M.newBoat({ name: 'Loc' }, s.templates); rent.inRental = true;
+  const t = prep.tasks.find((x) => x.template === from); t.done = true; t.doneBy = 'Pablo'; t.note = 'ok';
+  s.boats.push(prep, rent); s.tplCats = { [from]: 'Moteur' };
+  const r = A.renameTemplate(s, from, 'Nouvel intitulé');
+  assert.deepEqual(r, { prep: 1, next: 1 });
+  assert.equal(s.templates[0], 'Nouvel intitulé');
+  assert.equal(s.tplCats['Nouvel intitulé'], 'Moteur'); assert.ok(!(from in s.tplCats));
+  const t2 = prep.tasks.find((x) => x.id === t.id);
+  assert.equal(t2.title, 'Nouvel intitulé'); assert.equal(t2.template, 'Nouvel intitulé');
+  assert.equal(t2.done, true); assert.equal(t2.doneBy, 'Pablo'); assert.equal(t2.note, 'ok');
+  assert.ok(rent.templates.includes('Nouvel intitulé') && !rent.templates.includes(from));
+  assert.throws(() => A.renameTemplate(s, 'Nouvel intitulé', s.templates[1]));
+});

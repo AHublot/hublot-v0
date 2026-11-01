@@ -29,6 +29,14 @@ export function teamView(s, ui) {
 }
 
 // ---- Liste avant départ ------------------------------------------------------------------
+function renameForm(s, t, i) {
+  const prep = s.boats.filter((b) => b.tasks.some((x) => x.template === t)).length;
+  const next = s.boats.filter((b) => b.inRental && (b.templates?.length ? b.templates : s.templates).includes(t)).length;
+  const what = [prep ? `${plural(prep, 'préparation en cours', 'préparations en cours')}` : '', next ? `la liste du prochain retour (${plural(next, 'bateau', 'bateaux')} en location)` : ''].filter(Boolean).join(' et ');
+  return `<form class="clren" data-form="clRename" data-i="${i}"><input name="title" value="${esc(t)}" aria-label="Nouvel intitulé" autocomplete="off" required>
+    <p class="mut small">${what ? `Change aussi ${what}.` : 'Aucun bateau ne l’utilise pour l’instant.'} Les réponses déjà données (cochée, par qui, bloquée, notes) sont gardées.</p>
+    <div class="row gap"><button class="btn pri sm" type="submit">Enregistrer</button><button class="btn sm" type="button" data-act="clEditNo">Annuler</button></div></form>`;
+}
 export function checklistView(s, ui) {
   const list = s.templates;
   const prepBoats = s.boats.filter((b) => !b.inRental);
@@ -43,7 +51,7 @@ export function checklistView(s, ui) {
   }).join('');
   return `<div class="page-head"><div><h1>Liste avant départ</h1><p class="mut">Les tâches habituelles de toute la flotte. Chaque bateau garde sa propre copie, modifiable depuis sa page.</p></div></div>
     <div class="two even"><section class="col"><div class="panel"><div class="phead"><h3>Liste de la flotte</h3><span class="count mono">${list.length}</span></div>
-      <ol class="tasks">${list.map((t, i) => `<li class="task edit"><span class="num mono">${i + 1}</span><div class="tbody"><div class="ttl">${esc(t)}</div></div>
+      <ol class="tasks">${list.map((t, i) => `<li class="task edit${ui.clEdit === i ? ' renaming' : ''}"><span class="num mono">${i + 1}</span>${ui.clEdit === i ? renameForm(s, t, i) : `<div class="tbody"><button type="button" class="ttl clttl" data-act="clEdit" data-i="${i}" title="Modifier l’intitulé" aria-label="Modifier : ${esc(t)}">${esc(t)} ${ic('edit')}</button></div>`}
         <select class="catsel" data-chg="tplCat" data-i="${i}" aria-label="Catégorie : ${esc(t)}">${[...TPL_CATS, TPL_OTHER].map((c) => `<option${tplCatOf(s, t) === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
         <button class="ibtn" data-act="clUp" data-i="${i}" aria-label="Monter" ${i ? '' : 'disabled'}>${ic('up')}</button><button class="ibtn" data-act="clDn" data-i="${i}" aria-label="Descendre" ${i < list.length - 1 ? '' : 'disabled'}>${ic('down')}</button><button class="ibtn" data-act="clDel" data-i="${i}" aria-label="Retirer">${ic('trash')}</button></li>`).join('')}</ol>
       <form class="inl" data-form="addDefTpl"><input name="title" placeholder="Nouvelle tâche pour toute la flotte" aria-label="Nouvelle tâche" autocomplete="off" data-draft="cl-new"><button class="btn pri" type="submit">Ajouter</button></form>

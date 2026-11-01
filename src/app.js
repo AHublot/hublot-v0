@@ -57,7 +57,7 @@ function parseHash() {
 function hashFor(r) {
   return r.name === 'boat' ? `#/boat/${encodeURIComponent(r.id)}/${ui.tab}` : r.name === 'overview' ? '#/' : `#/${r.name}`;
 }
-const PAGE_RESET = { fsheet: false, techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null };
+const PAGE_RESET = { fsheet: false, clEdit: null, techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null };
 function go(name, id = null, tab = null) {
   if (isTech() && !TECH_PAGES.has(name)) { name = 'overview'; id = null; }
   ui.route = { name, id };
@@ -462,9 +462,11 @@ document.addEventListener('click', (e) => {
     case 'memberDel': M(`${d.name} retiré de l’équipe`, (st) => A.removeMember(st, d.name)); break;
     case 'teamEdit': ui.teamEdit = ui.teamEdit === d.name ? null : d.name; render(); break;
     // liste de la flotte
+    case 'clEdit': ui.clEdit = +d.i; render(); setTimeout(() => { const el = document.querySelector('.clren input'); if (el) { el.focus(); el.select(); } }); break;
+    case 'clEditNo': ui.clEdit = null; render(); break;
     case 'mxOpen': ui.cl = ui.cl === d.v ? null : d.v; render(); break;
-    case 'clUp': case 'clDn': M('', (st) => { const l = st.templates.slice(), i = +d.i, j = a === 'clUp' ? i - 1 : i + 1; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; A.setFleetTemplates(st, l); }); break;
-    case 'clDel': M('Tâche retirée de la liste', (st) => { const l = st.templates.slice(); l.splice(+d.i, 1); A.setFleetTemplates(st, l); }); break;
+    case 'clUp': case 'clDn': ui.clEdit = null; M('', (st) => { const l = st.templates.slice(), i = +d.i, j = a === 'clUp' ? i - 1 : i + 1; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; A.setFleetTemplates(st, l); }); break;
+    case 'clDel': ui.clEdit = null; M('Tâche retirée de la liste', (st) => { const l = st.templates.slice(); l.splice(+d.i, 1); A.setFleetTemplates(st, l); }); break;
     case 'clDefault': M('Liste d’origine rétablie', (st) => A.setFleetTemplates(st, A.DEFAULT_TEMPLATES.slice())); break;
     case 'clAddAll': { let n = 0; M('Tâches manquantes ajoutées aux préparations en cours', (st) => { n = A.addMissingToAll(st); }); break; }
     case 'clApply': ui.confirm = null; M('Liste appliquée à toute la flotte', (st) => A.applyTemplatesToFleet(st)); break;
@@ -620,6 +622,17 @@ document.addEventListener('submit', (e) => {
     }
     case 'saveBoat': { if (!g('name')) return; M('Réglages enregistrés', (st) => A.updateBoat(st, id, { name: g('name'), model: g('model'), base: g('base'), otherBase: g('base') === 'Autre' ? g('otherBase') : '' })); break; }
     case 'addMember': { const n = g('name'); if (!n) return; delete ui.drafts.tm; M(`${n} ajouté à l’équipe`, (st) => A.addMember(st, n)); break; }
+    case 'clRename': {
+      const from = getState().templates[+form.dataset.i], to = g('title');
+      if (!from || !to) return;
+      if (to === from) { ui.clEdit = null; render(); return; }
+      let r = null;
+      M('Tâche renommée', (st) => { r = A.renameTemplate(st, from, to); }, { toast: false });
+      if (r) ui.clEdit = null;
+      if (r) toast(`Tâche renommée${r.prep || r.next ? ` sur ${plural(r.prep + r.next, 'bateau', 'bateaux')}` : ''}`, { undo: true });
+      else render();
+      break;
+    }
     case 'addDefTpl': {
       const t = g('title'); if (!t) return; delete ui.drafts['cl-new'];
       M('Tâche ajoutée à la liste', (st) => { if (!st.templates.includes(t)) A.setFleetTemplates(st, [...st.templates, t]); });

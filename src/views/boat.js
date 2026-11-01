@@ -19,7 +19,7 @@ export const TABS = [
   ['archives', 'Archives & suivi', 'history'], ['reglages', 'Réglages', 'sliders'],
 ];
 
-const isEngineCheck = (t) => /^vérifier l.entretien moteur$/i.test(String(t.template || ''));
+const isEngineCheck = (t) => /entretien (du |des )?moteurs?/i.test(String(t.template || ''));
 /** Relevé moteur saisi directement sur la tâche « Vérifier l’entretien moteur » (met à jour l'onglet Entretiens). */
 function engineHoursRow(b) {
   const f = (k, label) => `<label class="bh"><span>${label}</span><input inputmode="decimal" value="${esc(String(b.hours?.[k] ?? '').replace('.', ','))}" placeholder="0" aria-label="Heures moteur ${label}" data-chg="hours" data-id="${b.id}" data-f="${k}" id="th${k}-${b.id}"><span>h</span></label>`;
