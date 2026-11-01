@@ -668,3 +668,11 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 
 /* Nom du bateau : jamais coupé au milieu d'un mot, la pastille d'état passe dessous si la carte est étroite */
 .bcard h3 { flex: 1 1 auto; min-width: min-content; overflow-wrap: normal; word-break: normal; }
+
+/* Pastilles de la carte : fond en dégradé, plus doux */
+.kchip.warn { background: linear-gradient(90deg, rgba(255,222,200,.95) 0%, rgba(255,255,255,.30) 100%); }
+.kchip.bad { background: linear-gradient(90deg, rgba(255,214,218,.95) 0%, rgba(255,255,255,.30) 100%); }
+.kchip.rent { background: linear-gradient(90deg, rgba(206,226,248,.95) 0%, rgba(255,255,255,.30) 100%); }
+[data-theme="dark"] .kchip.warn { background: linear-gradient(90deg, color-mix(in srgb, var(--acc) 26%, transparent) 0%, transparent 100%); }
+[data-theme="dark"] .kchip.bad { background: linear-gradient(90deg, color-mix(in srgb, var(--bad) 26%, transparent) 0%, transparent 100%); }
+[data-theme="dark"] .kchip.rent { background: linear-gradient(90deg, color-mix(in srgb, var(--rent) 26%, transparent) 0%, transparent 100%); }
