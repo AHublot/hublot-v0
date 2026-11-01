@@ -19,6 +19,13 @@ export const TABS = [
   ['archives', 'Archives & suivi', 'history'], ['reglages', 'Réglages', 'sliders'],
 ];
 
+const isEngineCheck = (t) => /^vérifier l.entretien moteur$/i.test(String(t.template || ''));
+/** Relevé moteur saisi directement sur la tâche « Vérifier l’entretien moteur » (met à jour l'onglet Entretiens). */
+function engineHoursRow(b) {
+  const f = (k, label) => `<label class="bh"><span>${label}</span><input inputmode="decimal" value="${esc(String(b.hours?.[k] ?? '').replace('.', ','))}" placeholder="0" aria-label="Heures moteur ${label}" data-chg="hours" data-id="${b.id}" data-f="${k}" id="th${k}-${b.id}"><span>h</span></label>`;
+  return `<div class="billf enghrs">${f('port', 'Bâbord')}${f('stbd', 'Tribord')}</div>`;
+}
+
 function taskRow(b, t, { edit = false, pending = false } = {}) {
   const meta = [];
   if (t.blocked && !t.done) meta.push('<b class="t-bad">Bloquant</b>');
@@ -35,6 +42,7 @@ function taskRow(b, t, { edit = false, pending = false } = {}) {
     : '';
   return `<li class="task ${t.done ? 'done' : ''} ${t.blocked && !t.done ? 'blocked' : ''} ${t.bill ? 'billed' : ''}">${chk}
     <div class="tbody"><div class="ttl">${esc(t.title)}</div>${meta.length ? `<div class="tmeta">${meta.join('<span>·</span>')}</div>` : ''}
+      ${!pending && isEngineCheck(t) ? engineHoursRow(b) : ''}
       ${t.bill && !pending ? `<div class="billf"><label class="bh"><input inputmode="decimal" value="${esc(String(t.hours || '').replace('.', ','))}" placeholder="0" aria-label="Heures à refacturer : ${esc(t.title)}" data-chg="billf" data-f="hours" data-id="${b.id}" data-tid="${t.id}" id="hrs-${t.id}"><span>h</span></label>
         <input class="bm" value="${esc(t.material || '')}" placeholder="Matériel utilisé" aria-label="Matériel à refacturer : ${esc(t.title)}" data-chg="billf" data-f="material" data-id="${b.id}" data-tid="${t.id}" id="mat-${t.id}" autocomplete="off">
         ${billedBox(b, t)}</div>` : ''}</div>
