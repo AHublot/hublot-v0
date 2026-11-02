@@ -2,6 +2,7 @@ import { esc, fmtD, fmtDT, fmtWDT, plural, parseLocal } from '../util.js';
 import {
   boatStats, boatStatus, maintStatus, maintCounts, baseLabel, tplsOf, pinnedEvents, latestHours,
   observationsOf, obsState, BASES, CATEGORIES, INTERVALS, TPL_CATS, TPL_OTHER, tplCatOf,
+  pendingObs,
 } from '../model.js';
 import { returnPlan } from '../actions.js';
 import { ic } from '../icons.js';
@@ -70,10 +71,12 @@ function tplEditRow(b, title, i, n) {
 
 /** Confirmation avant de signaler un départ. */
 function depConfirm(b) {
-  const open = b.tasks.filter((t) => !t.done).length;
+  const open = b.tasks.filter((t) => !t.done && !t.template).length;
+  const tplOpen = b.tasks.filter((t) => !t.done && t.template).length;
   return `<section class="panel retconfirm" aria-label="Valider le départ"><h3>${ic('send')} Signaler le départ · ${esc(b.name)}</h3>
     <ul><li>${ic('history')}<span>La préparation en cours part dans <b>Archives &amp; suivi</b>.</span></li>
-    <li>${ic('flag')}<span>${open ? `<b>${plural(open, 'tâche non terminée est reportée', 'tâches non terminées sont reportées')}</b> au retour.` : 'Toutes les tâches sont terminées.'}</span></li></ul>
+    <li>${ic('flag')}<span>${open ? `<b>${plural(open, 'observation non terminée est reportée', 'observations non terminées sont reportées')}</b> au retour.` : 'Aucune observation à reporter au retour.'}</span></li>
+    ${tplOpen ? `<li>${ic('list')}<span>${plural(tplOpen, 'tâche habituelle non cochée n’est pas reportée', 'tâches habituelles non cochées ne sont pas reportées')} : elles repartent à zéro au retour.</span></li>` : ''}</ul>
     <div class="row gap wrap"><button class="btn pri" data-act="dep" data-id="${b.id}">${ic('check')} Valider le départ</button><button class="btn" data-act="confirmNo">Annuler</button></div></section>`;
 }
 
@@ -146,7 +149,7 @@ function tabPrep(s, b, ui, now) {
     </form></section>`;
 
   if (b.inRental) {
-    const p = b.pendingOnReturn;
+    const p = pendingObs(b);
     return `<div class="two"><div class="col"><section class="panel"><div class="phead"><h3>À reprendre au retour</h3><span class="count mono">${p.length}</span></div>
       <p class="mut small">Le bateau est en location. Ces points seront remis dans la préparation au retour, avec les tâches habituelles.</p>
       ${p.length ? `<ul class="tasks">${p.map((t) => taskRow(b, t, { pending: true })).join('')}</ul>` : empty('check', 'Rien en attente', 'Ajoute ici ce qu’il faudra regarder au retour.')}

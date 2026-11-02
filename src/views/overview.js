@@ -1,6 +1,6 @@
 import { esc, fmtWDT, fmtDT, fmtD, plural, parseLocal, utcLabel, startOfDay, addDays, fmtMonth, norm } from '../util.js';
 import {
-  boatStats, boatStatus, maintCounts, missingDates, fleetStats, FILTERS, matchFilter, sortBoats, nextDepartures,
+  boatStats, boatStatus, maintCounts, missingDates, fleetStats, FILTERS, matchFilter, pendingObs, sortBoats, nextDepartures,
   baseLabel, BASES, pinnedEvents,
 } from '../model.js';
 import { ic } from '../icons.js';
@@ -56,7 +56,7 @@ function card(b, now) {
     key.push(st.obsOpen ? `<span class="kchip warn">${ic('tool')} ${plural(st.obsOpen, 'observation', 'observations')} à traiter</span>` : `<span class="kchip ok">${ic('check')} Aucune observation</span>`);
     if (st.blocked) key.push(`<span class="kchip bad">${ic('flag')} ${plural(st.blocked, 'bloquant', 'bloquants')}</span>`);
   } else {
-    const n = b.pendingOnReturn.length;
+    const n = pendingObs(b).length;
     key.push(n ? `<span class="kchip rent">${ic('tool')} ${n} à reprendre au retour</span>` : `<span class="kchip calm">Rien à reprendre au retour</span>`);
   }
   const minor = [];

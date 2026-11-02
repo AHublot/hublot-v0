@@ -1,6 +1,6 @@
 // Messages prêts à coller dans WhatsApp (gras = *texte*).
 import { fmtWDT, fmtD, parseLocal, fmtCountdown, dayDiff } from './util.js';
-import { boatStats, baseLabel, pinnedEvents, sortBoats, maintCounts } from './model.js';
+import { boatStats, baseLabel, pinnedEvents, sortBoats, maintCounts, pendingObs } from './model.js';
 
 export function boatReport(b, now = new Date()) {
   const st = boatStats(b);
@@ -8,7 +8,8 @@ export function boatReport(b, now = new Date()) {
   const L = [`*${b.name}* · ${baseLabel(b)}`];
   if (b.inRental) {
     L.push(`En location${b.returnDate ? ` · retour prévu ${fmtWDT(b.returnDate)}` : ''}`);
-    if (b.pendingOnReturn.length) L.push('', `À reprendre au retour (${b.pendingOnReturn.length}) :`, ...b.pendingOnReturn.map((t) => `• ${t.title}`));
+    const po = pendingObs(b);
+    if (po.length) L.push('', `À reprendre au retour (${po.length}) :`, ...po.map((t) => `• ${t.title}`));
     return L.join('\n');
   }
   L.push(dep ? `Départ ${fmtWDT(b.departure)}${dep > now ? ` (dans ${fmtCountdown(dep, now)})` : ' (dépassé)'}` : 'Départ à renseigner');

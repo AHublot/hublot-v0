@@ -124,6 +124,8 @@ export function normalizeState(raw) {
 
 // ---- dérivés ---------------------------------------------------------------
 export const baseLabel = (b) => (b.base === 'Autre' ? b.otherBase || 'Autre' : b.base || 'Sans base');
+/** Observations à reprendre au retour (les anciennes données pouvaient y contenir des tâches habituelles). */
+export const pendingObs = (b) => (b.pendingOnReturn || []).filter((t) => !t.template);
 export const tplsOf = (s, b) => (b.templates?.length ? b.templates : s.templates);
 
 export function boatStats(b) {

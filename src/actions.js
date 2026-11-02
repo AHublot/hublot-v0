@@ -142,13 +142,14 @@ export function confirmDeparture(s, id, { auto = false } = {}) {
     at: nowIso(), automatic: !!auto, departure: b.departure || '',
   };
   b.history = [entry, ...b.history];
-  b.pendingOnReturn = clone(b.tasks.filter((t) => !t.done)).map((t) => ({ ...t, carried: true }));
+  // Seules les observations non terminées passent au retour : les tâches habituelles repartent à zéro.
+  b.pendingOnReturn = clone(b.tasks.filter((t) => !t.done && !t.template)).map((t) => ({ ...t, carried: true }));
   b.tasks = [];
   b.departureArchived = true;
   b.inRental = true;
   b.lastDeparture = b.departure || '';
   log(b, auto
-    ? 'Départ automatique : préparation archivée, tâches non terminées reportées au retour'
+    ? 'Départ automatique : préparation archivée, observations non terminées reportées au retour'
     : 'Départ signalé : préparation archivée, observations non terminées reportées au retour');
 }
 /** Ce que « Nouveau retour » va faire, pour l'afficher avant de valider. */

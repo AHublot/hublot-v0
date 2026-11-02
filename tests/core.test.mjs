@@ -90,7 +90,7 @@ test('nouveau retour pendant une location : les observations notées en location
   A.addObservations(s, b.id, [{ title: 'Winch' }]);
   A.confirmDeparture(s, b.id);
   A.addObservations(s, b.id, [{ title: 'Eau dans la cale' }]);
-  assert.equal(b.pendingOnReturn.length, DEFAULT_TEMPLATES.length + 2);
+  assert.equal(b.pendingOnReturn.length, 2, 'seules les observations passent au retour');
   A.newReturn(s, b.id);
   assert.equal(b.inRental, false);
   assert.equal(b.history.length, 1, 'rien de plus à archiver : la préparation était vide');

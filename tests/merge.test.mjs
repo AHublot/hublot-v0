@@ -129,3 +129,16 @@ test('liste avant départ : renommer une tâche garde les réponses et suit sur 
   assert.ok(rent.templates.includes('Nouvel intitulé') && !rent.templates.includes(from));
   assert.throws(() => A.renameTemplate(s, 'Nouvel intitulé', s.templates[1]));
 });
+
+test('départ : seules les observations non terminées sont reportées au retour', async () => {
+  const A = await import('../src/actions.js');
+  const M = await import('../src/model.js');
+  const s = M.emptyState();
+  const b = M.newBoat({ name: 'X' }, s.templates); s.boats.push(b);
+  b.tasks[0].done = true;
+  b.tasks.push(M.mkTask('Fuite robinet', false), M.mkTask('Voile déchirée', false, { done: true }));
+  A.confirmDeparture(s, b.id);
+  assert.deepEqual(b.pendingOnReturn.map((t) => t.title), ['Fuite robinet']);
+  b.pendingOnReturn.push(M.mkTask(s.templates[1], true));
+  assert.equal(M.pendingObs(b).length, 1);
+});
