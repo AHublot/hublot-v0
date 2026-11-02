@@ -746,3 +746,9 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .bcard .bico.fp { background: transparent; }
 .bcard .bico.fp img { width: 28px; height: 28px; display: block; }
 .bcard .bico.fp img[src*="lagoon"] { width: 30px; height: 30px; }
+
+/* ---- cartes : statut toujours sur sa ligne, sous le nom ---- */
+.bcard header { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 8px; row-gap: 4px; }
+.bcard header .bico { grid-row: 1; }
+.bcard header h3 { grid-column: 2; min-width: 0; overflow-wrap: break-word; }
+.bcard header .pill { grid-column: 1 / -1; justify-self: start; }
