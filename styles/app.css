@@ -752,3 +752,43 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .bcard header .bico { grid-row: 1; }
 .bcard header h3 { grid-column: 2; min-width: 0; overflow-wrap: break-word; }
 .bcard header .pill { grid-column: 1 / -1; justify-self: start; }
+
+/* ---- Historique (maquette) ---- */
+.jnav .btn.icon { min-width: 38px; }
+.jdate { display: flex; flex-direction: column; gap: 3px; } .jdate input { min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); }
+.jtools { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 12px; }
+.jtools select { min-height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); }
+.jdays { display: flex; flex-direction: column; gap: 14px; }
+.jday { padding: 0; gap: 0; overflow: hidden; }
+.jhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; width: 100%; }
+.jhead h3 { font: 700 19px/1.2 var(--f-cond); } .jhead h3 .mut { font-weight: 500; }
+.jchev { transition: transform .2s; color: var(--mut); } .jday.open .jchev { transform: rotate(180deg); }
+.t-ok { color: var(--ok); }
+.jsum { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 0 18px 14px; border-bottom: 1px solid var(--line2); }
+.jwho { display: flex; align-items: center; gap: 9px; padding: 7px 12px 7px 7px; border: 1px solid var(--line); border-radius: 99px; background: var(--panel); flex: none; }
+.jwho .avatar { width: 30px; height: 30px; font-size: 12px; }
+.jwho b { display: block; font-size: 13px; line-height: 1.2; } .jwho small { color: var(--mut); font-size: 11px; white-space: nowrap; }
+.jwho.on { border-color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc); }
+.jlist { display: flex; flex-direction: column; }
+.jrow { display: grid; grid-template-columns: 48px 30px minmax(0, 1fr); gap: 10px; align-items: start; padding: 11px 18px; border-bottom: 1px solid var(--line2); }
+.jrow:last-child { border-bottom: 0; }
+.jt { color: var(--mut); font-size: 12.5px; padding-top: 5px; }
+.jic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--panel2); color: var(--mut); }
+.jic .ic { width: 16px; height: 16px; }
+.jic.k-ok { background: var(--ok-soft); color: var(--ok); } .jic.k-new { background: var(--acc-soft); color: var(--acc-tx); }
+.jic.k-bad { background: var(--bad-soft); color: var(--bad); } .jic.k-rent { background: var(--rent-soft); color: var(--rent); }
+.jtx p:first-child { line-height: 1.4; } .jtx q { font-weight: 500; quotes: '« ' ' »'; }
+.jboat { display: inline-flex; align-items: center; gap: 4px; color: var(--rent); font-weight: 500; } .jboat .ic { width: 13px; height: 13px; }
+.jrole { font: 600 10px var(--f-cond); letter-spacing: .1em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--bill-soft); color: var(--bill); }
+@media (max-width: 860px) {
+  .jtools { flex-direction: column; align-items: stretch; } .jtools .seg { overflow-x: auto; scrollbar-width: none; } .jsel select { flex: 1; min-width: 0; }
+  .jnav { width: 100%; } .jdate { flex: 1; } .jdate input { width: 100%; }
+  .jrow { grid-template-columns: 30px minmax(0, 1fr) auto; padding: 11px 14px; } .jrow .jt { order: 3; } .jhead, .jsum { padding-left: 14px; padding-right: 14px; }
+}
+@media (max-width: 860px) { .jtools > * { min-width: 0; max-width: 100%; } .jsel { width: 100%; flex-wrap: nowrap; } .jtools .seg { display: flex; } }
+/* journal : logo catamaran et dégradés par type d'action */
+.jcat { display: inline-block; width: 19px; height: 19px; margin-right: 2px; background: #1C6F94; -webkit-mask: url(../icons/catamaran.png) center / contain no-repeat; mask: url(../icons/catamaran.png) center / contain no-repeat; }
+:root[data-theme="dark"] .jcat { background: #5FB0D6; }
+.jboat { color: #1C6F94; } :root[data-theme="dark"] .jboat { color: #5FB0D6; }
+.jrow { --jg: transparent; background: linear-gradient(90deg, color-mix(in srgb, var(--jg) 55%, transparent) 0%, transparent 45%); }
+.jrow.k-ok { --jg: var(--ok-soft); } .jrow.k-new { --jg: var(--acc-soft); } .jrow.k-bad { --jg: var(--bad-soft); } .jrow.k-rent { --jg: var(--rent-soft); } .jrow.k-mut { --jg: var(--line2); }

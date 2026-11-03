@@ -113,6 +113,7 @@ export async function importRemote(raw) {
 }
 // ---- comptes (manager) ----
 export const listAccounts = () => api('users');
+export const getJournal = () => api('journal');
 export const createAccount = (body) => api('users', { method: 'POST', body });
 export const resetAccount = (id) => api('users/reset', { method: 'POST', body: { id } });
 export const updateAccount = (body) => api('users/update', { method: 'POST', body });

@@ -5,6 +5,7 @@ import { scryptSync, randomBytes, timingSafeEqual, createHash } from 'node:crypt
 import { mkdirSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { applyOps, deniedOps, stable, LISTS } from '../src/merge.js';
+import { journalEvents, JOURNAL_DAYS } from '../src/journal-events.js';
 
 export const DATA_DIR = process.env.DATA_DIR || join(process.cwd(), 'data');
 export const ROLES = ['manager', 'tech'];
@@ -34,6 +35,11 @@ export function openDb(file = join(DATA_DIR, 'hublot.sqlite')) {
     CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, at TEXT NOT NULL, user_id INTEGER, action TEXT NOT NULL, detail TEXT);
     INSERT OR IGNORE INTO counter (k, v) VALUES ('seq', 0);
     CREATE INDEX IF NOT EXISTS boats_version ON boats(version);
+    CREATE TABLE IF NOT EXISTS journal (
+      id INTEGER PRIMARY KEY, at TEXT NOT NULL, user_id INTEGER, name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT '',
+      boat_id TEXT, boat TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL, what TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS journal_at ON journal(at);
   `);
   if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'must_change')) {
     db.exec('ALTER TABLE users ADD COLUMN must_change INTEGER NOT NULL DEFAULT 0');
@@ -168,6 +174,8 @@ export function applySync(db, userId, { meta, boats = [], deleted = [], patches 
     for (const id of deleted) if (typeof id === 'string') del.run(nextVersion(db), at, userId, id);
 
     const get = db.prepare('SELECT data FROM boats WHERE id = ? AND deleted = 0');
+    const jot = db.prepare('INSERT INTO journal (at, user_id, name, role, boat_id, boat, kind, what, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    if (patches.length) purgeJournal(db);
     for (const p of patches) {
       if (!p || typeof p.id !== 'string' || !Array.isArray(p.ops) || p.ops.length > 5000) continue;
       const row = get.get(p.id);
@@ -182,11 +190,24 @@ export function applySync(db, userId, { meta, boats = [], deleted = [], patches 
       }
       if (refused) rejected.push(p.id);
       const next = applyOps(cur, ops, { by: actor.name || '' });
-      if (stable(next) !== stable(cur)) up.run(p.id, JSON.stringify(next), nextVersion(db), at, userId);
+      if (stable(next) !== stable(cur)) {
+        up.run(p.id, JSON.stringify(next), nextVersion(db), at, userId);
+        for (const e of journalEvents(cur, next)) jot.run(at, userId ?? null, actor.name || '', actor.role || '', p.id, String(next.name || ''), e.kind, e.what, e.note);
+      }
     }
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   return { version: currentVersion(db), rejected };
+}
+
+/** Journal : on ne garde que les derniers jours. */
+export function purgeJournal(db, days = JOURNAL_DAYS) {
+  db.prepare('DELETE FROM journal WHERE at < ?').run(new Date(Date.now() - (days + 1) * 864e5).toISOString());
+}
+/** Lignes du journal des `days` derniers jours, les plus récentes d'abord. */
+export function listJournal(db, days = JOURNAL_DAYS) {
+  return db.prepare('SELECT id, at, name, role, boat_id AS boatId, boat, kind, what, note FROM journal WHERE at >= ? ORDER BY at DESC, id DESC LIMIT 5000')
+    .all(new Date(Date.now() - (days + 1) * 864e5).toISOString());
 }
 
 export function getBoat(db, id) {

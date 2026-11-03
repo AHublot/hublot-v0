@@ -262,3 +262,12 @@ test('catégories des tâches habituelles : classement automatique et choix manu
   setTplCat(s, 'Inconnue', 'Finitions');
   assert.equal(tplCatOf(s, 'Inconnue'), 'Finitions');
 });
+
+test('journal : départ = une seule ligne, tâches habituelles ajoutées non notées', async () => {
+  const { journalEvents } = await import('../src/journal-events.js');
+  const cur = { inRental: false, tasks: [{ id: 'a', title: 'Gaz', template: true, done: false }, { id: 'b', title: 'Winch', done: false }], history: [] };
+  assert.deepEqual(journalEvents(cur, { ...cur, inRental: true, tasks: [], history: [{ id: 'h', kind: 'departure' }] }).map((e) => e.kind), ['dep']);
+  const next = { ...cur, tasks: [{ ...cur.tasks[0], done: true }, { ...cur.tasks[1], blocked: true }, { id: 'c', title: 'Gilets', template: true }] };
+  assert.deepEqual(journalEvents(cur, next).map((e) => `${e.kind}:${e.what}`), ['done:Gaz', 'blocked:Winch']);
+  assert.deepEqual(journalEvents({ ...cur, hours: { port: '1' } }, { ...cur, hours: { port: '2', stbd: '3' } })[0], { kind: 'hours', what: 'Heures moteur', note: 'Bâbord 2 h · Tribord 3 h' });
+});

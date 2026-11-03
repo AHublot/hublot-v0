@@ -12,14 +12,15 @@ import { tickCountdowns } from './views/common.js';
 import { boatReport, fleetReport } from './whatsapp.js';
 import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
-import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount } from './remote.js';
+import { journalView, journalDays } from './views/journal.js';
+import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal } from './remote.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const ui = {
   route: { name: 'overview', id: null }, depLater: {}, depKey: '', tab: 'prep', filter: 'all', base: 'all', q: '', view: 'cards', drafts: {},
   add: false, techs: false, banner: false, editRec: false, tplNow: true, confirm: null, obsF: 'all',
   xm: { month: '', boat: 'all' },
-  teamEdit: null, cl: null, imp: null, impErr: null, palette: null, accounts: { list: null, loaded: false }, logoutBlock: null,
+  teamEdit: null, cl: null, journal: { entries: null, loaded: false, err: '', who: 'all', type: 'all', boat: 'all', day: '', open: {} }, imp: null, impErr: null, palette: null, accounts: { list: null, loaded: false }, logoutBlock: null,
 };
 const LS = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
 
@@ -52,6 +53,7 @@ function parseHash() {
   if (/^#\/checklist/.test(h)) return { name: 'checklist' };
   if (/^#\/backup/.test(h)) return { name: 'backup' };
   if (/^#\/accounts/.test(h)) return { name: 'accounts' };
+  if (/^#\/journal/.test(h)) return { name: 'journal' };
   return { name: 'overview' };
 }
 function hashFor(r) {
@@ -63,6 +65,7 @@ function go(name, id = null, tab = null) {
   ui.route = { name, id };
   if (name === 'boat') ui.tab = tab || 'prep';
   if (name === 'accounts') loadAccounts();
+  if (name === 'journal') loadJournal();
   Object.assign(ui, PAGE_RESET);
   // Chaque changement de page ajoute une entrée à l'historique : le bouton « retour » du
   // téléphone revient à la page précédente (avec sa position de défilement) au lieu de quitter l'appli.
@@ -82,6 +85,7 @@ window.addEventListener('hashchange', () => {
   if (r.tab) ui.tab = r.tab;
   Object.assign(ui, PAGE_RESET);
   if (r.name === 'accounts' && ui.server) loadAccounts();
+  if (r.name === 'journal' && ui.server) loadJournal();
   render();
   let y = 0;
   try { y = history.state?.y || 0; } catch { /* */ }
@@ -113,7 +117,7 @@ function sideHTML(s) {
   const nav = (to, icn, label, n) => `<button type="button" class="nav ${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}" ${ui.route.name === to ? 'aria-current="page"' : ''}>${ic(icn)}<span>${label}</span>${n != null ? `<em class="mono">${n}</em>` : ''}</button>`;
   return `<button type="button" class="brand brandlink" data-act="nav" data-to="overview" title="Vue d’ensemble"><span class="mark"><img src="icons/logo.svg" alt="" width="96" height="96" decoding="async"></span><span class="bt"><b>Hublot</b><small>ACM Caraïbes</small></span></button>
     <span class="k side-k">${remote.user?.role === 'tech' ? 'Espace technicien' : 'Espace manager'}</span>
-    <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${isTech() ? '' : `${nav('team', 'users', 'Mon équipe', s.team.length)}${nav('checklist', 'list', 'Liste avant départ', s.templates.length)}${ui.server ? nav('accounts', 'users', 'Comptes', ui.accounts?.list ? ui.accounts.list.filter((u) => !u.disabled).length : null) : ''}`}</nav>
+    <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${isTech() ? '' : `${nav('team', 'users', 'Mon équipe', s.team.length)}${nav('checklist', 'list', 'Liste avant départ', s.templates.length)}${ui.server ? nav('journal', 'history', 'Journal') : ''}${ui.server ? nav('accounts', 'users', 'Comptes', ui.accounts?.list ? ui.accounts.list.filter((u) => !u.disabled).length : null) : ''}`}</nav>
     <div class="grow"></div>
     <div class="sidecard"><span>${ic('wave')}</span><b>Le prochain départ commence ici.</b><small>Une vue claire, un bateau prêt après l’autre.</small></div>
     <button type="button" class="nav small ${ui.route.name === 'backup' ? 'on' : ''}" data-act="nav" data-to="backup">${ic(isTech() ? 'users' : 'download')}<span>${isTech() ? 'Mon compte' : 'Sauvegardes et restauration'}</span></button>
@@ -160,7 +164,7 @@ function firstPwdHTML() {
 function topHTML(s) {
   const r = ui.route;
   const b = r.name === 'boat' ? s.boats.find((x) => x.id === r.id) : null;
-  const names = { overview: 'Vue d’ensemble', team: 'Mon équipe', checklist: 'Liste avant départ', accounts: 'Comptes', backup: isTech() ? 'Mon compte' : 'Sauvegardes et restauration' };
+  const names = { overview: 'Vue d’ensemble', team: 'Mon équipe', checklist: 'Liste avant départ', accounts: 'Comptes', journal: 'Journal', backup: isTech() ? 'Mon compte' : 'Sauvegardes et restauration' };
   const t = store.savedAt;
   return `<div class="trail"><span>${esc(s.baseName)}</span>${ic('chevR')}<b>${esc(b ? b.name : names[r.name] || '')}</b></div>
     <div class="topr">
@@ -173,7 +177,7 @@ function topHTML(s) {
 function tabbarHTML() {
   const t = (to, icn, label) => `<button type="button" class="${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}">${ic(icn)}<span>${label}</span></button>`;
   if (isTech()) return `${t('overview', 'grid', 'Flotte')}${t('backup', 'users', 'Compte')}`;
-  return `${t('overview', 'grid', 'Flotte')}${t('team', 'users', 'Équipe')}${t('checklist', 'list', 'Liste')}${ui.server ? t('accounts', 'users', 'Comptes') : ''}${t('backup', 'download', 'Données')}`;
+  return `${t('overview', 'grid', 'Flotte')}${t('team', 'users', 'Équipe')}${t('checklist', 'list', 'Liste')}${ui.server ? `${t('journal', 'history', 'Journal')}${t('accounts', 'users', 'Comptes')}` : ''}${t('backup', 'download', 'Données')}`;
 }
 function paletteItems(s, q) {
   const items = [
@@ -188,7 +192,7 @@ function paletteItems(s, q) {
     ...sortBoats(s.boats).map((b) => ({ label: `Signaler le retour · ${b.name}`, sub: 'Action', run: () => { go('boat', b.id, 'prep'); ui.confirm = 'ret:' + b.id; render(); }, icon: 'left' })),
   ];
   const pool = isTech() ? items.filter((i) => i.label === 'Vue d’ensemble' || i.label === 'Changer de thème' || i.sub.startsWith('Bateau') || i.label.startsWith('Nouveau retour')) : items;
-  if (ui.server && !isTech()) pool.splice(4, 0, { label: 'Comptes', sub: 'Page', run: () => go('accounts'), icon: 'users' });
+  if (ui.server && !isTech()) pool.splice(4, 0, { label: 'Comptes', sub: 'Page', run: () => go('accounts'), icon: 'users' }, { label: 'Journal', sub: 'Page', run: () => go('journal'), icon: 'history' });
   const n = norm(q).trim();
   if (!n) return pool.slice(0, 12);
   const words = n.split(/\s+/);
@@ -255,6 +259,7 @@ function render() {
     return;
   }
   if (isTech() && !TECH_PAGES.has(ui.route.name)) ui.route = { name: 'overview', id: null };
+  if (ui.route.name === 'journal' && ui.server && remote.user?.role === 'manager' && !ui.journal.loaded && !ui.journal.busy) { ui.journal.busy = true; loadJournal(); }
 
   const routeKey = location.hash || '#/';
   const prevBars = routeKey === ui.barRoute ? [...document.querySelectorAll('#view .bar i')].map((i) => i.style.width) : [];
@@ -265,7 +270,7 @@ function render() {
   $('#tabbar').innerHTML = tabbarHTML();
   const r = ui.route;
   $('#view').innerHTML = r.name === 'boat' ? boatView(s, ui, r.id, now) : r.name === 'team' ? teamView(s, ui)
-    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'accounts' ? accountsView(s, ui) : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
+    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'accounts' ? accountsView(s, ui) : r.name === 'journal' ? journalView(s, ui, now) : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
   document.querySelectorAll('#view [data-draft]').forEach((el) => { if (ui.drafts[el.dataset.draft] != null) el.value = ui.drafts[el.dataset.draft]; });
   document.querySelectorAll('#view textarea[data-parse]').forEach(updateParse);
   tickCountdowns();
@@ -391,6 +396,10 @@ document.addEventListener('click', (e) => {
   const nm = boat ? boat.name : '';
   switch (a) {
     case 'nav': e.preventDefault(); go(d.to); break;
+    case 'jDay': ui.journal.open[d.v] = !ui.journal.open[d.v]; render(); break;
+    case 'jStep': { const days = journalDays(); const i = Math.min(days.length - 1, Math.max(0, Math.max(0, days.findIndex((x) => x.key === ui.journal.day)) + +d.v)); jumpDay(days[i].key); break; }
+    case 'jType': ui.journal.type = d.v; render(); break;
+    case 'jWho': ui.journal.who = ui.journal.who === d.v ? 'all' : d.v; render(); break;
     case 'open': e.preventDefault(); go('boat', id, d.tab || 'prep'); break;
     case 'tab': ui.tab = d.v; ui.editRec = false; try { history.replaceState(null, '', hashFor(ui.route)); } catch { /* */ } render(); break;
     case 'pjMore': ui.pjAll = !ui.pjAll; render(); break;
@@ -536,6 +545,9 @@ document.addEventListener('change', (e) => {
     case 'ret': M('', (st) => A.setReturnDate(st, id, el.value)); break;
     case 'base': M('', (st) => A.updateBoat(st, id, { base: el.value, otherBase: el.value === 'Autre' ? st.boats.find((b) => b.id === id).otherBase : '' })); break;
     case 'baseFilter': ui.base = el.value; render(); break;
+    case 'jWho': ui.journal.who = el.value; render(); break;
+    case 'jBoat': ui.journal.boat = el.value; render(); break;
+    case 'jDate': if (el.value) jumpDay(el.value); break;
     case 'tech': M('', (st) => { const b = st.boats.find((x) => x.id === id); const set = new Set(b.techs); el.checked ? set.add(d.name) : set.delete(d.name); A.setTechs(st, id, [...set]); }); break;
     case 'assign': M('', (st) => A.toggleAssign(st, d.name, id)); break;
     case 'tplCat': M('', (st) => A.setTplCat(st, st.templates[+d.i], el.value)); break;
@@ -653,6 +665,23 @@ document.addEventListener('submit', (e) => {
   }
 });
 
+// Journal : rechargé à chaque ouverture de la page ; le jour le plus récent avec des actions est ouvert.
+function loadJournal() {
+  const j = ui.journal;
+  j.busy = true;
+  return getJournal().then((r) => {
+    j.entries = r.entries || []; j.err = '';
+    if (!j.loaded) { const first = j.entries[0] ? todayStr(new Date(j.entries[0].at)) : todayStr(); j.day = first; j.open = { [first]: true }; }
+    j.loaded = true; j.busy = false; render();
+  }).catch((e) => { j.loaded = true; j.busy = false; j.err = e.message; render(); });
+}
+function jumpDay(key) {
+  const j = ui.journal;
+  j.day = key; j.open[key] = true; render();
+  const el = document.getElementById('jd-' + key);
+  if (el) el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}
+
 function loadAccounts() {
   ui.accounts = ui.accounts || { list: null, loaded: false };
   return listAccounts().then((r) => { ui.accounts.list = r.users; ui.accounts.loaded = true; ui.accounts.err = ''; render(); })
@@ -688,6 +717,7 @@ detect().then(() => {
   render();
   if (ui.server && remote.user) startSync();
   if (ui.route.name === 'accounts' && ui.server && remote.user?.role === 'manager') loadAccounts();
+  if (ui.route.name === 'journal' && ui.server && remote.user?.role === 'manager') loadJournal();
   tick();
   setInterval(tick, 30000);
 });

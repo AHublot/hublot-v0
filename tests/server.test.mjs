@@ -181,3 +181,20 @@ test('comptes : réinitialisation, désactivation, garde-fous', async () => {
   assert.equal(self.status, 400);
   assert.equal((await post('/api/users/update', { id: chef.id, role: 'tech' }, { cookie: mgr })).status, 400);
 });
+
+test('journal : le serveur note qui a fait quoi ; réservé au manager', async () => {
+  const chef = await login('chef@base.fr', 'motdepasse-solide');
+  const tech = await login('tech@base.fr', 'nouveau-mdp-123');
+  const boat = { id: 'jb1', name: 'Journalier', tasks: [{ id: 't1', title: 'Plein d’eau', template: true, done: false }], pendingOnReturn: [], history: [], logs: [] };
+  assert.equal((await post('/api/sync', { boats: [boat] }, { Cookie: chef.cookie })).status, 200);
+  const r = await post('/api/sync', { patches: [{ id: 'jb1', ops: [
+    { op: 'upd', a: 'tasks', key: 'it1', set: { done: true, doneAt: '2026-11-03T12:00:00Z' }, unset: [] },
+    { op: 'add', a: 'tasks', key: 'it2', item: { id: 't2', title: 'Hublot qui fuit' } },
+  ] }] }, { Cookie: tech.cookie });
+  assert.equal(r.status, 200);
+  assert.equal((await fetch(base + '/api/journal', { headers: { ...H, Cookie: tech.cookie } })).status, 403);
+  const j = await (await fetch(base + '/api/journal', { headers: { ...H, Cookie: chef.cookie } })).json();
+  const mine = j.entries.filter((e) => e.boatId === 'jb1');
+  assert.deepEqual(mine.map((e) => [e.name, e.role, e.kind, e.what]).sort(), [['Tech', 'tech', 'added', 'Hublot qui fuit'], ['Tech', 'tech', 'done', 'Plein d’eau']]);
+  assert.equal(mine[0].boat, 'Journalier');
+});

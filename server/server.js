@@ -6,7 +6,7 @@ import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   openDb, now, checkPassword, newToken, sha256, changesSince, applySync, importBackup, audit, backup,
-  setPassword, passwordProblem, getBoat, listUsers, createManagedUser, resetManagedUser, updateManagedUser,
+  setPassword, passwordProblem, getBoat, listUsers, listJournal, createManagedUser, resetManagedUser, updateManagedUser,
 } from './lib.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -154,6 +154,7 @@ export function createApp({ db = openDb(), log = console } = {}) {
       }
     };
     if (p === '/api/users' && req.method === 'GET') return send(res, 200, { users: listUsers(db) });
+    if (p === '/api/journal' && req.method === 'GET') return send(res, 200, { entries: listJournal(db) });
     if (p === '/api/users' && req.method === 'POST') {
       const b = await readJson(req);
       const r = guard(() => createManagedUser(db, { email: b.email, name: b.name, role: b.role || 'tech' }));
