@@ -273,7 +273,7 @@ export function setFleetTemplates(s, list) {
   s.templates = list;
 }
 /**
- * Renomme une tâche de la liste avant départ partout : liste de la flotte, liste propre à chaque
+ * Renomme une tâche de la liste de préparation partout : liste de la flotte, liste propre à chaque
  * bateau (utilisée au prochain retour) et tâches en cours. Les tâches gardent leur identifiant et
  * leurs réponses (cochée, par qui, bloquée, notes…) : seul l'intitulé change.
  */

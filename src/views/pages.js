@@ -28,7 +28,7 @@ export function teamView(s, ui) {
     ${unassigned.length ? `<section class="panel"><h3>Sans technicien</h3><div class="chipwrap">${unassigned.map((b) => `<button class="chip sm" data-act="open" data-id="${b.id}">${esc(b.name)}</button>`).join('')}</div></section>` : ''}`;
 }
 
-// ---- Liste avant départ ------------------------------------------------------------------
+// ---- Liste de préparation ------------------------------------------------------------------
 function renameForm(s, t, i) {
   const prep = s.boats.filter((b) => b.tasks.some((x) => x.template === t)).length;
   const next = s.boats.filter((b) => b.inRental && (b.templates?.length ? b.templates : s.templates).includes(t)).length;
@@ -49,7 +49,7 @@ export function checklistView(s, ui) {
     return `<li class="mx"><button type="button" class="mxhead" data-act="mxOpen" data-v="${esc(title)}" aria-expanded="${open}"><span class="mxt">${esc(title)}</span><span class="mono mut">${done.length}/${have.length}</span>${bar(pct, pct === 100 ? 'ok' : '')}</button>
       ${open ? `<div class="mxbody">${todo.length ? `<span class="k">Reste à faire</span><div class="chipwrap">${todo.map((b) => `<button class="chip sm" data-act="open" data-id="${b.id}">${esc(b.name)}</button>`).join('')}</div>` : '<p class="mut small">Fait sur tous les bateaux concernés.</p>'}</div>` : ''}</li>`;
   }).join('');
-  return `<div class="page-head"><div><h1>Liste avant départ</h1><p class="mut">Les tâches habituelles de toute la flotte. Chaque bateau garde sa propre copie, modifiable depuis sa page.</p></div></div>
+  return `<div class="page-head"><div><h1>Liste de préparation</h1><p class="mut">Les tâches habituelles de toute la flotte. Chaque bateau garde sa propre copie, modifiable depuis sa page.</p></div></div>
     <div class="two even"><section class="col"><div class="panel"><div class="phead"><h3>Liste de la flotte</h3><span class="count mono">${list.length}</span></div>
       <ol class="tasks">${list.map((t, i) => `<li class="task edit${ui.clEdit === i ? ' renaming' : ''}"><span class="num mono">${i + 1}</span>${ui.clEdit === i ? renameForm(s, t, i) : `<div class="tbody"><button type="button" class="ttl clttl" data-act="clEdit" data-i="${i}" title="Modifier l’intitulé" aria-label="Modifier : ${esc(t)}">${esc(t)} ${ic('edit')}</button></div>`}
         <select class="catsel" data-chg="tplCat" data-i="${i}" aria-label="Catégorie : ${esc(t)}">${[...TPL_CATS, TPL_OTHER].map((c) => `<option${tplCatOf(s, t) === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>

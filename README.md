@@ -1,6 +1,6 @@
 # Hublot
 
-Application web de préparation des départs et retours pour une flotte de location de bateaux : vue d'ensemble avec compte à rebours, une page par bateau (préparation, observations, entretiens, archives), équipe, liste avant départ de toute la flotte, sauvegardes.
+Application web de préparation des départs et retours pour une flotte de location de bateaux : vue d'ensemble avec compte à rebours, une page par bateau (préparation, observations, entretiens, archives), liste de préparation de toute la flotte, sauvegardes.
 
 Deux façons de l'utiliser, avec le même code, **sans build ni dépendance npm** :
 
@@ -116,7 +116,7 @@ Le site n'envoie plus le bateau entier : il envoie ce qui a changé (une tâche 
 
 - Vue d'ensemble : prochain départ avec compte à rebours, KPI cliquables, filtres, recherche, cartes ou planning sur 21 jours.
 - Page bateau : préparation (tâches habituelles + observations, une par ligne, `!` = bloquante, dictée vocale), « Nouveau retour » qui archive la préparation et garde les observations non terminées, archives centrées sur les observations, entretiens avec échéances en jours et en heures moteur, export WhatsApp.
-- Équipe et affectations, liste avant départ de la flotte avec suivi par tâche.
+- Équipe et affectations, liste de préparation de la flotte avec suivi par tâche.
 - Palette de commandes `Ctrl+K`, thème clair/sombre, impression, PWA hors ligne.
 
 ## Structure

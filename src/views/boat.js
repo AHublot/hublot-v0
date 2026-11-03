@@ -162,8 +162,8 @@ function tabPrep(s, b, ui, now) {
   const tpls = tplsOf(s, b);
   const have = new Set(b.tasks.map((t) => t.template || t.title));
   const missing = tpls.filter((t) => !have.has(t)).length;
-  const recPanel = `<section class="panel"><div class="phead"><h3>${ic('list')} Avant le départ</h3><span class="count mono">${st.recOpen} restante${st.recOpen > 1 ? 's' : ''}</span></div>
-    <p class="mut small">Les tâches habituelles, relancées à chaque retour.</p>
+  const recPanel = `<section class="panel"><div class="phead"><h3>${ic('list')} Préparation</h3><span class="count mono">${st.recOpen} restante${st.recOpen > 1 ? 's' : ''}</span></div>
+    <p class="mut small">Les tâches habituelles, du retour au départ.</p>
     ${ui.editRec
       ? `<ul class="tasks">${tpls.map((t, i) => tplEditRow(b, t, i, tpls.length)).join('')}</ul>
         <form class="inl" data-form="addTpl" data-id="${b.id}"><input name="title" placeholder="Nouvelle tâche habituelle" aria-label="Nouvelle tâche habituelle" autocomplete="off" data-draft="tpl-${b.id}"><button class="btn pri" type="submit">Ajouter</button></form>

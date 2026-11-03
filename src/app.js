@@ -116,7 +116,7 @@ function sideHTML(s) {
   const nav = (to, icn, label, n) => `<button type="button" class="nav ${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}" ${ui.route.name === to ? 'aria-current="page"' : ''}>${ic(icn)}<span>${label}</span>${n != null ? `<em class="mono">${n}</em>` : ''}</button>`;
   return `<button type="button" class="brand brandlink" data-act="nav" data-to="overview" title="Vue d’ensemble"><span class="mark"><img src="icons/logo.svg" alt="" width="96" height="96" decoding="async"></span><span class="bt"><b>Hublot</b><small>ACM Caraïbes</small></span></button>
     <span class="k side-k">${remote.user?.role === 'tech' ? 'Espace technicien' : 'Espace manager'}</span>
-    <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${isTech() ? '' : `${nav('checklist', 'list', 'Liste avant départ', s.templates.length)}${ui.server ? nav('journal', 'history', 'Journal') : ''}${ui.server ? nav('accounts', 'users', 'Comptes', ui.accounts?.list ? ui.accounts.list.filter((u) => !u.disabled).length : null) : ''}`}</nav>
+    <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${isTech() ? '' : `${nav('checklist', 'list', 'Liste de préparation', s.templates.length)}${ui.server ? nav('journal', 'history', 'Journal') : ''}${ui.server ? nav('accounts', 'users', 'Comptes', ui.accounts?.list ? ui.accounts.list.filter((u) => !u.disabled).length : null) : ''}`}</nav>
     <div class="grow"></div>
     <div class="sidecard"><span>${ic('wave')}</span><b>Le prochain départ commence ici.</b><small>Une vue claire, un bateau prêt après l’autre.</small></div>
     <button type="button" class="nav small ${ui.route.name === 'backup' ? 'on' : ''}" data-act="nav" data-to="backup">${ic(isTech() ? 'users' : 'download')}<span>${isTech() ? 'Mon compte' : 'Sauvegardes et restauration'}</span></button>
@@ -163,7 +163,7 @@ function firstPwdHTML() {
 function topHTML(s) {
   const r = ui.route;
   const b = r.name === 'boat' ? s.boats.find((x) => x.id === r.id) : null;
-  const names = { overview: 'Vue d’ensemble', team: 'Mon équipe', checklist: 'Liste avant départ', accounts: 'Comptes', journal: 'Journal', backup: isTech() ? 'Mon compte' : 'Sauvegardes et restauration' };
+  const names = { overview: 'Vue d’ensemble', team: 'Mon équipe', checklist: 'Liste de préparation', accounts: 'Comptes', journal: 'Journal', backup: isTech() ? 'Mon compte' : 'Sauvegardes et restauration' };
   const t = store.savedAt;
   return `<div class="trail"><span>${esc(s.baseName)}</span>${ic('chevR')}<b>${esc(b ? b.name : names[r.name] || '')}</b></div>
     <div class="topr">
@@ -181,7 +181,7 @@ function tabbarHTML() {
 function paletteItems(s, q) {
   const items = [
     { label: 'Vue d’ensemble', sub: 'Page', run: () => go('overview'), icon: 'grid' },
-    { label: 'Liste avant départ', sub: 'Page', run: () => go('checklist'), icon: 'list' },
+    { label: 'Liste de préparation', sub: 'Page', run: () => go('checklist'), icon: 'list' },
     { label: 'Sauvegardes et restauration', sub: 'Page', run: () => go('backup'), icon: 'download' },
     { label: 'Exporter la sauvegarde', sub: 'Action', run: () => doExport(), icon: 'download' },
     { label: 'Changer de thème', sub: 'Action', run: () => cycleTheme(), icon: 'moon' },

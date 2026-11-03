@@ -21,7 +21,7 @@ export const DEFAULT_TEMPLATES = [
   'Récupérer le linge et le déposer à la laverie',
 ];
 
-// Catégories des tâches habituelles (affichage « Avant le départ »). Ordre = ordre d'affichage.
+// Catégories des tâches habituelles (affichage « Préparation »). Ordre = ordre d'affichage.
 export const TPL_CATS = ['À l’arrivée du bateau', 'Technique courante', 'Nettoyage courant', 'Nettoyage fin', 'Finitions'];
 export const TPL_OTHER = 'Autres';
 export function guessTplCat(title = '') {
