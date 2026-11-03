@@ -2,7 +2,7 @@ import { esc, fmtD, fmtDT, fmtWDT, plural, parseLocal } from '../util.js';
 import {
   boatStats, boatStatus, maintStatus, maintCounts, baseLabel, tplsOf, pinnedEvents, latestHours,
   observationsOf, obsState, BASES, CATEGORIES, INTERVALS, TPL_CATS, TPL_OTHER, tplCatOf,
-  pendingObs,
+  pendingObs, crewOf,
 } from '../model.js';
 import { returnPlan } from '../actions.js';
 import { ic } from '../icons.js';
@@ -97,7 +97,8 @@ function header(s, b, ui, now) {
   const dep = !b.inRental && parseLocal(b.departure);
   const report = boatReport(b, now);
   const pins = pinnedEvents(b);
-  const techs = b.techs.length ? `<span>${ic('users')} ${esc(b.techs.join(', '))}</span>` : `<span class="mut">${ic('users')} Aucun technicien affecté</span>`;
+  const crew = crewOf(b);
+  const techs = b.inRental ? '' : crew.length ? `<span title="Comptes qui ont coché au moins une tâche">${ic('users')} ${esc(crew.join(', '))}</span>` : '';
   return `
   <div class="crumbs"><a href="#/" data-act="nav" data-to="overview">${esc(s.baseName)}</a>${ic('chevR')}<span>${esc(b.name)}</span></div>
   <button type="button" class="back" data-act="nav" data-to="overview">${ic('left')} Toute la flotte</button>
@@ -125,7 +126,7 @@ function header(s, b, ui, now) {
     ${b.inRental
       ? `<button type="button" class="btn sm" data-act="retAsk" data-id="${b.id}">${ic('left')} Signaler le retour</button>`
       : `<button type="button" class="btn sm ghost" data-act="depAsk" data-id="${b.id}">${ic('send')} Signaler le départ</button>`}
-    <span class="tech">${techs} <button type="button" class="linkbtn" data-act="techs" aria-expanded="${!!ui.techs}">${ui.techs ? 'Fermer' : 'Modifier'}</button></span>
+    ${techs ? `<span class="tech">${techs}</span>` : ''}
   </div>
   ${ui.confirm === 'ret:' + b.id ? retConfirm(s, b) : ''}
   ${ui.confirm === 'dep:' + b.id ? depConfirm(b) : ''}

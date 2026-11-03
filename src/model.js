@@ -128,6 +128,12 @@ export const baseLabel = (b) => (b.base === 'Autre' ? b.otherBase || 'Autre' : b
 export const pendingObs = (b) => (b.pendingOnReturn || []).filter((t) => !t.template);
 export const tplsOf = (s, b) => (b.templates?.length ? b.templates : s.templates);
 
+/** Qui prépare ce bateau : les comptes qui ont coché au moins une tâche de la préparation en cours (le plus actif d'abord). */
+export function crewOf(b) {
+  const n = {};
+  (b.inRental ? [] : b.tasks || []).forEach((t) => { if (t.done && t.doneBy) n[t.doneBy] = (n[t.doneBy] || 0) + 1; });
+  return Object.keys(n).sort((x, y) => n[y] - n[x] || x.localeCompare(y, 'fr'));
+}
 export function boatStats(b) {
   const t = b.tasks;
   const rec = t.filter((x) => x.template);
