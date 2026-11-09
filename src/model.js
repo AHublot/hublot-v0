@@ -300,7 +300,7 @@ export function sortBoats(boats) {
   const depT = (b) => parseLocal(b.departure)?.getTime() ?? Infinity;
   const retT = (b) => parseLocal(b.returnDate)?.getTime() ?? Infinity;
   // Martinique en préparation d'abord, puis les bateaux en location, puis les autres bases
-  const grp = (b) => (b.inRental ? 1 : b.base === 'Martinique' ? 0 : 2);
+  const grp = (b) => (inMartinique(b) ? (b.inRental ? 1 : 0) : 2);
   return [...boats].sort((a, b) => {
     if (grp(a) !== grp(b)) return grp(a) - grp(b);
     const d = a.inRental ? retT(a) - retT(b) : depT(a) - depT(b);
@@ -341,11 +341,26 @@ export function isTight(b) {
   if (!r || !r.nextRet || !r.nextDep) return false;
   const ret = r.status === 'sea' ? r.nextRet : r.next?.ret;
   const dep = r.status === 'sea' ? r.nextDep : '';
-  return !!ret && !!dep && ret.slice(0, 10) === dep.slice(0, 10);
+  // seulement au Marin : retour et départ suivant en Martinique
+  const here = MQ.test(r.cur?.retBase || '') && MQ.test(r.next?.depBase || '');
+  return here && !!ret && !!dep && ret.slice(0, 10) === dep.slice(0, 10);
 }
 /** L'état des réservations (en mer / à quai) ne correspond pas à Hublot. */
-export const resaMismatch = (b) => b.base === 'Martinique' && !!b.resa && (b.resa.status === 'sea') !== !!b.inRental;
+export const resaMismatch = (b) => inMartinique(b) && !!b.resa && (b.resa.status === 'sea') !== !!b.inRental;
 /** En mer d'après les réservations, pour un bateau hors Martinique (ses départs ne sont pas signalés dans Hublot). */
-export function seaByResa(b) { return !b.inRental && b.base !== 'Martinique' && b.resa?.status === 'sea'; }
+export function seaByResa(b) { return !b.inRental && !inMartinique(b) && b.resa?.status === 'sea'; }
+// Où est le bateau d'après les réservations : base du séjour en cours (en mer) ou base actuelle (à quai).
+const MQ = /\ble marin\b|martinique/i; // attention : « Marina Bas-du-Fort » contient « marin »
+export function resaPlace(b) {
+  const r = b.resa;
+  if (!r) return '';
+  return r.status === 'sea' ? (r.cur?.retBase || r.cur?.depBase || '') : r.base || '';
+}
+/** Le bateau est-il en Martinique ? Sa base dans Hublot, sauf si les réservations le placent ailleurs (loué en Guadeloupe). */
+export function inMartinique(b) {
+  const p = resaPlace(b);
+  if (p && !MQ.test(p)) return false;
+  return b.base === 'Martinique';
+}
 /** Numéro de dossier affiché : les 4 derniers chiffres (« ACM-2026-5426 » → « 5426 »). */
 export const shortDossier = (d) => { const m = String(d || '').match(/(\d+)\D*$/); return m ? m[1].slice(-4) : String(d || ''); };

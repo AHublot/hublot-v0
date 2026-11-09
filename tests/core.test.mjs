@@ -365,3 +365,13 @@ test('feuille retour : options du séjour à vérifier, dossier court', async ()
   A.validateReturnSheet(s, id);
   assert.ok(s.boats[0].tasks.some((t) => t.title === 'Paddle crevé' && t.dossier === 'ACM-2026-5426'));
 });
+
+test('réservations : « Collé » seulement au Marin, bateau loué en Guadeloupe traité comme la Guadeloupe', async () => {
+  const { isTight, inMartinique } = await import('../src/model.js');
+  const mk = (base) => ({ base: 'Martinique', inRental: true, resa: { status: 'sea', nextRet: '2026-11-21T09:00', nextDep: '2026-11-21T17:00', cur: { depBase: base, retBase: base }, next: { depBase: base } } });
+  assert.equal(isTight(mk('Le Marin')), true);
+  assert.equal(isTight(mk('Marina Bas-du-Fort')), false);
+  assert.equal(inMartinique(mk('Le Marin')), true);
+  assert.equal(inMartinique(mk('Marina Bas-du-Fort')), false);
+  assert.equal(inMartinique({ base: 'Martinique' }), true);
+});

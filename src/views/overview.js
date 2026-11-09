@@ -1,7 +1,7 @@
 import { esc, fmtWDT, fmtDT, fmtD, plural, parseLocal, utcLabel, startOfDay, addDays, fmtMonth, norm } from '../util.js';
 import {
   boatStats, boatStatus, maintCounts, missingDates, fleetStats, FILTERS, matchFilter, pendingObs, sortBoats, nextDepartures,
-  baseLabel, BASES, pinnedEvents, isTight,
+  baseLabel, BASES, pinnedEvents, isTight, inMartinique,
 } from '../model.js';
 import { ic } from '../icons.js';
 import { pill, bar, cd, empty } from './common.js';
@@ -68,7 +68,7 @@ function card(b, now) {
   const dateTxt = dateStr
     ? `<span class="dcol"><b>${sea ? 'Retour' : 'Départ'} ${esc(fmtWDT(dateStr))}</b><em>${sea || dep > now ? 'dans' : 'dépassé depuis'} ${cd(dateStr, now)}</em></span>`
     : `<span class="mut">${sea ? 'Retour à renseigner' : 'Pas de départ planifié'}</span>`;
-  return `<article class="bcard ${stt.key}${b.base === 'Martinique' ? '' : ' other'}" data-open="${b.id}">
+  return `<article class="bcard ${stt.key}${inMartinique(b) ? '' : ' other'}" data-open="${b.id}">
     <header><span class="bico fp"><img src="icons/${isFP(b) ? 'fp' : 'lagoon'}-mark.png" alt="" width="28" height="28" decoding="async"></span><h3>${esc(b.name)}</h3>${pill(stt)}${isTight(b) ? `<span class="pill tight" title="Rentre le matin et repart le soir même">${ic('clock')} Collé</span>` : ''}</header>
     ${prep}
     <div class="bkey">${key.join('')}</div>
