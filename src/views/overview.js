@@ -1,7 +1,7 @@
 import { esc, fmtWDT, fmtDT, fmtD, plural, parseLocal, utcLabel, startOfDay, addDays, fmtMonth, norm } from '../util.js';
 import {
   boatStats, boatStatus, maintCounts, missingDates, fleetStats, FILTERS, matchFilter, pendingObs, sortBoats, nextDepartures,
-  baseLabel, BASES, pinnedEvents,
+  baseLabel, BASES, pinnedEvents, isTight,
 } from '../model.js';
 import { ic } from '../icons.js';
 import { pill, bar, cd, empty } from './common.js';
@@ -70,7 +70,7 @@ function card(b, now) {
   return `<article class="bcard ${stt.key}${b.base === 'Martinique' ? '' : ' other'}" data-open="${b.id}">
     <header><span class="bico fp"><img src="icons/${isFP(b) ? 'fp' : 'lagoon'}-mark.png" alt="" width="28" height="28" decoding="async"></span><h3>${esc(b.name)}</h3>${pill(stt)}</header>
     ${prep}
-    <div class="bkey">${key.join('')}</div>
+    <div class="bkey">${key.join('')}${isTight(b) ? `<span class="kchip tight" title="Rentre le matin et repart le soir même">${ic('clock')} Collé</span>` : ''}</div>
     <div class="bwhen small"><span class="dwrap">${ic('clock')} ${dateTxt}</span><label class="editdate" title="Modifier la date"><span class="vh">Modifier la date</span>${ic('edit')}<input type="datetime-local" value="${esc(dateStr || '')}" data-chg="${b.inRental ? 'ret' : 'dep'}" data-id="${b.id}" aria-label="${b.inRental ? 'Retour prévu' : 'Prochain départ'} : ${esc(b.name)}"></label></div>
     ${minor.length ? `<div class="notes small">${minor.join('')}</div>` : ''}
     <footer>

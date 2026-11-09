@@ -889,3 +889,12 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .rrow.ok { background: linear-gradient(90deg, color-mix(in srgb, var(--ok-soft) 75%, transparent) 0%, transparent 70%); }
 .rrow.ok .rlab { color: var(--tx); }
 .rmix { flex-basis: 100%; padding: 0 0 4px; } .rmix input { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+
+/* ---- Réservations (API) ---- */
+.resa { gap: 8px; padding: 14px 18px; margin-top: -6px; }
+.resaline { font-weight: 600; } .resa .resaopts .tag { font-size: 12.5px; }
+.resa .ic { width: 14px; height: 14px; vertical-align: -2px; }
+.resaopts { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag.opt { background: var(--rent-soft); color: var(--rent); border-color: transparent; font-weight: 600; }
+.tag.tight, .kchip.tight { background: var(--warn-soft, #FFF1D6); color: var(--warn); border-color: transparent; font-weight: 600; }
+.resaat { font-size: 12px; }

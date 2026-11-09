@@ -3,6 +3,7 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, normalize, extname, dirname } from 'node:path';
+import { syncResa, resaInfo, dueSlot } from './resa.js';
 import { fileURLToPath } from 'node:url';
 import {
   openDb, now, checkPassword, newToken, sha256, changesSince, applySync, importBackup, audit, backup,
@@ -153,6 +154,12 @@ export function createApp({ db = openDb(), log = console } = {}) {
         send(res, 400, { error: msg }); return undefined;
       }
     };
+    if (p === '/api/resa' && req.method === 'GET') return send(res, 200, { enabled: !!process.env.RESA_KEY, info: resaInfo(db) });
+    if (p === '/api/resa/refresh' && req.method === 'POST') {
+      if (!process.env.RESA_KEY) return send(res, 400, { error: 'Réservations non configurées sur le serveur (RESA_KEY).' });
+      const info = await syncResa(db, { key: process.env.RESA_KEY, url: process.env.RESA_URL });
+      return send(res, 200, { info });
+    }
     if (p === '/api/users' && req.method === 'GET') return send(res, 200, { users: listUsers(db) });
     if (p === '/api/journal' && req.method === 'GET') return send(res, 200, { entries: listJournal(db) });
     if (p === '/api/users' && req.method === 'POST') {
@@ -225,6 +232,20 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === normalize(process.argv
   const users = db.prepare('SELECT COUNT(*) n FROM users').get().n;
   housekeeping();
   setInterval(housekeeping, 3 * 3600e3).unref();
+  // Réservations : 6 h, 12 h et 16 h (heure de Martinique), une fois par créneau.
+  if (process.env.RESA_KEY) {
+    let lastSlot = '';
+    const tick = () => {
+      const slot = dueSlot();
+      if (!slot || slot === lastSlot) return;
+      lastSlot = slot;
+      syncResa(db, { key: process.env.RESA_KEY, url: process.env.RESA_URL })
+        .then((i) => console.log(`Réservations : ${i.updated} bateau(x) mis à jour${i.errors.length ? `, erreurs : ${i.errors.join(' ; ')}` : ''}`))
+        .catch((e) => console.error('Réservations :', e.message));
+    };
+    setInterval(tick, 60e3).unref();
+    tick();
+  }
   server.listen(PORT, () => {
     console.log(`Hublot écoute sur le port ${PORT} · données : ${process.env.DATA_DIR || join(process.cwd(), 'data')}`);
     if (!users) console.log('Aucun compte : crée le compte manager avec « node server/cli.js add-user ton@email.fr --name Prénom ».');

@@ -2,7 +2,7 @@ import { esc, fmtD, fmtDT, fmtWDT, plural, parseLocal } from '../util.js';
 import {
   boatStats, boatStatus, maintStatus, maintCounts, baseLabel, tplsOf, pinnedEvents, latestHours,
   observationsOf, obsState, BASES, CATEGORIES, INTERVALS, TPL_CATS, TPL_OTHER, tplCatOf,
-  pendingObs, crewOf,
+  pendingObs, crewOf, resaStay, isTight, resaMismatch,
 } from '../model.js';
 import { returnPlan } from '../actions.js';
 import { ic } from '../icons.js';
@@ -121,6 +121,7 @@ function header(s, b, ui, now) {
     <div><span class="eyebrow">Points d’attention</span><b class="sbig ${st.blocked ? 't-bad' : ''}">${plural(st.blocked, 'bloquant', 'bloquants')}</b>
       <span class="mut small">${mc.late} en retard · ${plural(mc.missing, 'date à renseigner', 'dates à renseigner')}</span></div>
   </section>
+  ${resaBlock(b, ui)}
   <div class="chiprow">
     <span class="tag">${ic('pin')} ${esc(baseLabel(b))}</span>
     ${b.inRental
@@ -272,4 +273,28 @@ export function boatView(s, ui, id, now = new Date()) {
   const body = ui.tab === 'maint' ? tabMaint(s, b, ui, now)
     : ui.tab === 'archives' ? tabArchives(s, b, ui) : ui.tab === 'reglages' ? tabReglages(s, b, ui) : tabPrep(s, b, ui, now);
   return header(s, b, ui, now) + `<div class="tabpane" role="tabpanel" aria-labelledby="tab-${ui.tab}">${body}</div>`;
+}
+
+// ---- Réservations : dossier, client, skipper, hôtesse, options (sous « Prochain départ ») ----------------
+function resaBlock(b, ui) {
+  const r = b.resa;
+  if (!r) return '';
+  const st = resaStay(b);
+  const field = b.inRental ? 'returnDate' : 'departure';
+  const api = b.inRental ? (r.status === 'sea' ? r.nextRet : '') : r.nextDep;
+  const differs = api && b[field] && b[field].slice(0, 16) !== api;
+  const bits = st ? [
+    st.dossier ? `<span class="mono">${esc(st.dossier)}</span>` : '',
+    st.client ? esc(st.client) : '',
+    st.mode === 'skipper' ? `${ic('users')} Skipper : ${esc(st.skipper)}` : 'Sans skipper',
+    st.hostess ? `Hôtesse : ${esc(st.hostess)}` : '',
+  ].filter(Boolean) : [];
+  return `<section class="panel resa" aria-label="Réservation">
+    <span class="eyebrow">${b.inRental ? 'Location en cours' : 'Prochaine location'}</span>
+    ${st ? `<p class="resaline">${bits.join(' · ')}</p>` : '<p class="small mut">Aucune réservation à venir</p>'}
+    ${st?.options?.length || isTight(b) ? `<div class="resaopts">${isTight(b) ? `<span class="tag tight">${ic('clock')} Collé : repart le jour même</span>` : ''}${(st?.options || []).map((o) => `<span class="tag opt">${esc(o.label)}${o.qty > 1 ? ` ×${o.qty}` : ''}</span>`).join('')}</div>` : ''}
+    ${differs ? `<p class="small t-warn">Réservation : ${esc(fmtWDT(api))} <button type="button" class="linkbtn" data-chg-now="${field}" data-act="resaUse" data-id="${b.id}" data-v="${esc(api)}">Reprendre cette date</button></p>` : ''}
+    ${resaMismatch(b) ? `<p class="small t-bad">${ic('alert')} Réservations : ${r.status === 'sea' ? 'en mer' : 'à quai'} · Hublot : ${b.inRental ? 'en location' : 'à quai'}. À vérifier.</p>` : ''}
+    <p class="small mut resaat">Réservations mises à jour ${esc(fmtDT(r.at))}${ui.isManager ? ` · <button type="button" class="linkbtn" data-act="resaRefresh">Actualiser</button>` : ''}</p>
+  </section>`;
 }

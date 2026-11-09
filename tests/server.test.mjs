@@ -198,3 +198,21 @@ test('journal : le serveur note qui a fait quoi ; réservé au manager', async (
   assert.deepEqual(mine.map((e) => [e.name, e.role, e.kind, e.what]).sort(), [['Tech', 'tech', 'added', 'Hublot qui fuit'], ['Tech', 'tech', 'done', 'Plein d’eau']]);
   assert.equal(mine[0].boat, 'Journalier');
 });
+
+test('réservations : dates pré-remplies sans écraser une saisie, options utiles, noms seulement', async () => {
+  const { compactResa, resaOps, pickOptions, slugsFor, toLocal } = await import('../server/resa.js');
+  assert.deepEqual(slugsFor('Isla Madinina'), ['isla-madinina', 'islamadinina']);
+  assert.equal(toLocal('2026-11-10T21:00:00.000Z'), '2026-11-10T17:00');
+  assert.deepEqual(pickOptions([{ nom: 'Dinghy', quantite: 1 }, { nom: 'Paddle gonflable 1 personne', quantite: 2 }, { nom: 'Barbecue à charbon', quantite: 1 }]).map((o) => `${o.label}×${o.qty}`), ['Paddle×2', 'BBQ×1']);
+  const api = { statut: 'en_mer', prochain_depart: { date: '2026-11-10T21:00:00.000Z' }, prochain_retour: { date: '2026-11-10T13:00:00.000Z' },
+    sejour_en_cours: { dossier: 'ACM-1', mode: 'bareboat', chef_de_bord: { nom: 'Durand', telephone: '0696', email: 'a@b.c' }, options: [] }, prochain_sejour: null };
+  const r = compactResa(api);
+  assert.equal(JSON.stringify(r).includes('0696'), false);
+  assert.equal(JSON.stringify(r).includes('a@b.c'), false);
+  const boat = { inRental: true, departure: '', returnDate: '2026-11-10T08:45', resaDates: {} };
+  const ops = resaOps(boat, r);
+  const set = Object.fromEntries(ops.map((o) => [o.k, o.v]));
+  assert.equal(set.departure, '2026-11-10T17:00');
+  assert.equal('returnDate' in set, false); // saisie à la main : gardée
+  assert.deepEqual(set.stay, { dossier: 'ACM-1', client: 'Durand', skipper: '' });
+});

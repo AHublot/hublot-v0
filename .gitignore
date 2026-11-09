@@ -6,3 +6,5 @@ dist/
 hublot-*.json
 data/
 docker-compose.override.yml
+# Clés et réglages du serveur
+.env

@@ -1,0 +1,126 @@
+// Réservations (API Booking Manager d'ACM, fournie par un collègue) → dates prévues, dossier, options.
+// Le serveur interroge l'API 3 fois par jour (6 h, 12 h, 16 h, heure de Martinique) + à la demande d'un manager.
+// La clé reste dans l'environnement du VPS (RESA_KEY), jamais dans le code ni dans la base.
+// Données personnelles : on ne garde que les noms (client, skipper, hôtesse), jamais téléphone ni e-mail.
+import { applySync } from './lib.js';
+import { stable } from '../src/merge.js';
+
+export const RESA_HOURS = [6, 12, 16];
+const TZ_OFFSET_H = -4; // Martinique = UTC−4, sans heure d'été
+
+// Options utiles à l'équipe technique (les autres — annexe, linge de lit, nettoyage, caution — sont dans toutes les locations).
+export const OPTION_GROUPS = [
+  { key: 'paddle', label: 'Paddle', re: /paddle/i },
+  { key: 'bbq', label: 'BBQ', re: /barbecue|bbq/i },
+  { key: 'sunchill', label: 'Sunchill', re: /sunchill/i },
+  { key: 'starlink', label: 'Starlink', re: /starlink/i },
+  { key: 'linge', label: 'Linge sup.', re: /linge suppl|extra linen/i },
+  { key: 'kayak', label: 'Kayak', re: /kayak/i },
+  { key: 'peche', label: 'Canne à pêche', re: /p[eê]che|fishing/i },
+  { key: 'serviettes', label: 'Serviettes de plage', re: /serviette|beach towel/i },
+];
+export function pickOptions(list) {
+  const out = [];
+  for (const o of Array.isArray(list) ? list : []) {
+    const g = OPTION_GROUPS.find((x) => x.re.test(String(o?.nom || '')));
+    if (!g) continue;
+    const q = Number(o.quantite) || 1;
+    const have = out.find((x) => x.key === g.key);
+    if (have) have.qty += q; else out.push({ key: g.key, label: g.label, qty: q });
+  }
+  return out;
+}
+
+/** Date ISO UTC de l'API → date locale Martinique « AAAA-MM-JJTHH:MM » (format des champs de Hublot). */
+export function toLocal(iso) {
+  const t = Date.parse(iso || '');
+  if (!Number.isFinite(t)) return '';
+  return new Date(t + TZ_OFFSET_H * 3600e3).toISOString().slice(0, 16);
+}
+const nm = (p) => (p && typeof p.nom === 'string' && p.nom.trim() ? p.nom.trim() : '');
+function stayOf(s) {
+  if (!s || typeof s !== 'object') return null;
+  return {
+    dossier: String(s.dossier || ''), coque: String(s.coque || ''),
+    dep: toLocal(s.depart?.date), depBase: String(s.depart?.base || ''),
+    ret: toLocal(s.retour?.date), retBase: String(s.retour?.base || ''),
+    mode: s.mode === 'skipper' ? 'skipper' : 'bareboat',
+    client: nm(s.chef_de_bord), skipper: s.mode === 'skipper' ? nm(s.skipper) || 'à attribuer' : '',
+    hostess: s.hotesse?.prevue ? (nm(s.hotesse) || 'prévue') : '',
+    options: pickOptions(s.options),
+  };
+}
+/** Réponse de l'API pour un bateau → ce que Hublot garde. */
+export function compactResa(d, at = new Date().toISOString()) {
+  return {
+    at, status: d.statut === 'en_mer' ? 'sea' : 'quay', base: String(d.base_actuelle || ''),
+    nextDep: toLocal(d.prochain_depart?.date), nextRet: toLocal(d.prochain_retour?.date),
+    cur: stayOf(d.sejour_en_cours), next: stayOf(d.prochain_sejour),
+  };
+}
+
+const slug = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+/** Noms d'adresse à essayer pour un bateau : « isla-madinina », puis « islamadinina ». */
+export const slugsFor = (name) => [...new Set([slug(name), slug(name).replace(/-/g, '')])].filter(Boolean);
+
+/**
+ * Opérations à appliquer à un bateau. Les dates sont un pré-remplissage : on ne remplace une date que si elle est vide
+ * ou si elle vaut encore la dernière valeur posée par les réservations (sinon quelqu'un l'a modifiée à la main).
+ */
+export function resaOps(boat, r) {
+  const ops = [];
+  const last = boat.resaDates || {};
+  const set = (k, v) => { if (stable(boat[k]) !== stable(v)) ops.push({ op: 'set', k, v }); };
+  const keep = { ...last };
+  const fill = (k, v) => {
+    if (!v) return;
+    const cur = boat[k] || '';
+    if (!cur || cur === last[k]) { set(k, v); keep[k] = v; }
+  };
+  fill('departure', r.nextDep);
+  if (boat.inRental) fill('returnDate', r.status === 'sea' ? r.nextRet : '');
+  set('resa', r);
+  set('resaDates', keep);
+  // Séjour en cours : dossier, client, skipper → en-tête de la feuille retour (seulement pendant la location dans Hublot).
+  if (boat.inRental && r.status === 'sea' && r.cur) set('stay', { dossier: r.cur.dossier, client: r.cur.client, skipper: r.cur.skipper && r.cur.skipper !== 'à attribuer' ? r.cur.skipper : '' });
+  return ops;
+}
+
+/** Interroge l'API pour chaque bateau et enregistre. Renvoie un petit bilan. */
+export async function syncResa(db, { key, url, fetchImpl = fetch, now = new Date() } = {}) {
+  if (!key) return { ok: false, error: 'RESA_KEY absente' };
+  const base = (url || 'https://acm-caraibes.com/hublot/').replace(/\/?$/, '/');
+  const rows = db.prepare('SELECT id, data FROM boats WHERE deleted = 0').all();
+  const at = now.toISOString();
+  const patches = [], missing = [], errors = [];
+  for (const row of rows) {
+    const b = JSON.parse(row.data);
+    let d = null;
+    for (const s of slugsFor(b.name)) {
+      try {
+        const res = await fetchImpl(base + encodeURIComponent(s) + '?format=json', { headers: { 'X-Hublot-Key': key, Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+        if (res.status === 404) continue;
+        if (!res.ok) { errors.push(`${b.name} : ${res.status}`); break; }
+        d = await res.json();
+        break;
+      } catch (e) { errors.push(`${b.name} : ${e.message}`); break; }
+    }
+    if (!d) { if (!errors.some((x) => x.startsWith(b.name))) missing.push(b.name); continue; }
+    const ops = resaOps(b, compactResa(d, at));
+    if (ops.length) patches.push({ id: b.id, ops });
+  }
+  if (patches.length) applySync(db, null, { patches }, { role: 'manager', name: 'Réservations' });
+  const info = { at, ok: !errors.length, updated: patches.length, boats: rows.length, missing, errors };
+  db.prepare("INSERT INTO meta (k, data, version, updated_at, updated_by) VALUES ('resa', ?, 0, ?, NULL) ON CONFLICT(k) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at").run(JSON.stringify(info), at);
+  return info;
+}
+export function resaInfo(db) {
+  const r = db.prepare("SELECT data FROM meta WHERE k = 'resa'").get();
+  return r ? JSON.parse(r.data) : null;
+}
+/** Créneau (6 h, 12 h, 16 h Martinique) en cours, ou null. */
+export function dueSlot(now = new Date()) {
+  const local = new Date(now.getTime() + TZ_OFFSET_H * 3600e3);
+  const h = local.getUTCHours();
+  return RESA_HOURS.includes(h) ? `${local.toISOString().slice(0, 10)}T${h}` : null;
+}

@@ -14,7 +14,7 @@ import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
 import { journalView, journalDays } from './views/journal.js';
 import { retourView } from './views/retour.js';
-import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal } from './remote.js';
+import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal, refreshResa, syncNow } from './remote.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const ui = {
@@ -254,6 +254,7 @@ function layerHTML(s, now) {
 
 function render() {
   const s = getState(), now = new Date();
+  ui.isManager = !!ui.server && !isTech();
   const ae = document.activeElement;
   const key = ae && (ae.dataset?.fk ? `[data-fk="${ae.dataset.fk}"]` : ae.id ? `#${CSS.escape(ae.id)}` : ae.dataset?.draft ? `[data-draft="${ae.dataset.draft}"]` : null);
   const sel = ae && typeof ae.selectionStart === 'number' ? [ae.selectionStart, ae.selectionEnd] : null;
@@ -466,6 +467,8 @@ document.addEventListener('click', (e) => {
     case 'depAsk': if (ui.route.name !== 'boat' || ui.route.id !== id) go('boat', id, 'prep'); ui.confirm = 'dep:' + id; render(); break;
     case 'dep': ui.confirm = null; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
     case 'retAsk': openSheet(id); break;
+    case 'resaUse': M('Date de la réservation reprise', (st) => { const b2 = st.boats.find((x) => x.id === id); const f = b2.inRental ? 'returnDate' : 'departure'; b2[f] = d.v; b2.resaDates = { ...(b2.resaDates || {}), [f]: d.v }; }); break;
+    case 'resaRefresh': el.disabled = true; refreshResa().then((r) => { toast(r.info?.errors?.length ? `Réservations : ${r.info.errors.length} erreur(s)` : `Réservations à jour (${r.info.updated} bateau${r.info.updated > 1 ? 'x' : ''} modifié${r.info.updated > 1 ? 's' : ''})`); syncNow(); }).catch((err) => toast(`Actualisation impossible : ${err.message}`)).finally(() => { el.disabled = false; }); break;
     case 'rView': go('retour', id, d.sheet); break;
     case 'rSet': {
       M('', (st) => A.setSheetValue(st, id, d.it, d.v));

@@ -136,6 +136,8 @@ export function normalizeBoat(raw, i = 0) {
     returnDraft: r.returnDraft && typeof r.returnDraft === 'object' ? r.returnDraft : null,
     returnSheets: arr(r.returnSheets),
     stay: r.stay && typeof r.stay === 'object' ? r.stay : null,
+    resa: r.resa && typeof r.resa === 'object' ? r.resa : null,
+    resaDates: r.resaDates && typeof r.resaDates === 'object' ? r.resaDates : null,
   };
   const fixTask = (t) => ({ ...t, id: t.id || uid(), title: String(t.title || ''), done: !!t.done, blocked: !!t.blocked });
   b.tasks = b.tasks.map(fixTask);
@@ -327,3 +329,17 @@ export function fleetStats(boats, now = new Date()) {
 }
 
 export const pinnedEvents = (b) => b.importantEvents.filter((e) => e.pinned);
+
+// ---- Réservations (API) ----------------------------------------------------------------------------
+/** Séjour à montrer : en location → le séjour en cours ; à quai → le prochain. */
+export const resaStay = (b) => (b.resa ? (b.inRental ? b.resa.cur || b.resa.next : b.resa.next) : null);
+/** Bateau « collé » : il rentre et repart le même jour (retour 9 h, départ 17 h). */
+export function isTight(b) {
+  const r = b.resa;
+  if (!r || !r.nextRet || !r.nextDep) return false;
+  const ret = r.status === 'sea' ? r.nextRet : r.next?.ret;
+  const dep = r.status === 'sea' ? r.nextDep : '';
+  return !!ret && !!dep && ret.slice(0, 10) === dep.slice(0, 10);
+}
+/** L'état des réservations (en mer / à quai) ne correspond pas à Hublot. */
+export const resaMismatch = (b) => !!b.resa && (b.resa.status === 'sea') !== !!b.inRental;
