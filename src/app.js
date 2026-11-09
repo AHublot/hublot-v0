@@ -13,6 +13,7 @@ import { boatReport, fleetReport } from './whatsapp.js';
 import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
 import { journalView, journalDays } from './views/journal.js';
+import { retourView, retourRecap, SHEET } from './views/retour.js';
 import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal } from './remote.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -53,6 +54,7 @@ function parseHash() {
   if (/^#\/backup/.test(h)) return { name: 'backup' };
   if (/^#\/accounts/.test(h)) return { name: 'accounts' };
   if (/^#\/journal/.test(h)) return { name: 'journal' };
+  if (/^#\/retour/.test(h)) return { name: 'retour' };
   return { name: 'overview' };
 }
 function hashFor(r) {
@@ -268,7 +270,7 @@ function render() {
   $('#tabbar').innerHTML = tabbarHTML();
   const r = ui.route;
   $('#view').innerHTML = r.name === 'boat' ? boatView(s, ui, r.id, now) : r.name === 'team' ? teamView(s, ui)
-    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'accounts' ? accountsView(s, ui) : r.name === 'journal' ? journalView(s, ui, now) : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
+    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'accounts' ? accountsView(s, ui) : r.name === 'journal' ? journalView(s, ui, now) : r.name === 'retour' ? retourView(s, ui) + (ui.retourRecap ? retourRecap(s, ui) : '') : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
   document.querySelectorAll('#view [data-draft]').forEach((el) => { if (ui.drafts[el.dataset.draft] != null) el.value = ui.drafts[el.dataset.draft]; });
   document.querySelectorAll('#view textarea[data-parse]').forEach(updateParse);
   tickCountdowns();
@@ -394,6 +396,10 @@ document.addEventListener('click', (e) => {
   const nm = boat ? boat.name : '';
   switch (a) {
     case 'nav': e.preventDefault(); go(d.to); break;
+    case 'rSet': { const r = ui.retour; r.v[d.k] = r.v[d.k] === d.v ? undefined : d.v; render(); break; }
+    case 'rOpen': { const x = SHEET.find((y) => y.id === d.v); const full = x.items.every((_, i) => ui.retour.v[`${d.v}.${i}`]); ui.retour.open[d.v] = !(ui.retour.open[d.v] ?? !full); render(); break; }
+    case 'rNext': { const el = document.querySelector('.rrow.todo'); if (el) el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); break; }
+    case 'rDone': ui.retourRecap = true; render(); break;
     case 'jDay': ui.journal.open[d.v] = !ui.journal.open[d.v]; render(); break;
     case 'jStep': { const days = journalDays(); const i = Math.min(days.length - 1, Math.max(0, Math.max(0, days.findIndex((x) => x.key === ui.journal.day)) + +d.v)); jumpDay(days[i].key); break; }
     case 'jType': ui.journal.type = d.v; render(); break;
@@ -512,6 +518,7 @@ const slugify = (s) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 document.addEventListener('input', (e) => {
   const el = e.target;
   if (el.dataset?.draft) ui.drafts[el.dataset.draft] = el.value;
+  if (el.dataset?.inp === 'rNote' && ui.retour) ui.retour.notes[el.dataset.k] = el.value;
   if (el.dataset?.live === 'q') { ui.q = el.value; render(); }
   if (el.matches?.('textarea[data-parse]')) updateParse(el);
   if (el.id === 'pq' && ui.palette) { ui.palette.q = el.value; ui.palette.i = 0; $('#plist').innerHTML = paletteList(getState()); }
