@@ -1,7 +1,7 @@
 // Toutes les modifications de données. Chaque fonction reçoit l'état « brouillon » (muté en place)
 // via store.mutate(), qui s'occupe de l'enregistrement et de l'annulation.
 import { uid, todayStr, nowIso, clone, norm } from './util.js';
-import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, normalizeSheet } from './model.js';
+import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet } from './model.js';
 
 const find = (s, id) => {
   const b = s.boats.find((x) => x.id === id);
@@ -322,7 +322,7 @@ export function startReturnSheet(s, id, user = '') {
   b.returnDraft = {
     id: uid(), startedAt: nowIso(), startedBy: user || '',
     stay: { dossier: st.dossier || '', client: st.client || '', skipper: st.skipper || '' },
-    values: {}, notes: {}, bill: {}, nums: {}, clientObs: '', other: '', note: '',
+    values: {}, notes: {}, bill: {}, nums: {}, clientObs: '',
   };
   log(b, 'Feuille retour commencée');
   return b.returnDraft;
@@ -343,12 +343,17 @@ export function setSheetText(s, id, field, value) {
   const [, d] = draftOf(s, id);
   const v = String(value || '');
   if (field.startsWith('stay.')) d.stay = { ...d.stay, [field.slice(5)]: v };
-  else if (['clientObs', 'other', 'note'].includes(field)) d[field] = v;
+  else if (field === 'clientObs') d.clientObs = v;
 }
 export function cancelReturnSheet(s, id) {
   const b = find(s, id);
   b.returnDraft = null;
   log(b, 'Feuille retour annulée');
+}
+/** Titre de l'observation créée par un Défaut : la note telle quelle ; pour le mélange, les litres à faire. */
+export function sheetObsTitle(it, note) {
+  const n = String(note ?? '').trim();
+  return it.kind === 'mix' ? `Mélange à faire : ${n.replace('.', ',')} L` : n;
 }
 /** Ce qui manque pour valider : points sans réponse, Défauts sans note. */
 export function sheetMissing(s, b, d = b.returnDraft) {
@@ -376,14 +381,14 @@ export function validateReturnSheet(s, id, user = '', now = new Date()) {
   if (!d) throw new Error('Aucune feuille retour en cours');
   const miss = sheetMissing(s, b, d);
   if (miss.unseen.length) throw new Error(`Encore ${miss.unseen.length} point${miss.unseen.length > 1 ? 's' : ''} à voir`);
-  if (miss.noNote.length) throw new Error(`Décris le défaut : ${miss.noNote[0].label}`);
+  if (miss.noNote.length) throw new Error(miss.noNote[0].kind === 'mix' ? 'Indique les litres à mélanger' : `Décris le défaut : ${miss.noNote[0].label}`);
   const sheet = sheetOf(s);
   const trip = tripHours(b, d.nums || {});
   newReturn(s, id, now);
   const open = new Set(b.tasks.filter((t) => !t.done).map((t) => norm(t.title)));
   const obsIds = [];
   sheetItems(sheet).filter((it) => d.values[it.id] === 'def').forEach((it) => {
-    const title = String(d.notes[it.id]).trim();
+    const title = sheetObsTitle(it, d.notes[it.id]);
     if (open.has(norm(title))) return;
     open.add(norm(title));
     const t = mkTask(title, false, { sheet: d.id, ...(d.stay?.dossier ? { dossier: d.stay.dossier } : {}), ...(d.bill[it.id] ? { bill: true } : {}) });
@@ -402,7 +407,7 @@ export function validateReturnSheet(s, id, user = '', now = new Date()) {
 }
 
 // ---- modèle de feuille (managers) ---------------------------------------------------------------
-const sheetEdit = (s, fn) => { const sh = sheetOf(s); fn(sh); s.returnSheet = normalizeSheet(sh); };
+const sheetEdit = (s, fn) => { const sh = sheetOf(s); fn(sh); s.returnSheet = storedSheet(sh); };
 export function sheetAddSection(s, title) { sheetEdit(s, (sh) => sh.push({ id: uid(), title: String(title || '').trim() || 'Nouvelle partie', items: [] })); }
 export function sheetRenameSection(s, secId, title) { sheetEdit(s, (sh) => { const x = sh.find((y) => y.id === secId); if (x && String(title).trim()) x.title = String(title).trim(); }); }
 export function sheetDeleteSection(s, secId) { sheetEdit(s, (sh) => { const i = sh.findIndex((y) => y.id === secId); if (i >= 0) sh.splice(i, 1); }); }
@@ -411,4 +416,4 @@ export function sheetAddItem(s, secId, label) { const l = String(label || '').tr
 export function sheetRenameItem(s, secId, itemId, label) { sheetEdit(s, (sh) => { const it = sh.find((y) => y.id === secId)?.items.find((z) => z.id === itemId); if (it && String(label).trim()) it.label = String(label).trim(); }); }
 export function sheetDeleteItem(s, secId, itemId) { sheetEdit(s, (sh) => { const x = sh.find((y) => y.id === secId); if (x) x.items = x.items.filter((z) => z.id !== itemId); }); }
 export function sheetMoveItem(s, secId, itemId, dir) { sheetEdit(s, (sh) => { const x = sh.find((y) => y.id === secId); if (!x) return; const i = x.items.findIndex((z) => z.id === itemId), j = i + dir; if (i >= 0 && j >= 0 && j < x.items.length) [x.items[i], x.items[j]] = [x.items[j], x.items[i]]; }); }
-export function sheetReset(s) { s.returnSheet = normalizeSheet(); }
+export function sheetReset(s) { s.returnSheet = null; }

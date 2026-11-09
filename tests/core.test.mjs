@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { parseObservations, fmtCountdown } from '../src/util.js';
 import {
-  normalizeState, emptyState, newBoat, boatStats, boatStatus, maintStatus, DEFAULT_TEMPLATES, matchFilter, fleetStats,
+  normalizeState, emptyState, newBoat, boatStats, boatStatus, maintStatus, DEFAULT_TEMPLATES, matchFilter, fleetStats, sheetOf,
 } from '../src/model.js';
 import * as A from '../src/actions.js';
 import { observationsOf } from '../src/model.js';
@@ -281,14 +281,14 @@ test('feuille retour : tous les points obligatoires, chaque Défaut devient une 
   assert.equal(b.history[0].hours.port, '1000');
   A.startReturnSheet(s, id, 'Léa');
   A.setSheetText(s, id, 'stay.dossier', 'ACM-2026-0001');
-  const items = s.returnSheet.flatMap((x) => x.items);
+  const items = sheetOf(s).flatMap((x) => x.items);
   assert.throws(() => A.validateReturnSheet(s, id, 'Léa'), /points? à voir/);
   items.forEach((it) => A.setSheetValue(s, id, it.id, 'ok'));
   A.setSheetValue(s, id, 'voi3', 'def'); // lazy bag
   assert.throws(() => A.validateReturnSheet(s, id, 'Léa'), /Décris le défaut/);
   A.setSheetNote(s, id, 'voi3', 'la fermeture éclair est cassée');
   A.setSheetBill(s, id, 'voi3', true);
-  A.setSheetValue(s, id, 'mtd5', 'def'); A.setSheetNote(s, id, 'mtd5', 'Courroie tribord à remplacer');
+  A.setSheetValue(s, id, 'mtd4', 'def'); A.setSheetNote(s, id, 'mtd4', 'Courroie tribord à remplacer');
   A.setSheetNum(s, id, 'hoursPort', '1012,5'); A.setSheetNum(s, id, 'hoursStbd', '1001');
   const r = A.validateReturnSheet(s, id, 'Léa');
   assert.equal(r.obs, 2);
@@ -315,13 +315,37 @@ test('feuille retour : pas de doublon d’observation, annulation, modèle modif
   assert.equal(s.boats[0].returnDraft, null);
   assert.equal(s.boats[0].inRental, true);
   A.sheetAddSection(s, 'Sécurité');
-  const sec = s.returnSheet.at(-1);
+  const sec = sheetOf(s).at(-1);
   A.sheetAddItem(s, sec.id, 'Extincteurs');
   A.startReturnSheet(s, id);
-  s.returnSheet.flatMap((x) => x.items).forEach((it) => A.setSheetValue(s, id, it.id, 'ok'));
+  sheetOf(s).flatMap((x) => x.items).forEach((it) => A.setSheetValue(s, id, it.id, 'ok'));
   A.setSheetValue(s, id, 'gre5', 'def'); A.setSheetNote(s, id, 'gre5', 'Winch bâbord dur');
   assert.equal(A.validateReturnSheet(s, id).obs, 0);
   assert.equal(s.boats[0].tasks.filter((t) => t.title === 'Winch bâbord dur').length, 1);
   A.sheetReset(s);
-  assert.equal(s.returnSheet.some((x) => x.title === 'Sécurité'), false);
+  assert.equal(sheetOf(s).some((x) => x.title === 'Sécurité'), false);
+});
+
+test('feuille retour : mélange à faire = observation avec les litres', () => {
+  const s = fresh();
+  const id = s.boats[0].id;
+  A.confirmDeparture(s, id);
+  A.startReturnSheet(s, id);
+  sheetOf(s).flatMap((x) => x.items).forEach((it) => A.setSheetValue(s, id, it.id, 'ok'));
+  A.setSheetValue(s, id, 'ann4', 'def');
+  assert.throws(() => A.validateReturnSheet(s, id), /litres à mélanger/);
+  A.setSheetNote(s, id, 'ann4', '4.5');
+  A.validateReturnSheet(s, id);
+  assert.ok(s.boats[0].tasks.some((t) => t.title === 'Mélange à faire : 4,5 L'));
+  assert.equal(sheetOf(s).some((x) => x.items.some((it) => /fissures|eau de mer/i.test(it.label) && x.id !== 'mbd' && x.id !== 'mtd')), false);
+  assert.ok(sheetOf(s).find((x) => x.id === 'ele').items.some((it) => /gasoil/i.test(it.label)));
+});
+
+test('feuille retour : le modèle par défaut n’est pas enregistré (une mise à jour s’applique)', () => {
+  const s = emptyState();
+  assert.equal(s.returnSheet, null);
+  A.sheetAddSection(s, 'Sécurité');
+  assert.ok(Array.isArray(s.returnSheet));
+  A.sheetDeleteSection(s, sheetOf(s).at(-1).id);
+  assert.equal(s.returnSheet, null);
 });

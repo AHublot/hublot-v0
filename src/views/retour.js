@@ -3,7 +3,7 @@
 import { esc, fmtWDT } from '../util.js';
 import { ic } from '../icons.js';
 import { sheetOf, SHEET_NUMS } from '../model.js';
-import { sheetMissing, tripHours } from '../actions.js';
+import { sheetMissing, tripHours, sheetObsTitle } from '../actions.js';
 
 const hh = (v) => (v == null || v === '' ? '—' : `${String(v).replace('.', ',')} h`);
 const when = (iso) => { try { return fmtWDT(new Date(iso)); } catch { return iso || ''; } };
@@ -40,31 +40,35 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
   const row = (it) => {
     const v = d.values[it.id];
     if (ro) {
-      return `<li class="rrow ${v || 'todo'}"><span class="rlab">${esc(it.label)}</span><span class="rbadge ${v || ''}">${v === 'ok' ? 'OK' : v === 'def' ? 'Défaut' : '—'}</span>
-        ${v === 'def' ? `<p class="rnote-ro">${esc(d.notes[it.id] || '')}${d.bill[it.id] ? ' <span class="jrole">À refacturer</span>' : ''}</p>` : ''}</li>`;
+      const mix = it.kind === 'mix';
+      return `<li class="rrow ${v || 'todo'}"><span class="rlab">${esc(it.label)}</span><span class="rbadge ${v || ''}">${v === 'ok' ? (mix ? 'Fait' : 'OK') : v === 'def' ? (mix ? `À faire · ${esc(String(d.notes[it.id] || '').replace('.', ','))} L` : 'Défaut') : '—'}</span>
+        ${v === 'def' && !mix ? `<p class="rnote-ro">${esc(d.notes[it.id] || '')}${d.bill[it.id] ? ' <span class="jrole">À refacturer</span>' : ''}</p>` : ''}</li>`;
     }
-    return `<li class="rrow ${v || 'todo'}" id="r-${esc(it.id)}">
+    const mix = it.kind === 'mix';
+    return `<li class="rrow ${v || 'todo'} ${mix ? 'mix' : ''}" id="r-${esc(it.id)}">
       <span class="rlab">${esc(it.label)}</span>
       <span class="rbtn" role="group" aria-label="${esc(it.label)}">
-        <button type="button" class="ok ${v === 'ok' ? 'on' : ''}" data-act="rSet" data-id="${b.id}" data-it="${esc(it.id)}" data-v="ok" aria-pressed="${v === 'ok'}">OK</button>
-        <button type="button" class="def ${v === 'def' ? 'on' : ''}" data-act="rSet" data-id="${b.id}" data-it="${esc(it.id)}" data-v="def" aria-pressed="${v === 'def'}">Défaut</button>
+        <button type="button" class="ok ${v === 'ok' ? 'on' : ''}" data-act="rSet" data-id="${b.id}" data-it="${esc(it.id)}" data-v="ok" aria-pressed="${v === 'ok'}">${mix ? 'Fait' : 'OK'}</button>
+        <button type="button" class="def ${v === 'def' ? 'on' : ''}" data-act="rSet" data-id="${b.id}" data-it="${esc(it.id)}" data-v="def" aria-pressed="${v === 'def'}">${mix ? 'À faire' : 'Défaut'}</button>
       </span>
-      ${v === 'def' ? `<div class="rnote"><textarea rows="2" data-chg="rNote" data-id="${b.id}" data-it="${esc(it.id)}" placeholder="Décris le défaut : il deviendra une observation">${esc(d.notes[it.id] || '')}</textarea>
+      ${v === 'def' && mix ? `<label class="rnum rmix"><span>Litres à mélanger</span><input inputmode="decimal" data-chg="rNote" data-id="${b.id}" data-it="${esc(it.id)}" value="${esc(d.notes[it.id] || '')}" placeholder="—"><em>L</em></label>` : ''}
+      ${v === 'def' && !mix ? `<div class="rnote"><textarea rows="2" data-chg="rNote" data-id="${b.id}" data-it="${esc(it.id)}" placeholder="Décris le défaut : il deviendra une observation">${esc(d.notes[it.id] || '')}</textarea>
         <label class="rbill"><input type="checkbox" ${d.bill[it.id] ? 'checked' : ''} data-chg="rBill" data-id="${b.id}" data-it="${esc(it.id)}"> À refacturer</label></div>` : ''}
     </li>`;
   };
   const sec = (x) => {
     const n = x.items.filter((it) => d.values[it.id]).length, nd = x.items.filter((it) => d.values[it.id] === 'def').length;
     const full = n === x.items.length;
-    const dflt = !full || nd > 0; // une partie se replie une fois complète, sauf si elle a un défaut
-    const isOpen = ro ? true : open[x.id] ?? dflt;
-    const state = full && !nd ? `<span class="rs-ok">${ic('check')} OK</span>` : nd ? `<span class="rs-def">${nd} défaut${nd > 1 ? 's' : ''}</span>` : `<span class="mut">${n} / ${x.items.length}</span>`;
+    const isOpen = ro ? true : !!open[x.id]; // toutes les parties fermées à l'ouverture de la feuille
+    const p = x.items.length ? Math.round((100 * n) / x.items.length) : 100;
+    const state = full && !nd ? `<span class="rs-ok">${ic('check')} OK</span>` : nd ? `<span class="rs-def">${nd} défaut${nd > 1 ? 's' : ''}${full ? '' : ` · ${n}/${x.items.length}`}</span>` : `<span class="mut">${n} / ${x.items.length}</span>`;
     const nm = x.num && SHEET_NUMS[x.num];
     const numVal = d.nums?.[x.num] || '';
     const numRow = nm ? `<label class="rnum"><span>${nm.label}</span>${ro ? `<b>${numVal ? esc(numVal) : '—'}</b>` : `<input inputmode="decimal" data-chg="rNum" data-id="${b.id}" data-k="${x.num}" value="${esc(numVal)}" placeholder="—">`}<em>${nm.unit}</em></label>
       ${x.num === 'hoursPort' || x.num === 'hoursStbd' ? `<p class="rtrip small mut">Heures du séjour : <b>${hh(x.num === 'hoursPort' ? trip.port : trip.stbd)}</b></p>` : ''}` : '';
     return `<section class="panel rsec ${isOpen ? 'open' : ''} ${full && !nd ? 'done' : ''}">
-      <div class="rhead"><button type="button" class="rtgl" ${ro ? 'disabled' : `data-act="rOpen" data-v="${esc(x.id)}" data-dflt="${dflt ? 1 : 0}"`} aria-expanded="${isOpen}"><h3>${esc(x.title)}</h3>${state}${ro ? '' : ic('down', 'jchev')}</button></div>
+      <div class="rhead"><button type="button" class="rtgl" ${ro ? 'disabled' : `data-act="rOpen" data-v="${esc(x.id)}"`} aria-expanded="${isOpen}"><h3>${esc(x.title)}</h3>${state}${ro ? '' : ic('down', 'jchev')}</button></div>
+      ${ro ? '' : `<i class="rsbar ${nd ? 'def' : full ? 'ok' : ''}" aria-hidden="true"><span style="width:${p}%"></span></i>`}
       ${isOpen ? `${numRow}<ul class="rlist">${x.items.map(row).join('')}</ul>` : ''}
     </section>`;
   };
@@ -80,10 +84,8 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
     ${info}
     ${ro ? `<p class="small mut">${defs} défaut${defs > 1 ? 's' : ''} · heures du séjour bâbord ${hh(trip.port)}, tribord ${hh(trip.stbd)}</p>` : `<div class="rprog" aria-label="Avancement"><div><b>${seen} / ${total}</b> points vus${defs ? ` · <b class="t-bad">${defs} défaut${defs > 1 ? 's' : ''}</b>` : ''}</div><i><span style="width:${pct}%"></span></i></div>`}
     <div class="rsecs">${sheet.map(sec).join('')}</div>
-    ${ro && !d.clientObs && !d.other && !d.note ? '' : `<section class="panel rfree">
-      ${text('clientObs', 'Observations du client', 'Ce que le client signale en rendant le bateau')}
-      ${text('other', 'Autre', 'Tout ce qui ne rentre dans aucun point')}
-      ${text('note', 'Note libre', 'Ex. matériel utilisé, remarque pour la refacturation… (reprise dans l’export Excel)')}
+    ${ro && !d.clientObs ? '' : `<section class="panel rfree">
+      ${text('clientObs', 'Observations du client et autre', 'Ce que le client signale en rendant le bateau, et tout le reste')}
     </section>`}
     ${bar}
   </div>${!ro && ui.rRecap === b.id ? recap(s, b, d, sheet, miss, trip) : ''}`;
@@ -95,7 +97,7 @@ function top(b, kicker, extra = '') {
 }
 
 function recap(s, b, d, sheet, miss, trip) {
-  const defs = sheet.flatMap((x) => x.items.filter((it) => d.values[it.id] === 'def').map((it) => ({ sec: x.title, it, note: d.notes[it.id] || '', bill: !!d.bill[it.id] })));
+  const defs = sheet.flatMap((x) => x.items.filter((it) => d.values[it.id] === 'def').map((it) => ({ sec: x.title, it, note: String(d.notes[it.id] || '').trim() ? sheetObsTitle(it, d.notes[it.id]) : '', bill: !!d.bill[it.id] })));
   return `<div class="sheet-back" data-act="rRecapNo"></div><div class="rrecap panel" role="dialog" aria-label="Valider le retour">
     <h2>Valider le retour de ${esc(b.name)} ?</h2>
     <p class="mut small">${d.stay?.dossier ? `Dossier ${esc(d.stay.dossier)} · ` : ''}${d.stay?.client ? `${esc(d.stay.client)} · ` : ''}${sheet.reduce((n, x) => n + x.items.length, 0)} points vus</p>

@@ -1,5 +1,5 @@
 import { esc, initials, plural, fmtDT, fmtD, norm } from '../util.js';
-import { boatStats, baseLabel, sortBoats, DEFAULT_TEMPLATES, TPL_CATS, TPL_OTHER, tplCatOf, sheetOf, DEFAULT_RETURN_SHEET } from '../model.js';
+import { boatStats, baseLabel, sortBoats, DEFAULT_TEMPLATES, TPL_CATS, TPL_OTHER, tplCatOf, sheetOf } from '../model.js';
 import { monthsAvailable, monthTotals, monthLabel } from '../report.js';
 import { ic } from '../icons.js';
 import { bar, empty } from './common.js';
@@ -71,7 +71,7 @@ function sheetEditor(s, ui) {
   const sh = sheetOf(s);
   const n = sh.reduce((k, x) => k + x.items.length, 0);
   const open = ui.shOpen || {};
-  const changed = JSON.stringify(sh) !== JSON.stringify(DEFAULT_RETURN_SHEET);
+  const changed = !!s.returnSheet;
   return `<div class="panel sheeted"><div class="phead"><h3>${ic('left')} Feuille retour</h3><span class="count mono">${n}</span></div>
     <p class="mut small">Les points à vérifier à chaque retour de location, dans l’ordre du tour du bateau. Un changement vaut pour les prochaines feuilles ; les feuilles déjà validées ne changent pas.</p>
     <ol class="shsecs">${sh.map((x, i) => `<li class="shsec ${open[x.id] ? 'open' : ''}">

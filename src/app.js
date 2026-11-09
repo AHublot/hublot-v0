@@ -1,7 +1,7 @@
 // Contrôleur : routes, rendu, événements. Toute la logique métier est dans actions.js.
 import * as A from './actions.js';
 import { store, getState, load, mutate, undo, replace, subscribe, snapshots, addSnapshot, autoSnapshot, restoreSnapshot, resetAll } from './store.js';
-import { normalizeState, baseLabel, sortBoats, boatStats } from './model.js';
+import { normalizeState, baseLabel, sortBoats, boatStats, sheetOf } from './model.js';
 import { esc, parseObservations, todayStr, fmtHM, plural, norm, nowIso, fmtD, fmtDT } from './util.js';
 import { ic } from './icons.js';
 import { overviewView } from './views/overview.js';
@@ -467,8 +467,23 @@ document.addEventListener('click', (e) => {
     case 'dep': ui.confirm = null; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
     case 'retAsk': openSheet(id); break;
     case 'rView': go('retour', id, d.sheet); break;
-    case 'rSet': M('', (st) => A.setSheetValue(st, id, d.it, d.v)); break;
-    case 'rOpen': { const o = ui.rOpen || (ui.rOpen = {}); o[d.v] = !(o[d.v] ?? d.dflt === '1'); render(); break; }
+    case 'rSet': {
+      M('', (st) => A.setSheetValue(st, id, d.it, d.v));
+      // partie terminée sans défaut : on la referme et on ouvre la suivante qui reste à voir
+      const st2 = getState(), b2 = st2.boats.find((x) => x.id === id), sh = sheetOf(st2), vals = b2?.returnDraft?.values || {};
+      const i = sh.findIndex((x) => x.items.some((it) => it.id === d.it)), x = sh[i];
+      if (x && x.items.every((it) => vals[it.id]) && !x.items.some((it) => vals[it.id] === 'def')) {
+        const o = ui.rOpen || (ui.rOpen = {});
+        o[x.id] = false;
+        const nx = sh.slice(i + 1).find((y) => y.items.some((it) => !vals[it.id]));
+        if (nx) o[nx.id] = true;
+        render();
+        const sec2 = nx && document.querySelector(`[data-act="rOpen"][data-v="${nx.id}"]`)?.closest('.rsec');
+        if (sec2) window.scrollTo({ top: sec2.getBoundingClientRect().top + window.scrollY - 130, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }
+      break;
+    }
+    case 'rOpen': { const o = ui.rOpen || (ui.rOpen = {}); o[d.v] = !o[d.v]; render(); break; }
     case 'rNext': { const el2 = document.querySelector('.rrow.todo'); if (el2) el2.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); else { const sec = s.boats.find((x) => x.id === id); const it = sec && A.sheetMissing(s, sec).unseen[0]; if (it) { (ui.rOpen || (ui.rOpen = {}))[it.sec.id] = true; render(); document.getElementById('r-' + it.id)?.scrollIntoView({ block: 'center' }); } } break; }
     case 'rDone': ui.rRecap = id; render(); break;
     case 'rRecapNo': ui.rRecap = null; render(); break;
@@ -692,7 +707,7 @@ document.addEventListener('submit', (e) => {
       break;
     }
     case 'shAddItem': { const t = g('label'); if (!t) return; M('Point ajouté à la feuille retour', (st) => A.sheetAddItem(st, form.dataset.sec, t)); setTimeout(() => document.querySelector(`form[data-form="shAddItem"][data-sec="${form.dataset.sec}"] input`)?.focus()); break; }
-    case 'shAddSec': { const t = g('title'); if (!t) return; let nid = ''; M('Partie ajoutée à la feuille retour', (st) => { A.sheetAddSection(st, t); nid = st.returnSheet.at(-1).id; }); ui.shOpen = { ...(ui.shOpen || {}), [nid]: true }; render(); break; }
+    case 'shAddSec': { const t = g('title'); if (!t) return; let nid = ''; M('Partie ajoutée à la feuille retour', (st) => { A.sheetAddSection(st, t); nid = sheetOf(st).at(-1).id; }); ui.shOpen = { ...(ui.shOpen || {}), [nid]: true }; render(); break; }
     case 'addDefTpl': {
       const t = g('title'); if (!t) return; delete ui.drafts['cl-new'];
       M('Tâche ajoutée à la liste', (st) => { if (!st.templates.includes(t)) A.setFleetTemplates(st, [...st.templates, t]); });

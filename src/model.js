@@ -23,26 +23,26 @@ export const DEFAULT_TEMPLATES = [
 
 // ---- Feuille retour : modèle par défaut (modifiable par les managers dans « Liste de préparation ») ----
 // Chaque partie et chaque point a un id stable : renommer un point garde les réponses déjà données.
-const sec = (id, title, items, numf) => ({ id, title, ...(numf ? { num: numf } : {}), items: items.map((label, i) => ({ id: `${id}${i + 1}`, label })) });
-const ENGINE = ['Gasoil', 'Huile', 'Embase', 'Refroidissement', 'Courroie', 'Gatte et cale', 'Filtre eau de mer'];
+// Un point peut être spécial : { label, kind: 'mix' } = Fait / À faire + litres à mélanger.
+const sec = (id, title, items, numf) => ({ id, title, ...(numf ? { num: numf } : {}), items: items.map((x, i) => ({ id: `${id}${i + 1}`, ...(typeof x === 'string' ? { label: x } : x) })) });
+const ENGINE = ['Huile', 'Embase', 'Refroidissement', 'Courroie', 'Gatte et cale', 'Filtre eau de mer'];
 export const SHEET_NUMS = {
   hoursPort: { label: 'Heures moteur', unit: 'h' },
   hoursStbd: { label: 'Heures moteur', unit: 'h' },
-  mix: { label: 'Mélange', unit: 'L' },
 };
 export const DEFAULT_RETURN_SHEET = [
   sec('mbd', 'Cale moteur bâbord', ENGINE, 'hoursPort'),
   sec('mtd', 'Cale moteur tribord', ENGINE, 'hoursStbd'),
   sec('bat', 'Batteries et barre', ['Cosses de batteries', 'Palonnier', 'Drosses', 'Axe et mèche de safran']),
-  sec('plo', 'Plomberie', ['Pompe de cale', 'Pompe eau', 'Pompe eau de mer', 'WC bâbord', 'WC tribord', 'Douchette']),
+  sec('plo', 'Plomberie', ['Pompe de cale', 'Pompe eau', 'WC bâbord', 'WC tribord', 'Douchette']),
   sec('cui', 'Cuisine', ['Gaz', 'Frigo']),
   sec('des', 'Dessalinisateur', ['Fonctionnement', 'Filtre']),
-  sec('ele', 'Électronique', ['Pilote', 'GPS', 'Répétiteur', 'Info vent', 'Info sonde']),
-  sec('coq', 'Coque et pont', ['Hublots', 'Fissures coque et pont', 'Poutre avant', 'Jupes', 'Fonds']),
+  sec('ele', 'Électronique', ['Pilote', 'GPS', 'Répétiteur', 'Info vent', 'Info sonde', 'Gasoil (jauge)']),
+  sec('coq', 'Coque et pont', ['Hublots', 'Poutre avant', 'Jupes', 'Fonds']),
   sec('gre', 'Gréement', ['Spinlock', 'Poulies', 'Drisses', 'Écoutes', 'Winchs', 'Vit de mulet', 'Drosse d’enrouleur']),
   sec('voi', 'Voiles et toiles', ['Grand-voile', 'Génois', 'Lazy bag', 'Bimini', 'Coussins']),
   sec('mou', 'Mouillage', ['Guindeau', 'Ancre et manille']),
-  sec('ann', 'Annexe', ['Annexe', 'Moteur hors-bord', 'Hélice hors-bord'], 'mix'),
+  sec('ann', 'Annexe', ['Annexe', 'Moteur hors-bord', 'Hélice hors-bord', { label: 'Mélange', kind: 'mix' }]),
   sec('inv', 'Inventaire', ['Clef du bateau', 'Clef du cadenas', 'Amarres', 'Pompe annexe', 'Mouillage annexe', 'Pare-battages', 'Écope', 'Gilets', 'Gaffe', 'Brosse de pont']),
 ];
 /** Modèle de feuille propre (ids présents, titres non vides) ; liste vide ou illisible → modèle par défaut. */
@@ -50,11 +50,17 @@ export function normalizeSheet(raw) {
   const out = arr(raw).filter((x) => x && typeof x === 'object').map((x) => ({
     id: String(x.id || uid()), title: String(x.title || 'Partie'),
     ...(x.num && SHEET_NUMS[x.num] ? { num: x.num } : {}),
-    items: arr(x.items).filter((it) => it && String(it.label || '').trim()).map((it) => ({ id: String(it.id || uid()), label: String(it.label).trim() })),
+    items: arr(x.items).filter((it) => it && String(it.label || '').trim()).map((it) => ({ id: String(it.id || uid()), label: String(it.label).trim(), ...(it.kind === 'mix' ? { kind: 'mix' } : {}) })),
   }));
   return out.length ? out : JSON.parse(JSON.stringify(DEFAULT_RETURN_SHEET));
 }
 export const sheetOf = (s) => normalizeSheet(s.returnSheet);
+/** Feuille identique au modèle par défaut → on n'enregistre rien (null) : une future mise à jour du modèle s'appliquera. */
+export const isDefaultSheet = (sh) => JSON.stringify(normalizeSheet(sh)) === JSON.stringify(DEFAULT_RETURN_SHEET);
+// Premier modèle de test (9/11, avant les retouches d'Anthony) : traité comme « par défaut » pour basculer sur le nouveau.
+const OLD_DEFAULT_SIG = 'Gasoil|Huile|Embase|Refroidissement|Courroie|Gatte et cale|Filtre eau de mer#Gasoil|Huile|Embase|Refroidissement|Courroie|Gatte et cale|Filtre eau de mer#Cosses de batteries|Palonnier|Drosses|Axe et mèche de safran#Pompe de cale|Pompe eau|Pompe eau de mer|WC bâbord|WC tribord|Douchette#Gaz|Frigo#Fonctionnement|Filtre#Pilote|GPS|Répétiteur|Info vent|Info sonde#Hublots|Fissures coque et pont|Poutre avant|Jupes|Fonds#Spinlock|Poulies|Drisses|Écoutes|Winchs|Vit de mulet|Drosse d’enrouleur#Grand-voile|Génois|Lazy bag|Bimini|Coussins#Guindeau|Ancre et manille#Annexe|Moteur hors-bord|Hélice hors-bord#Clef du bateau|Clef du cadenas|Amarres|Pompe annexe|Mouillage annexe|Pare-battages|Écope|Gilets|Gaffe|Brosse de pont';
+const sigOf = (sh) => normalizeSheet(sh).map((x) => x.items.map((it) => it.label).join('|')).join('#');
+export const storedSheet = (sh) => (sh && !isDefaultSheet(sh) && sigOf(sh) !== OLD_DEFAULT_SIG ? normalizeSheet(sh) : null);
 /** Points d'une feuille, à plat. */
 export const sheetItems = (sheet) => sheet.flatMap((x) => x.items.map((it) => ({ ...it, sec: x })));
 
@@ -99,7 +105,7 @@ export const mkTask = (title, tpl = false, extra = {}) => ({
 
 export function emptyState() {
   return {
-    schema: SCHEMA, baseName: 'Ma base', team: [], templates: DEFAULT_TEMPLATES.slice(), tplCats: {}, returnSheet: normalizeSheet(), boats: [],
+    schema: SCHEMA, baseName: 'Ma base', team: [], templates: DEFAULT_TEMPLATES.slice(), tplCats: {}, returnSheet: null, boats: [],
     prefs: { autoDeparture: true }, updatedAt: nowIso(),
   };
 }
@@ -157,7 +163,7 @@ export function normalizeState(raw) {
   const first = boats.find((b) => b.templates.length);
   const templates = arr(d.templates).length ? d.templates.slice() : first ? first.templates.slice() : DEFAULT_TEMPLATES.slice();
   return {
-    schema: SCHEMA, baseName: d.baseName || 'Ma base', team, templates, tplCats: d.tplCats && typeof d.tplCats === 'object' ? { ...d.tplCats } : {}, returnSheet: normalizeSheet(d.returnSheet), boats,
+    schema: SCHEMA, baseName: d.baseName || 'Ma base', team, templates, tplCats: d.tplCats && typeof d.tplCats === 'object' ? { ...d.tplCats } : {}, returnSheet: storedSheet(d.returnSheet), boats,
     prefs: { autoDeparture: true, ...(d.prefs || {}) }, updatedAt: nowIso(),
   };
 }

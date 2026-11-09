@@ -241,7 +241,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .statcard > div { padding: 18px 22px; display: flex; flex-direction: column; gap: 6px; border-left: 1px solid var(--line); min-width: 0; } .statcard > div:first-child { border-left: 0; }
 .sbig { font: 700 26px/1.15 var(--f-cond); } .sbig.mono { font: 500 28px var(--f-mono); }
 .chiprow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.tech { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; } .tech .ic { vertical-align: -3px; }
+span.tech { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; } span.tech .ic { vertical-align: -3px; }
 .techpanel { flex-direction: row; flex-wrap: wrap; gap: 8px 22px; padding: 12px 16px; }
 .banner { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; border-radius: var(--r); background: var(--acc-soft); border: 1px solid color-mix(in srgb, var(--acc) 40%, var(--line)); color: var(--tx); }
 .banner span { flex: 1; min-width: 0; } .banner .ic:first-child { color: var(--acc-tx); } .banner em { font-style: normal; font-family: var(--f-mono); color: var(--acc-tx); }
@@ -880,3 +880,12 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
   .rtop h1 { font-size: 20px; } .rinfo dl { grid-template-columns: repeat(5, 1fr); }
   @page { size: A4; margin: 10mm; }
 }
+/* feuille retour v2 : barre par partie, lignes OK en dégradé vert, mélange */
+.rsbar { display: block; height: 4px; margin: 0 16px 12px; border-radius: 99px; background: var(--line2); overflow: hidden; }
+.rsec.open .rsbar { margin-bottom: 10px; }
+.rsbar span { display: block; height: 100%; border-radius: inherit; background: var(--acc); transition: width .25s; }
+.rsbar.ok span { background: var(--ok); } .rsbar.def span { background: var(--bad); }
+@media (prefers-reduced-motion: reduce) { .rsbar span { transition: none; } }
+.rrow.ok { background: linear-gradient(90deg, color-mix(in srgb, var(--ok-soft) 75%, transparent) 0%, transparent 70%); }
+.rrow.ok .rlab { color: var(--tx); }
+.rmix { flex-basis: 100%; padding: 0 0 4px; } .rmix input { border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
