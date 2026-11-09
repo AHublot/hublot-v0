@@ -37,7 +37,7 @@ export const DEFAULT_RETURN_SHEET = [
   sec('plo', 'Plomberie', ['Pompe de cale', 'Pompe eau', 'WC bâbord', 'WC tribord', 'Douchette']),
   sec('cui', 'Cuisine', ['Gaz', 'Frigo']),
   sec('des', 'Dessalinisateur', ['Fonctionnement', 'Filtre']),
-  sec('ele', 'Électronique', ['Pilote', 'GPS', 'Répétiteur', 'Info vent', 'Info sonde', 'Gasoil (jauge)']),
+  sec('ele', 'Électronique', ['Pilote', 'GPS', 'Répétiteur', 'Info vent', 'Le sondeur fonctionne-t-il ?', 'Le gasoil est-il plein ?']),
   sec('coq', 'Coque et pont', ['Hublots', 'Poutre avant', 'Jupes', 'Fonds']),
   sec('gre', 'Gréement', ['Spinlock', 'Poulies', 'Drisses', 'Écoutes', 'Winchs', 'Vit de mulet', 'Drosse d’enrouleur']),
   sec('voi', 'Voiles et toiles', ['Grand-voile', 'Génois', 'Lazy bag', 'Bimini', 'Coussins']),
