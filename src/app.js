@@ -21,7 +21,7 @@ const ui = {
   route: { name: 'overview', id: null }, depLater: {}, depKey: '', tab: 'prep', filter: 'all', base: 'all', q: '', view: 'cards', drafts: {},
   add: false, techs: false, banner: false, editRec: false, tplNow: true, confirm: null, obsF: 'all',
   xm: { month: '', boat: 'all' },
-  teamEdit: null, cl: null, journal: { entries: null, loaded: false, err: '', who: 'all', type: 'all', boat: 'all', day: '', open: {} }, imp: null, impErr: null, palette: null, accounts: { list: null, loaded: false }, logoutBlock: null,
+  teamEdit: null, cl: null, journal: { entries: null, loaded: false, err: '', who: 'all', type: 'all', boat: 'all', day: '', open: {}, hideResa: (() => { try { return localStorage.getItem('hublot:journalResa') !== 'show'; } catch { return true; } })() }, imp: null, impErr: null, palette: null, accounts: { list: null, loaded: false }, logoutBlock: null,
 };
 const LS = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } } };
 
@@ -600,6 +600,7 @@ document.addEventListener('change', (e) => {
     case 'baseFilter': ui.base = el.value; render(); break;
     case 'jWho': ui.journal.who = el.value; render(); break;
     case 'jBoat': ui.journal.boat = el.value; render(); break;
+    case 'jResa': ui.journal.hideResa = el.checked; try { localStorage.setItem('hublot:journalResa', el.checked ? 'hide' : 'show'); } catch { /* */ } render(); break;
     case 'jDate': if (el.value) jumpDay(el.value); break;
     case 'tech': M('', (st) => { const b = st.boats.find((x) => x.id === id); const set = new Set(b.techs); el.checked ? set.add(d.name) : set.delete(d.name); A.setTechs(st, id, [...set]); }); break;
     case 'assign': M('', (st) => A.toggleAssign(st, d.name, id)); break;

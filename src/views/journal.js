@@ -37,7 +37,10 @@ export function journalDays(now = new Date()) {
 export function journalView(s, ui, now = new Date()) {
   const j = ui.journal;
   const days = journalDays(now);
-  const all = (j.entries || []).map((x) => { const d = new Date(x.at); return { ...x, day: todayStr(d), t: `${pad(d.getHours())}:${pad(d.getMinutes())}` }; });
+  // Mises à jour automatiques des réservations (dates, options) : masquables, masquées par défaut
+  const RESA = 'Réservations';
+  const nResa = (j.entries || []).filter((x) => x.name === RESA).length;
+  const all = (j.entries || []).filter((x) => !(j.hideResa && x.name === RESA)).map((x) => { const d = new Date(x.at); return { ...x, day: todayStr(d), t: `${pad(d.getHours())}:${pad(d.getMinutes())}` }; });
   const people = [...new Set(all.map((x) => x.name || '?'))].sort((a, b) => a.localeCompare(b, 'fr'));
   const boats = [...new Set(all.map((x) => x.boat).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
   const keep = (x) => (j.who === 'all' || (x.name || '?') === j.who) && (j.type === 'all' || kindOf(x.kind).group === j.type) && (j.boat === 'all' || x.boat === j.boat);
@@ -75,6 +78,7 @@ export function journalView(s, ui, now = new Date()) {
       <div class="seg jtype">${TYPES.map(([v, l]) => `<button type="button" class="${j.type === v ? 'on' : ''}" data-act="jType" data-v="${v}">${l}</button>`).join('')}</div>
       <div class="row gap jsel"><select data-chg="jWho" aria-label="Personne"><option value="all">Toutes les personnes</option>${people.map((p) => `<option value="${esc(p)}" ${j.who === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>
       <select data-chg="jBoat" aria-label="Bateau"><option value="all">Tous les bateaux</option>${boats.map((b) => `<option value="${esc(b)}" ${j.boat === b ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select></div>
+      <label class="ck jresa"><input type="checkbox" data-chg="jResa" ${j.hideResa ? 'checked' : ''}> Masquer les réservations${nResa ? ` <span class="mut mono">${nResa}</span>` : ''}</label>
     </div>
     ${j.err ? `<p class="t-bad small" role="alert">${esc(j.err)}</p>` : ''}
     ${j.loaded ? `<div class="jdays">${days.map(day).join('')}</div>` : '<p class="mut small">Chargement…</p>'}`;

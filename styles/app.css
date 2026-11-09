@@ -916,3 +916,7 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .optpanel { border-left: 4px solid var(--opt); background: linear-gradient(90deg, var(--opt-soft), transparent 60%), var(--panel); }
 .optpanel .phead h3 .ic { color: var(--opt); }
 .optpanel .optwho { color: var(--opt); font-weight: 700; }
+
+/* Journal : masquer les mises à jour des réservations */
+.jresa { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; cursor: pointer; }
+.jresa input { width: 18px; height: 18px; accent-color: var(--acc); }
