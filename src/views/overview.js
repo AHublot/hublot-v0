@@ -62,11 +62,12 @@ function card(b, now) {
   const minor = [];
   if (mc.late) minor.push(`<button type="button" class="chipbtn t-warn" data-act="open" data-id="${b.id}" data-tab="maint">${ic('tool')} ${plural(mc.late, 'entretien en retard', 'entretiens en retard')}</button>`);
   if (miss) minor.push(`<button type="button" class="chipbtn t-mut" data-act="open" data-id="${b.id}" data-tab="maint">${plural(miss, 'date à renseigner', 'dates à renseigner')}</button>`);
-  const prep = b.inRental ? '' : `<div class="prep"><div class="row between"><span class="pcount mono">${st.done}/${st.total} tâches</span><b class="mono">${st.pct} %</b></div>${bar(st.pct, st.blocked ? 'bad' : st.open ? '' : 'ok')}</div>`;
-  const dateStr = b.inRental ? b.returnDate : b.departure;
+  const sea = b.inRental || !!stt.resa;
+  const prep = sea ? '' : `<div class="prep"><div class="row between"><span class="pcount mono">${st.done}/${st.total} tâches</span><b class="mono">${st.pct} %</b></div>${bar(st.pct, st.blocked ? 'bad' : st.open ? '' : 'ok')}</div>`;
+  const dateStr = b.inRental ? b.returnDate : stt.resa ? b.resa.nextRet : b.departure;
   const dateTxt = dateStr
-    ? `<span class="dcol"><b>${b.inRental ? 'Retour' : 'Départ'} ${esc(fmtWDT(dateStr))}</b><em>${b.inRental || dep > now ? 'dans' : 'dépassé depuis'} ${cd(dateStr, now)}</em></span>`
-    : `<span class="mut">${b.inRental ? 'Retour à renseigner' : 'Pas de départ planifié'}</span>`;
+    ? `<span class="dcol"><b>${sea ? 'Retour' : 'Départ'} ${esc(fmtWDT(dateStr))}</b><em>${sea || dep > now ? 'dans' : 'dépassé depuis'} ${cd(dateStr, now)}</em></span>`
+    : `<span class="mut">${sea ? 'Retour à renseigner' : 'Pas de départ planifié'}</span>`;
   return `<article class="bcard ${stt.key}${b.base === 'Martinique' ? '' : ' other'}" data-open="${b.id}">
     <header><span class="bico fp"><img src="icons/${isFP(b) ? 'fp' : 'lagoon'}-mark.png" alt="" width="28" height="28" decoding="async"></span><h3>${esc(b.name)}</h3>${pill(stt)}${isTight(b) ? `<span class="pill tight" title="Rentre le matin et repart le soir même">${ic('clock')} Collé</span>` : ''}</header>
     ${prep}
@@ -77,7 +78,7 @@ function card(b, now) {
       <select class="basesel" aria-label="Base de ${esc(b.name)}" data-chg="base" data-id="${b.id}">
         <option value="">Sans base</option>${BASES.map((x) => `<option${b.base === x ? ' selected' : ''}>${x}</option>`).join('')}
       </select>
-      <button type="button" class="btn sm ${b.inRental ? '' : 'ghost'}" data-act="${b.inRental ? 'retAsk' : 'depAsk'}" data-id="${b.id}">${ic(b.inRental ? 'left' : 'send')} ${b.inRental ? 'Signaler le retour' : 'Signaler le départ'}</button>
+      ${stt.resa ? '<span class="small mut">En mer · d’après les réservations</span>' : `<button type="button" class="btn sm ${b.inRental ? '' : 'ghost'}" data-act="${b.inRental ? 'retAsk' : 'depAsk'}" data-id="${b.id}">${ic(b.inRental ? 'left' : 'send')} ${b.inRental ? 'Signaler le retour' : 'Signaler le départ'}</button>`}
     </footer>
   </article>`;
 }

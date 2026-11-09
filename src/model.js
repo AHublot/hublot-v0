@@ -197,6 +197,8 @@ export function boatStats(b) {
 
 export function boatStatus(b) {
   if (b.inRental) return { key: 'rental', label: 'En location' };
+  // Bateaux des autres bases (Guadeloupe…) : on ne signale pas leurs départs, l'état vient des réservations.
+  if (seaByResa(b)) return { key: 'rental', label: 'En mer', resa: true };
   const st = boatStats(b);
   if (st.blocked) return { key: 'blocked', label: 'Bloqué' };
   if (st.total && !st.open) return { key: 'ready', label: 'Prêt' };
@@ -342,6 +344,8 @@ export function isTight(b) {
   return !!ret && !!dep && ret.slice(0, 10) === dep.slice(0, 10);
 }
 /** L'état des réservations (en mer / à quai) ne correspond pas à Hublot. */
-export const resaMismatch = (b) => !!b.resa && (b.resa.status === 'sea') !== !!b.inRental;
+export const resaMismatch = (b) => b.base === 'Martinique' && !!b.resa && (b.resa.status === 'sea') !== !!b.inRental;
+/** En mer d'après les réservations, pour un bateau hors Martinique (ses départs ne sont pas signalés dans Hublot). */
+export function seaByResa(b) { return !b.inRental && b.base !== 'Martinique' && b.resa?.status === 'sea'; }
 /** Numéro de dossier affiché : les 4 derniers chiffres (« ACM-2026-5426 » → « 5426 »). */
 export const shortDossier = (d) => { const m = String(d || '').match(/(\d+)\D*$/); return m ? m[1].slice(-4) : String(d || ''); };
