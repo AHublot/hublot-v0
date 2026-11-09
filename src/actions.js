@@ -1,7 +1,7 @@
 // Toutes les modifications de données. Chaque fonction reçoit l'état « brouillon » (muté en place)
 // via store.mutate(), qui s'occupe de l'enregistrement et de l'annulation.
 import { uid, todayStr, nowIso, clone, norm } from './util.js';
-import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet } from './model.js';
+import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet, inMartinique } from './model.js';
 
 const find = (s, id) => {
   const b = s.boats.find((x) => x.id === id);
@@ -199,12 +199,13 @@ export const returnToBase = (s, id) => newReturn(s, id);
 /** Retours prévus dont l'heure est passée, bateau toujours en location. */
 export function dueReturns(s, now = new Date()) {
   if (!s.prefs?.autoDeparture) return [];
-  return s.boats.filter((b) => b.inRental && b.returnDate && new Date(b.returnDate) <= now).map((b) => b.id);
+  return s.boats.filter((b) => inMartinique(b) && b.inRental && b.returnDate && new Date(b.returnDate) <= now).map((b) => b.id);
 }
 /** Départs dont l'heure est passée et qui n'ont pas encore été signalés. */
 export function dueDepartures(s, now = new Date()) {
   if (!s.prefs?.autoDeparture) return [];
-  return s.boats.filter((b) => !b.inRental && !b.departureArchived && b.departure && new Date(b.departure) <= now).map((b) => b.id);
+  // Seulement les bateaux en Martinique : l'équipe n'a pas à signaler les départs de Guadeloupe.
+  return s.boats.filter((b) => inMartinique(b) && !b.inRental && !b.departureArchived && b.departure && new Date(b.departure) <= now).map((b) => b.id);
 }
 
 // ---- relevé moteur ------------------------------------------------------------------

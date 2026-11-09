@@ -199,6 +199,16 @@ test('départ automatique : seulement si l’heure est passée et non signalé',
   assert.deepEqual(A.dueDepartures(s), []);
   b.departure = '2020-01-01T10:00';
   assert.deepEqual(A.dueDepartures(s), [b.id]);
+  // Guadeloupe : pas de fenêtre « Signaler le départ / retour » pour l'équipe de Martinique
+  const base = b.base;
+  b.base = 'Guadeloupe';
+  assert.deepEqual(A.dueDepartures(s), []);
+  b.base = 'Martinique';
+  b.resa = { status: 'quay', base: 'Marina Bas-du-Fort' }; // bateau de Martinique laissé en Guadeloupe
+  assert.deepEqual(A.dueDepartures(s), []);
+  b.resa = { status: 'quay', base: 'Le Marin' };
+  assert.deepEqual(A.dueDepartures(s), [b.id]);
+  b.base = base; delete b.resa;
   s.prefs.autoDeparture = false;
   assert.deepEqual(A.dueDepartures(s), []);
 });
