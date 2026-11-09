@@ -468,7 +468,7 @@ document.addEventListener('click', (e) => {
     case 'dep': ui.confirm = null; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
     case 'retAsk': openSheet(id); break;
     case 'resaUse': M('Date de la réservation reprise', (st) => { const b2 = st.boats.find((x) => x.id === id); const f = b2.inRental ? 'returnDate' : 'departure'; b2[f] = d.v; b2.resaDates = { ...(b2.resaDates || {}), [f]: d.v }; }); break;
-    case 'resaRefresh': el.disabled = true; refreshResa().then((r) => { toast(r.info?.errors?.length ? `Réservations : ${r.info.errors.length} erreur(s)` : `Réservations à jour (${r.info.updated} bateau${r.info.updated > 1 ? 'x' : ''} modifié${r.info.updated > 1 ? 's' : ''})`); syncNow(); }).catch((err) => toast(`Actualisation impossible : ${err.message}`)).finally(() => { el.disabled = false; }); break;
+    case 'resaRefresh': el.disabled = true; toast('Récupération des réservations…'); refreshResa().then((r) => { toast(r.info?.errors?.length ? `Réservations : ${r.info.errors.length} erreur(s)` : `Réservations à jour (${r.info.updated} bateau${r.info.updated > 1 ? 'x' : ''} modifié${r.info.updated > 1 ? 's' : ''})`); syncNow(); }).catch((err) => toast(`Actualisation impossible : ${err.message}`)).finally(() => { el.disabled = false; }); break;
     case 'rView': go('retour', id, d.sheet); break;
     case 'rSet': {
       M('', (st) => A.setSheetValue(st, id, d.it, d.v));

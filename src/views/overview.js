@@ -149,6 +149,7 @@ export function overviewView(s, ui, now = new Date()) {
         <div class="seg" role="group" aria-label="Affichage"><button type="button" class="${ui.view === 'cards' ? 'on' : ''}" data-act="view" data-v="cards" aria-pressed="${ui.view === 'cards'}">${ic('grid')} Cartes</button><button type="button" class="${ui.view === 'board' ? 'on' : ''}" data-act="view" data-v="board" aria-pressed="${ui.view === 'board'}">${ic('calendar')} Planning</button></div>
         ${bases.length > 1 ? `<select aria-label="Base" data-chg="baseFilter"><option value="all">Toutes les bases</option>${bases.map((x) => `<option${base === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}
         <label class="search">${ic('search')}<input type="search" placeholder="Rechercher un bateau" value="${esc(ui.q)}" data-draft="q" data-live="q" aria-label="Rechercher un bateau"></label>
+        ${ui.isManager ? `<button type="button" class="btn sm resabtn" data-act="resaRefresh" title="${esc(resaWhen(s))}">${ic('undo')} Actualiser les réservations</button>` : ''}
         <button type="button" class="fbtn" data-act="fOpen" aria-haspopup="dialog">${ic('sliders')} Filtres${nAct ? ` <b>${nAct}</b>` : ''}</button>
       </div>
     </section>
@@ -188,4 +189,10 @@ export function addForm(ui) {
       <div class="fld"><label class="k" for="nb-base">Base</label><select id="nb-base" name="base" data-draft="nb-base"><option value="">Sans base</option>${BASES.map((x) => `<option>${x}</option>`).join('')}</select></div>
     </div>
     <div class="row gap"><button class="btn pri" type="submit">Créer le bateau</button><button class="btn" type="button" data-act="toggleAdd">Annuler</button></div></form>`;
+}
+
+/** Dernière récupération des réservations (la plus récente des bateaux), pour l'info-bulle du bouton. */
+function resaWhen(s) {
+  const at = s.boats.map((b) => b.resa?.at || '').sort().pop();
+  return at ? `Actualiser les réservations · dernière mise à jour ${fmtDT(at)}` : 'Récupérer les réservations maintenant';
 }
