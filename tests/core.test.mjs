@@ -271,3 +271,57 @@ test('journal : départ = une seule ligne, tâches habituelles ajoutées non not
   assert.deepEqual(journalEvents(cur, next).map((e) => `${e.kind}:${e.what}`), ['done:Gaz', 'blocked:Winch']);
   assert.deepEqual(journalEvents({ ...cur, hours: { port: '1' } }, { ...cur, hours: { port: '2', stbd: '3' } })[0], { kind: 'hours', what: 'Heures moteur', note: 'Bâbord 2 h · Tribord 3 h' });
 });
+
+test('feuille retour : tous les points obligatoires, chaque Défaut devient une observation (titre = la note)', () => {
+  const s = fresh();
+  const id = s.boats[0].id;
+  A.setHours(s, id, 'port', '1000'); A.setHours(s, id, 'stbd', '990');
+  A.confirmDeparture(s, id);
+  const b = s.boats[0];
+  assert.equal(b.history[0].hours.port, '1000');
+  A.startReturnSheet(s, id, 'Léa');
+  A.setSheetText(s, id, 'stay.dossier', 'ACM-2026-0001');
+  const items = s.returnSheet.flatMap((x) => x.items);
+  assert.throws(() => A.validateReturnSheet(s, id, 'Léa'), /points? à voir/);
+  items.forEach((it) => A.setSheetValue(s, id, it.id, 'ok'));
+  A.setSheetValue(s, id, 'voi3', 'def'); // lazy bag
+  assert.throws(() => A.validateReturnSheet(s, id, 'Léa'), /Décris le défaut/);
+  A.setSheetNote(s, id, 'voi3', 'la fermeture éclair est cassée');
+  A.setSheetBill(s, id, 'voi3', true);
+  A.setSheetValue(s, id, 'mtd5', 'def'); A.setSheetNote(s, id, 'mtd5', 'Courroie tribord à remplacer');
+  A.setSheetNum(s, id, 'hoursPort', '1012,5'); A.setSheetNum(s, id, 'hoursStbd', '1001');
+  const r = A.validateReturnSheet(s, id, 'Léa');
+  assert.equal(r.obs, 2);
+  assert.equal(b.inRental, false);
+  assert.equal(b.returnDraft, null);
+  const obs = b.tasks.filter((t) => t.sheet);
+  assert.deepEqual(obs.map((t) => t.title).sort(), ['Courroie tribord à remplacer', 'la fermeture éclair est cassée']);
+  assert.equal(obs.find((t) => t.title.startsWith('la fermeture')).bill, true);
+  assert.equal(obs[0].dossier, 'ACM-2026-0001');
+  assert.equal(b.hours.port, '1012,5');
+  assert.deepEqual(b.returnSheets[0].tripHours, { port: 12.5, stbd: 11 });
+  // le modèle change ensuite : la feuille validée garde sa copie
+  A.sheetRenameItem(s, 'voi', 'voi3', 'Lazy bag (housse)');
+  assert.equal(b.returnSheets[0].sheet.find((x) => x.id === 'voi').items[2].label, 'Lazy bag');
+});
+
+test('feuille retour : pas de doublon d’observation, annulation, modèle modifiable', () => {
+  const s = fresh();
+  const id = s.boats[0].id;
+  A.addObservations(s, id, [{ title: 'Winch bâbord dur' }]);
+  A.confirmDeparture(s, id);
+  A.startReturnSheet(s, id);
+  A.cancelReturnSheet(s, id);
+  assert.equal(s.boats[0].returnDraft, null);
+  assert.equal(s.boats[0].inRental, true);
+  A.sheetAddSection(s, 'Sécurité');
+  const sec = s.returnSheet.at(-1);
+  A.sheetAddItem(s, sec.id, 'Extincteurs');
+  A.startReturnSheet(s, id);
+  s.returnSheet.flatMap((x) => x.items).forEach((it) => A.setSheetValue(s, id, it.id, 'ok'));
+  A.setSheetValue(s, id, 'gre5', 'def'); A.setSheetNote(s, id, 'gre5', 'Winch bâbord dur');
+  assert.equal(A.validateReturnSheet(s, id).obs, 0);
+  assert.equal(s.boats[0].tasks.filter((t) => t.title === 'Winch bâbord dur').length, 1);
+  A.sheetReset(s);
+  assert.equal(s.returnSheet.some((x) => x.title === 'Sécurité'), false);
+});

@@ -1,5 +1,5 @@
 import { store, applyRemote, clearLocal, onPersist } from './store.js';
-import { normalizeBoat, DEFAULT_TEMPLATES } from './model.js';
+import { normalizeBoat, DEFAULT_TEMPLATES, normalizeSheet } from './model.js';
 import { diffBoat, applyOps, same, withoutStamps } from './merge.js';
 
 const KEY = 'capdepart:sync';
@@ -20,7 +20,7 @@ function hash(str) {
   h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
-const metaOf = (s) => ({ baseName: s.baseName, team: s.team, templates: s.templates, prefs: s.prefs, tplCats: s.tplCats || {} });
+const metaOf = (s) => ({ baseName: s.baseName, team: s.team, templates: s.templates, prefs: s.prefs, tplCats: s.tplCats || {}, returnSheet: s.returnSheet || null });
 const hm = (s) => hash(JSON.stringify(metaOf(s)));
 
 const LS = {
@@ -177,7 +177,7 @@ async function pull() {
   if (d.meta || d.boats.length || d.deleted.length) {
     applyRemote((st) => {
       if (d.meta && hash(JSON.stringify(d.meta)) !== synced.meta) { // sinon : notre propre envoi qui revient
-        const incoming = { baseName: d.meta.baseName || 'Ma base', team: d.meta.team || [], templates: d.meta.templates?.length ? d.meta.templates : DEFAULT_TEMPLATES.slice(), prefs: { autoDeparture: true, ...(d.meta.prefs || {}) }, tplCats: d.meta.tplCats || {} };
+        const incoming = { baseName: d.meta.baseName || 'Ma base', team: d.meta.team || [], templates: d.meta.templates?.length ? d.meta.templates : DEFAULT_TEMPLATES.slice(), prefs: { autoDeparture: true, ...(d.meta.prefs || {}) }, tplCats: d.meta.tplCats || {}, returnSheet: normalizeSheet(d.meta.returnSheet) };
         const localDirty = synced.meta && hm(st) !== synced.meta;
         const ih = hash(JSON.stringify(incoming));
         if (!localDirty && hm(st) !== ih) { Object.assign(st, incoming); changed++; }

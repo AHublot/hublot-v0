@@ -124,7 +124,7 @@ function header(s, b, ui, now) {
   <div class="chiprow">
     <span class="tag">${ic('pin')} ${esc(baseLabel(b))}</span>
     ${b.inRental
-      ? `<button type="button" class="btn sm" data-act="retAsk" data-id="${b.id}">${ic('left')} Signaler le retour</button>`
+      ? `<button type="button" class="btn sm ${b.returnDraft ? 'pri' : ''}" data-act="retAsk" data-id="${b.id}">${ic('left')} ${b.returnDraft ? 'Reprendre la feuille retour' : 'Signaler le retour'}</button>`
       : `<button type="button" class="btn sm ghost" data-act="depAsk" data-id="${b.id}">${ic('send')} Signaler le départ</button>`}
     ${techs ? `<span class="tech">${techs}</span>` : ''}
   </div>
@@ -154,7 +154,7 @@ function tabPrep(s, b, ui, now) {
     return `<div class="two"><div class="col"><section class="panel"><div class="phead"><h3>À reprendre au retour</h3><span class="count mono">${p.length}</span></div>
       <p class="mut small">Le bateau est en location. Ces points seront remis dans la préparation au retour, avec les tâches habituelles.</p>
       ${p.length ? `<ul class="tasks">${p.map((t) => taskRow(b, t, { pending: true })).join('')}</ul>` : empty('check', 'Rien en attente', 'Ajoute ici ce qu’il faudra regarder au retour.')}
-      <div class="row gap"><button class="btn pri" data-act="retAsk" data-id="${b.id}">${ic('left')} Signaler le retour</button></div></section></div>
+      <div class="row gap"><button class="btn pri" data-act="retAsk" data-id="${b.id}">${ic('left')} ${b.returnDraft ? 'Reprendre la feuille retour' : 'Signaler le retour'}</button></div></section></div>
       <aside class="col">${add}</aside></div>`;
   }
   const rec = b.tasks.filter((t) => t.template);
@@ -245,6 +245,8 @@ function tabArchives(s, b, ui) {
     <div class="seg" role="group" aria-label="Filtrer les observations">${seg('all', 'Toutes', all.length)}${seg('open', 'À traiter', nOpen)}${seg('done', 'Réglées', nDone)}${seg('bill', 'À refacturer', nBill)}</div>
     ${nBill ? `<div class="billsum">${ic('euro')}<span><b>${plural(nBill, 'observation à refacturer', 'observations à refacturer')}</b>${total ? ` · ${esc(hrs(Math.round(total * 100) / 100))} au total` : ''}</span><button class="btn sm" data-act="nav" data-to="backup">${ic('file')} Rapport du mois</button></div>` : ''}
     ${list.length ? `<ul class="panel obshist">${list.map((o) => obsLine(o, b)).join('')}</ul>` : empty('wave', 'Aucune observation', f === 'all' ? 'Les observations ajoutées dans la préparation apparaîtront ici.' : 'Rien pour ce filtre.')}
+    ${(b.returnSheets || []).length ? `<div class="phead big"><div><h2>Feuilles retour</h2><p class="mut small">Une feuille par retour, avec son dossier. Consultable et imprimable en PDF.</p></div><span class="count mono">${b.returnSheets.length}</span></div>
+    <ul class="panel rsheets">${b.returnSheets.map((r) => { const nd = Object.values(r.values || {}).filter((v) => v === 'def').length; return `<li><button type="button" data-act="rView" data-id="${b.id}" data-sheet="${esc(r.id)}"><span><b>${esc(fmtDT(r.at))}</b>${r.stay?.dossier ? ` · <span class="mono">${esc(r.stay.dossier)}</span>` : ''}${r.stay?.client ? ` · ${esc(r.stay.client)}` : ''}<br><span class="mut small">${r.by ? `${esc(r.by)} · ` : ''}${nd ? `<b class="t-bad">${plural(nd, 'défaut', 'défauts')}</b>` : 'Aucun défaut'}</span></span>${ic('chevR')}</button></li>`; }).join('')}</ul>` : ''}
     <div class="phead big"><div><h2>Préparations archivées</h2><p class="mut small">Une archive à chaque départ signalé et à chaque nouveau retour.</p></div><span class="count mono">${b.history.length}</span></div>
     ${hist || empty('history', 'Aucune archive', 'La préparation est archivée au départ et au nouveau retour.')}</section>
     <aside class="col"><div class="phead big"><div><h2>Journal</h2></div><span class="count mono">${b.logs.length}</span></div>

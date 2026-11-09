@@ -13,6 +13,7 @@ import { boatReport, fleetReport } from './whatsapp.js';
 import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
 import { journalView, journalDays } from './views/journal.js';
+import { retourView } from './views/retour.js';
 import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal } from './remote.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -26,11 +27,12 @@ const LS = { get: (k) => { try { return localStorage.getItem(k); } catch { retur
 
 // ---- rôles : le technicien a un espace réduit (le serveur applique les mêmes limites) -------
 const isTech = () => remote.mode === 'server' && remote.user?.role === 'tech';
-const TECH_PAGES = new Set(['overview', 'boat', 'backup']); // « backup » = Mon compte pour un technicien
+const TECH_PAGES = new Set(['overview', 'boat', 'backup', 'retour']); // « backup » = Mon compte pour un technicien
 const TECH_ACTS = new Set(['nav', 'open', 'tab', 'filter', 'resetFilters', 'view', 'undo', 'theme', 'palette', 'palRun', 'print', 'copyWA',
   'tgl', 'blk', 'del', 'delp', 'voice', 'obsF', 'banner', 'logout', 'logoutKeep', 'logoutForce', 'confirmNo',
-  'pjMore', 'fOpen', 'fClose', 'baseAll', 'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'retYes', 'depNo']);
-const TECH_CHG = new Set(['hours', 'baseFilter']);
+  'pjMore', 'fOpen', 'fClose', 'baseAll', 'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'retYes', 'depNo',
+  'rSet', 'rOpen', 'rNext', 'rDone', 'rRecapNo', 'rValidate', 'rCancel', 'rCancelNo', 'rCancelYes', 'rPrint', 'rView']);
+const TECH_CHG = new Set(['hours', 'baseFilter', 'rNote', 'rBill', 'rNum', 'rText']);
 const TECH_MAINT = new Set(['date', 'hours', 'notes']);
 const TECH_FORMS = new Set(['obs', 'pwd', 'firstPwd', 'login']);
 
@@ -53,15 +55,18 @@ function parseHash() {
   if (/^#\/backup/.test(h)) return { name: 'backup' };
   if (/^#\/accounts/.test(h)) return { name: 'accounts' };
   if (/^#\/journal/.test(h)) return { name: 'journal' };
+  const rm = h.match(/^#\/retour\/([^/]+)(?:\/([^/]+))?/);
+  if (rm) return { name: 'retour', id: decodeURIComponent(rm[1]), sheet: rm[2] ? decodeURIComponent(rm[2]) : null };
   return { name: 'overview' };
 }
 function hashFor(r) {
+  if (r.name === 'retour') return `#/retour/${encodeURIComponent(r.id)}${r.sheet ? `/${encodeURIComponent(r.sheet)}` : ''}`;
   return r.name === 'boat' ? `#/boat/${encodeURIComponent(r.id)}/${ui.tab}` : r.name === 'overview' ? '#/' : `#/${r.name}`;
 }
-const PAGE_RESET = { fsheet: false, clEdit: null, acctEdit: null, techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null };
+const PAGE_RESET = { rRecap: null, rCancel: null, rOpen: null, fsheet: false, clEdit: null, acctEdit: null, techs: false, banner: false, editRec: false, obsF: 'all', confirm: null, add: false, teamEdit: null, imp: null, impErr: null };
 function go(name, id = null, tab = null) {
   if (isTech() && !TECH_PAGES.has(name)) { name = 'overview'; id = null; }
-  ui.route = { name, id };
+  ui.route = { name, id, ...(name === 'retour' ? { sheet: tab || null } : {}) };
   if (name === 'boat') ui.tab = tab || 'prep';
   if (name === 'accounts') loadAccounts();
   if (name === 'journal') loadJournal();
@@ -80,7 +85,7 @@ function go(name, id = null, tab = null) {
 }
 window.addEventListener('hashchange', () => {
   const r = parseHash();
-  ui.route = { name: r.name, id: r.id || null };
+  ui.route = { name: r.name, id: r.id || null, ...(r.name === 'retour' ? { sheet: r.sheet || null } : {}) };
   if (r.tab) ui.tab = r.tab;
   Object.assign(ui, PAGE_RESET);
   if (r.name === 'accounts' && ui.server) loadAccounts();
@@ -90,6 +95,15 @@ window.addEventListener('hashchange', () => {
   try { y = history.state?.y || 0; } catch { /* */ }
   window.scrollTo(0, y);
 });
+
+// ---- feuille retour : « Signaler le retour » ouvre la feuille (commencée si besoin) ----------------
+function openSheet(id) {
+  const b = getState().boats.find((x) => x.id === id);
+  if (!b) return;
+  if (!b.inRental && !b.returnDraft) { toast(`${b.name} est déjà à quai`); return; }
+  if (!b.returnDraft) M('', (st) => A.startReturnSheet(st, id, remote.user?.name || ''));
+  go('retour', id);
+}
 
 // ---- mutations avec message d'erreur ------------------------------------------------------
 function M(label, fn, opts) {
@@ -187,7 +201,7 @@ function paletteItems(s, q) {
     { label: 'Changer de thème', sub: 'Action', run: () => cycleTheme(), icon: 'moon' },
     ...sortBoats(s.boats).map((b) => ({ label: b.name, sub: `Bateau · ${baseLabel(b)}`, run: () => go('boat', b.id), icon: 'boat' })),
     { label: 'Rapport Excel du mois', sub: 'Action', run: () => go('backup'), icon: 'file' },
-    ...sortBoats(s.boats).map((b) => ({ label: `Signaler le retour · ${b.name}`, sub: 'Action', run: () => { go('boat', b.id, 'prep'); ui.confirm = 'ret:' + b.id; render(); }, icon: 'left' })),
+    ...sortBoats(s.boats).map((b) => ({ label: `Signaler le retour · ${b.name}`, sub: 'Action', run: () => openSheet(b.id), icon: 'left' })),
   ];
   const pool = isTech() ? items.filter((i) => i.label === 'Vue d’ensemble' || i.label === 'Changer de thème' || i.sub.startsWith('Bateau') || i.label.startsWith('Nouveau retour')) : items;
   if (ui.server && !isTech()) pool.splice(4, 0, { label: 'Comptes', sub: 'Page', run: () => go('accounts'), icon: 'users' }, { label: 'Journal', sub: 'Page', run: () => go('journal'), icon: 'history' });
@@ -268,7 +282,7 @@ function render() {
   $('#tabbar').innerHTML = tabbarHTML();
   const r = ui.route;
   $('#view').innerHTML = r.name === 'boat' ? boatView(s, ui, r.id, now) : r.name === 'team' ? teamView(s, ui)
-    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'accounts' ? accountsView(s, ui) : r.name === 'journal' ? journalView(s, ui, now) : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
+    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'accounts' ? accountsView(s, ui) : r.name === 'retour' ? retourView(s, ui, r.id, r.sheet, remote.user?.name || '') : r.name === 'journal' ? journalView(s, ui, now) : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
   document.querySelectorAll('#view [data-draft]').forEach((el) => { if (ui.drafts[el.dataset.draft] != null) el.value = ui.drafts[el.dataset.draft]; });
   document.querySelectorAll('#view textarea[data-parse]').forEach(updateParse);
   tickCountdowns();
@@ -340,7 +354,7 @@ function doExport() {
   const s = getState();
   const out = {
     format: 'cap-depart-backup', version: 1, savedAt: nowIso(),
-    data: { checklistVersion: 1, schemaVersion: 2, boats: s.boats, team: s.team, templates: s.templates, tplCats: s.tplCats || {}, baseName: s.baseName, prefs: s.prefs },
+    data: { checklistVersion: 1, schemaVersion: 2, boats: s.boats, team: s.team, templates: s.templates, tplCats: s.tplCats || {}, returnSheet: s.returnSheet || null, baseName: s.baseName, prefs: s.prefs },
   };
   download(`hublot-${todayStr()}.json`, JSON.stringify(out, null, 2));
 }
@@ -411,7 +425,7 @@ document.addEventListener('click', (e) => {
     case 'goBackup': go('backup'); break;
     case 'logout': logout().then((r) => { if (r.blocked) ui.logoutBlock = r; else ui.loginErr = ''; render(); }); break;
     case 'depYes': ui.depKey = ''; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
-    case 'retYes': ui.depKey = ''; go('boat', id, 'prep'); ui.confirm = 'ret:' + id; render(); break;
+    case 'retYes': ui.depKey = ''; openSheet(id); break;
     case 'depNo': ui.depLater[id] = Date.now() + 30 * 60000; ui.depKey = ''; render(); toast(`${nm} : je te redemande dans 30 min`); break;
     case 'logoutKeep': ui.logoutBlock = null; render(); break;
     case 'logoutForce': ui.logoutBlock = null; logout({ force: true }).then(() => { ui.loginErr = ''; render(); }); break;
@@ -451,7 +465,18 @@ document.addEventListener('click', (e) => {
     // départ / retour
     case 'depAsk': if (ui.route.name !== 'boat' || ui.route.id !== id) go('boat', id, 'prep'); ui.confirm = 'dep:' + id; render(); break;
     case 'dep': ui.confirm = null; M(`Départ signalé · ${nm}`, (st) => A.confirmDeparture(st, id)); break;
-    case 'retAsk': if (ui.route.name !== 'boat' || ui.route.id !== id) go('boat', id, 'prep'); ui.confirm = 'ret:' + id; render(); break;
+    case 'retAsk': openSheet(id); break;
+    case 'rView': go('retour', id, d.sheet); break;
+    case 'rSet': M('', (st) => A.setSheetValue(st, id, d.it, d.v)); break;
+    case 'rOpen': { const o = ui.rOpen || (ui.rOpen = {}); o[d.v] = !(o[d.v] ?? d.dflt === '1'); render(); break; }
+    case 'rNext': { const el2 = document.querySelector('.rrow.todo'); if (el2) el2.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); else { const sec = s.boats.find((x) => x.id === id); const it = sec && A.sheetMissing(s, sec).unseen[0]; if (it) { (ui.rOpen || (ui.rOpen = {}))[it.sec.id] = true; render(); document.getElementById('r-' + it.id)?.scrollIntoView({ block: 'center' }); } } break; }
+    case 'rDone': ui.rRecap = id; render(); break;
+    case 'rRecapNo': ui.rRecap = null; render(); break;
+    case 'rValidate': { const r = M(`Retour signalé · ${nm}`, (st) => A.validateReturnSheet(st, id, remote.user?.name || '')); if (r) { ui.rRecap = null; toast(`Retour signalé · ${nm}${r.obs ? ` · ${r.obs} observation${r.obs > 1 ? 's' : ''} créée${r.obs > 1 ? 's' : ''}` : ''}`, { undo: true }); go('boat', id, 'prep'); } break; }
+    case 'rCancel': ui.rCancel = id; render(); window.scrollTo(0, 0); break;
+    case 'rCancelNo': ui.rCancel = null; render(); break;
+    case 'rCancelYes': ui.rCancel = null; M('Feuille retour annulée', (st) => A.cancelReturnSheet(st, id)); go('boat', id, 'prep'); break;
+    case 'rPrint': window.print(); break;
     case 'retGo': ui.confirm = null; ui.tab = 'prep'; M(`Retour signalé · ${nm}`, (st) => A.newReturn(st, id)); break;
     // observations
     case 'obsF': ui.obsF = d.v; render(); break;
@@ -473,6 +498,12 @@ document.addEventListener('click', (e) => {
     // liste de la flotte
     case 'clEdit': ui.clEdit = +d.i; render(); setTimeout(() => { const el = document.querySelector('.clren input'); if (el) { el.focus(); el.select(); } }); break;
     case 'clEditNo': ui.clEdit = null; render(); break;
+    case 'shOpen': ui.shOpen = { ...(ui.shOpen || {}), [d.v]: !(ui.shOpen || {})[d.v] }; render(); break;
+    case 'shSecMv': M('', (st) => A.sheetMoveSection(st, d.sec, +d.v)); break;
+    case 'shItMv': M('', (st) => A.sheetMoveItem(st, d.sec, d.it, +d.v)); break;
+    case 'shItDel': M('Point retiré de la feuille retour', (st) => A.sheetDeleteItem(st, d.sec, d.it)); break;
+    case 'shSecDel': M('Partie retirée de la feuille retour', (st) => A.sheetDeleteSection(st, d.sec)); break;
+    case 'shReset': M('Feuille retour d’origine rétablie', (st) => A.sheetReset(st)); break;
     case 'mxOpen': ui.cl = ui.cl === d.v ? null : d.v; render(); break;
     case 'clUp': case 'clDn': ui.clEdit = null; M('', (st) => { const l = st.templates.slice(), i = +d.i, j = a === 'clUp' ? i - 1 : i + 1; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; A.setFleetTemplates(st, l); }); break;
     case 'clDel': ui.clEdit = null; M('Tâche retirée de la liste', (st) => { const l = st.templates.slice(); l.splice(+d.i, 1); A.setFleetTemplates(st, l); }); break;
@@ -541,6 +572,12 @@ document.addEventListener('change', (e) => {
     case 'acctRole': updateAccount({ id: +d.uid, role: el.value }).then((r) => { ui.accounts.list = r.users; ui.accounts.err = ''; render(); }).catch((err) => { ui.accounts.err = err.message; loadAccounts(); }); break;
     case 'dep': M('', (st) => A.setDeparture(st, id, el.value)); break;
     case 'ret': M('', (st) => A.setReturnDate(st, id, el.value)); break;
+    case 'rNote': M('', (st) => A.setSheetNote(st, id, d.it, el.value)); break;
+    case 'shSec': M('Partie renommée', (st) => A.sheetRenameSection(st, d.sec, el.value)); break;
+    case 'shItem': M('Point renommé', (st) => A.sheetRenameItem(st, d.sec, d.it, el.value)); break;
+    case 'rBill': M('', (st) => A.setSheetBill(st, id, d.it, el.checked)); break;
+    case 'rNum': M('', (st) => A.setSheetNum(st, id, d.k, el.value)); break;
+    case 'rText': M('', (st) => A.setSheetText(st, id, d.f, el.value)); break;
     case 'base': M('', (st) => A.updateBoat(st, id, { base: el.value, otherBase: el.value === 'Autre' ? st.boats.find((b) => b.id === id).otherBase : '' })); break;
     case 'baseFilter': ui.base = el.value; render(); break;
     case 'jWho': ui.journal.who = el.value; render(); break;
@@ -654,6 +691,8 @@ document.addEventListener('submit', (e) => {
       }).catch((err) => { ui.accounts.err = err.message; render(); });
       break;
     }
+    case 'shAddItem': { const t = g('label'); if (!t) return; M('Point ajouté à la feuille retour', (st) => A.sheetAddItem(st, form.dataset.sec, t)); setTimeout(() => document.querySelector(`form[data-form="shAddItem"][data-sec="${form.dataset.sec}"] input`)?.focus()); break; }
+    case 'shAddSec': { const t = g('title'); if (!t) return; let nid = ''; M('Partie ajoutée à la feuille retour', (st) => { A.sheetAddSection(st, t); nid = st.returnSheet.at(-1).id; }); ui.shOpen = { ...(ui.shOpen || {}), [nid]: true }; render(); break; }
     case 'addDefTpl': {
       const t = g('title'); if (!t) return; delete ui.drafts['cl-new'];
       M('Tâche ajoutée à la liste', (st) => { if (!st.templates.includes(t)) A.setFleetTemplates(st, [...st.templates, t]); });

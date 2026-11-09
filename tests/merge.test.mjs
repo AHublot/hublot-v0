@@ -142,3 +142,21 @@ test('départ : seules les observations non terminées sont reportées au retour
   b.pendingOnReturn.push(M.mkTask(s.templates[1], true));
   assert.equal(M.pendingObs(b).length, 1);
 });
+
+test('feuille retour : un technicien remplit le brouillon et valide le retour', async () => {
+  const { deniedOps, diffBoat } = await import('../src/merge.js');
+  const A = await import('../src/actions.js');
+  const { emptyState } = await import('../src/model.js');
+  const s = emptyState();
+  A.addBoat(s, { name: 'T', base: 'Martinique' });
+  A.confirmDeparture(s, s.boats[0].id);
+  const before = JSON.parse(JSON.stringify(s.boats[0]));
+  A.startReturnSheet(s, before.id, 'Léa');
+  const mid = JSON.parse(JSON.stringify(s.boats[0]));
+  assert.deepEqual(deniedOps('tech', diffBoat(before, mid), before), []);
+  s.returnSheet.flatMap((x) => x.items).forEach((it) => A.setSheetValue(s, before.id, it.id, 'ok'));
+  A.setSheetValue(s, before.id, 'cui2', 'def'); A.setSheetNote(s, before.id, 'cui2', 'Frigo ne refroidit plus');
+  const filled = JSON.parse(JSON.stringify(s.boats[0]));
+  A.validateReturnSheet(s, before.id, 'Léa');
+  assert.deepEqual(deniedOps('tech', diffBoat(filled, s.boats[0]), filled), []);
+});

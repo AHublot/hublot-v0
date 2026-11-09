@@ -1,5 +1,5 @@
 import { esc, initials, plural, fmtDT, fmtD, norm } from '../util.js';
-import { boatStats, baseLabel, sortBoats, DEFAULT_TEMPLATES, TPL_CATS, TPL_OTHER, tplCatOf } from '../model.js';
+import { boatStats, baseLabel, sortBoats, DEFAULT_TEMPLATES, TPL_CATS, TPL_OTHER, tplCatOf, sheetOf, DEFAULT_RETURN_SHEET } from '../model.js';
 import { monthsAvailable, monthTotals, monthLabel } from '../report.js';
 import { ic } from '../icons.js';
 import { bar, empty } from './common.js';
@@ -59,10 +59,35 @@ export function checklistView(s, ui) {
         <button class="btn" data-act="clAddAll">${ic('plus')} Ajouter les tâches manquantes aux préparations en cours</button>
         ${ui.confirm === 'clApply' ? `<div class="row gap wrap"><span class="small">Remplace la liste habituelle des ${s.boats.length} bateaux.</span><button class="btn bad solid" data-act="clApply">Appliquer</button><button class="btn" data-act="confirmNo">Annuler</button></div>` : `<button class="btn" data-act="confirmAsk" data-v="clApply">Appliquer cette liste à tous les bateaux</button>`}
         ${list.join() !== DEFAULT_TEMPLATES.join() ? `<button class="btn ghost" data-act="clDefault">Reprendre la liste d’origine</button>` : ''}
-      </div></div></section>
+      </div></div>
+      ${sheetEditor(s, ui)}</section>
     <section class="col"><div class="panel"><div class="phead"><h3>Suivi par tâche</h3><span class="mut small">${plural(prepBoats.length, 'bateau', 'bateaux')} en préparation</span></div>
       <p class="mut small">Où en est chaque tâche habituelle sur la flotte ? Ouvre une ligne pour voir les bateaux concernés.</p>
       ${rows ? `<ul class="matrix">${rows}</ul>` : empty('list', 'Liste vide')}</div></section></div>`;
+}
+
+// ---- Feuille retour : liste des points, modifiable par les managers ------------------------------
+function sheetEditor(s, ui) {
+  const sh = sheetOf(s);
+  const n = sh.reduce((k, x) => k + x.items.length, 0);
+  const open = ui.shOpen || {};
+  const changed = JSON.stringify(sh) !== JSON.stringify(DEFAULT_RETURN_SHEET);
+  return `<div class="panel sheeted"><div class="phead"><h3>${ic('left')} Feuille retour</h3><span class="count mono">${n}</span></div>
+    <p class="mut small">Les points à vérifier à chaque retour de location, dans l’ordre du tour du bateau. Un changement vaut pour les prochaines feuilles ; les feuilles déjà validées ne changent pas.</p>
+    <ol class="shsecs">${sh.map((x, i) => `<li class="shsec ${open[x.id] ? 'open' : ''}">
+      <div class="shhead"><button type="button" class="shtgl" data-act="shOpen" data-v="${esc(x.id)}" aria-expanded="${!!open[x.id]}">${ic(open[x.id] ? 'down' : 'chevR')}<b>${esc(x.title)}</b><span class="mono mut">${x.items.length}</span></button>
+        <button class="ibtn" data-act="shSecMv" data-sec="${esc(x.id)}" data-v="-1" aria-label="Monter la partie" ${i ? '' : 'disabled'}>${ic('up')}</button><button class="ibtn" data-act="shSecMv" data-sec="${esc(x.id)}" data-v="1" aria-label="Descendre la partie" ${i < sh.length - 1 ? '' : 'disabled'}>${ic('down')}</button></div>
+      ${open[x.id] ? `<div class="shbody">
+        <label class="fld"><span class="k">Nom de la partie</span><input value="${esc(x.title)}" data-chg="shSec" data-sec="${esc(x.id)}"></label>
+        <ul class="shitems">${x.items.map((it, j) => `<li><input value="${esc(it.label)}" data-chg="shItem" data-sec="${esc(x.id)}" data-it="${esc(it.id)}" aria-label="Point ${j + 1}">
+          <button class="ibtn" data-act="shItMv" data-sec="${esc(x.id)}" data-it="${esc(it.id)}" data-v="-1" aria-label="Monter" ${j ? '' : 'disabled'}>${ic('up')}</button><button class="ibtn" data-act="shItMv" data-sec="${esc(x.id)}" data-it="${esc(it.id)}" data-v="1" aria-label="Descendre" ${j < x.items.length - 1 ? '' : 'disabled'}>${ic('down')}</button><button class="ibtn" data-act="shItDel" data-sec="${esc(x.id)}" data-it="${esc(it.id)}" aria-label="Retirer ${esc(it.label)}">${ic('trash')}</button></li>`).join('')}</ul>
+        <form class="inl" data-form="shAddItem" data-sec="${esc(x.id)}"><input name="label" placeholder="Nouveau point" aria-label="Nouveau point dans ${esc(x.title)}" autocomplete="off"><button class="btn" type="submit">Ajouter</button></form>
+        ${x.num ? '<p class="small mut">Cette partie demande aussi un nombre (heures moteur ou mélange).</p>' : ''}
+        <button type="button" class="btn ghost sm bad" data-act="shSecDel" data-sec="${esc(x.id)}">Retirer la partie « ${esc(x.title)} »</button>
+      </div>` : ''}</li>`).join('')}</ol>
+    <form class="inl" data-form="shAddSec"><input name="title" placeholder="Nouvelle partie (ex. Sécurité)" aria-label="Nouvelle partie" autocomplete="off"><button class="btn pri" type="submit">Ajouter</button></form>
+    ${changed ? `<div class="actions-col"><button class="btn ghost" data-act="shReset">Reprendre la feuille d’origine</button></div>` : ''}
+  </div>`;
 }
 
 // ---- Export des observations (refacturation) ---------------------------------------------------

@@ -21,6 +21,43 @@ export const DEFAULT_TEMPLATES = [
   'Récupérer le linge et le déposer à la laverie',
 ];
 
+// ---- Feuille retour : modèle par défaut (modifiable par les managers dans « Liste de préparation ») ----
+// Chaque partie et chaque point a un id stable : renommer un point garde les réponses déjà données.
+const sec = (id, title, items, numf) => ({ id, title, ...(numf ? { num: numf } : {}), items: items.map((label, i) => ({ id: `${id}${i + 1}`, label })) });
+const ENGINE = ['Gasoil', 'Huile', 'Embase', 'Refroidissement', 'Courroie', 'Gatte et cale', 'Filtre eau de mer'];
+export const SHEET_NUMS = {
+  hoursPort: { label: 'Heures moteur', unit: 'h' },
+  hoursStbd: { label: 'Heures moteur', unit: 'h' },
+  mix: { label: 'Mélange', unit: 'L' },
+};
+export const DEFAULT_RETURN_SHEET = [
+  sec('mbd', 'Cale moteur bâbord', ENGINE, 'hoursPort'),
+  sec('mtd', 'Cale moteur tribord', ENGINE, 'hoursStbd'),
+  sec('bat', 'Batteries et barre', ['Cosses de batteries', 'Palonnier', 'Drosses', 'Axe et mèche de safran']),
+  sec('plo', 'Plomberie', ['Pompe de cale', 'Pompe eau', 'Pompe eau de mer', 'WC bâbord', 'WC tribord', 'Douchette']),
+  sec('cui', 'Cuisine', ['Gaz', 'Frigo']),
+  sec('des', 'Dessalinisateur', ['Fonctionnement', 'Filtre']),
+  sec('ele', 'Électronique', ['Pilote', 'GPS', 'Répétiteur', 'Info vent', 'Info sonde']),
+  sec('coq', 'Coque et pont', ['Hublots', 'Fissures coque et pont', 'Poutre avant', 'Jupes', 'Fonds']),
+  sec('gre', 'Gréement', ['Spinlock', 'Poulies', 'Drisses', 'Écoutes', 'Winchs', 'Vit de mulet', 'Drosse d’enrouleur']),
+  sec('voi', 'Voiles et toiles', ['Grand-voile', 'Génois', 'Lazy bag', 'Bimini', 'Coussins']),
+  sec('mou', 'Mouillage', ['Guindeau', 'Ancre et manille']),
+  sec('ann', 'Annexe', ['Annexe', 'Moteur hors-bord', 'Hélice hors-bord'], 'mix'),
+  sec('inv', 'Inventaire', ['Clef du bateau', 'Clef du cadenas', 'Amarres', 'Pompe annexe', 'Mouillage annexe', 'Pare-battages', 'Écope', 'Gilets', 'Gaffe', 'Brosse de pont']),
+];
+/** Modèle de feuille propre (ids présents, titres non vides) ; liste vide ou illisible → modèle par défaut. */
+export function normalizeSheet(raw) {
+  const out = arr(raw).filter((x) => x && typeof x === 'object').map((x) => ({
+    id: String(x.id || uid()), title: String(x.title || 'Partie'),
+    ...(x.num && SHEET_NUMS[x.num] ? { num: x.num } : {}),
+    items: arr(x.items).filter((it) => it && String(it.label || '').trim()).map((it) => ({ id: String(it.id || uid()), label: String(it.label).trim() })),
+  }));
+  return out.length ? out : JSON.parse(JSON.stringify(DEFAULT_RETURN_SHEET));
+}
+export const sheetOf = (s) => normalizeSheet(s.returnSheet);
+/** Points d'une feuille, à plat. */
+export const sheetItems = (sheet) => sheet.flatMap((x) => x.items.map((it) => ({ ...it, sec: x })));
+
 // Catégories des tâches habituelles (affichage « Préparation »). Ordre = ordre d'affichage.
 export const TPL_CATS = ['À l’arrivée du bateau', 'Technique courante', 'Nettoyage courant', 'Nettoyage fin', 'Finitions'];
 export const TPL_OTHER = 'Autres';
@@ -62,7 +99,7 @@ export const mkTask = (title, tpl = false, extra = {}) => ({
 
 export function emptyState() {
   return {
-    schema: SCHEMA, baseName: 'Ma base', team: [], templates: DEFAULT_TEMPLATES.slice(), tplCats: {}, boats: [],
+    schema: SCHEMA, baseName: 'Ma base', team: [], templates: DEFAULT_TEMPLATES.slice(), tplCats: {}, returnSheet: normalizeSheet(), boats: [],
     prefs: { autoDeparture: true }, updatedAt: nowIso(),
   };
 }
@@ -90,6 +127,9 @@ export function normalizeBoat(raw, i = 0) {
     maintenance: arr(r.maintenance), history: arr(r.history), logs: arr(r.logs),
     importantEvents: arr(r.importantEvents), fiches: arr(r.fiches), techs: arr(r.techs),
     hours: r.hours && typeof r.hours === 'object' ? r.hours : null,
+    returnDraft: r.returnDraft && typeof r.returnDraft === 'object' ? r.returnDraft : null,
+    returnSheets: arr(r.returnSheets),
+    stay: r.stay && typeof r.stay === 'object' ? r.stay : null,
   };
   const fixTask = (t) => ({ ...t, id: t.id || uid(), title: String(t.title || ''), done: !!t.done, blocked: !!t.blocked });
   b.tasks = b.tasks.map(fixTask);
@@ -117,7 +157,7 @@ export function normalizeState(raw) {
   const first = boats.find((b) => b.templates.length);
   const templates = arr(d.templates).length ? d.templates.slice() : first ? first.templates.slice() : DEFAULT_TEMPLATES.slice();
   return {
-    schema: SCHEMA, baseName: d.baseName || 'Ma base', team, templates, tplCats: d.tplCats && typeof d.tplCats === 'object' ? { ...d.tplCats } : {}, boats,
+    schema: SCHEMA, baseName: d.baseName || 'Ma base', team, templates, tplCats: d.tplCats && typeof d.tplCats === 'object' ? { ...d.tplCats } : {}, returnSheet: normalizeSheet(d.returnSheet), boats,
     prefs: { autoDeparture: true, ...(d.prefs || {}) }, updatedAt: nowIso(),
   };
 }

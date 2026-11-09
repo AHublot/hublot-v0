@@ -4,7 +4,7 @@ const VERSION = 'hublot-v3.12.2';
 const SHELL = [
   './', 'index.html', 'styles/app.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/logo.svg', 'icons/fp-mark.png', 'icons/lagoon-mark.png', 'icons/catamaran.png',
   'src/app.js', 'src/util.js', 'src/model.js', 'src/actions.js', 'src/store.js', 'src/demo.js', 'src/icons.js',
-  'src/whatsapp.js', 'src/voice.js', 'src/xlsx.js', 'src/report.js', 'src/remote.js', 'src/merge.js', 'src/journal-events.js', 'src/views/common.js', 'src/views/overview.js', 'src/views/boat.js', 'src/views/pages.js', 'src/views/journal.js',
+  'src/whatsapp.js', 'src/voice.js', 'src/xlsx.js', 'src/report.js', 'src/remote.js', 'src/merge.js', 'src/journal-events.js', 'src/views/common.js', 'src/views/overview.js', 'src/views/boat.js', 'src/views/pages.js', 'src/views/journal.js', 'src/views/retour.js',
 ];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

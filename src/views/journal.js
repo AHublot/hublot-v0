@@ -13,6 +13,7 @@ const KINDS = {
   renamed: { icon: 'edit', cls: 'k-mut', verb: 'a renommé en', group: 'other' },
   dep: { icon: 'flag', cls: 'k-rent', verb: 'a signalé le départ', group: 'moves', bare: true },
   ret: { icon: 'boat', cls: 'k-rent', verb: 'a signalé le retour', group: 'moves', bare: true },
+  sheet: { icon: 'list', cls: 'k-rent', verb: 'a rempli la feuille retour', group: 'moves', bare: true },
   hours: { icon: 'tool', cls: 'k-mut', verb: 'a noté les heures moteur', group: 'other', bare: true },
   maint: { icon: 'tool', cls: 'k-mut', verb: 'a mis à jour l’entretien', group: 'other' },
   event: { icon: 'bookmark', cls: 'k-mut', verb: 'a noté l’événement', group: 'other' },

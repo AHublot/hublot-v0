@@ -27,6 +27,11 @@ export function journalEvents(cur, next) {
   if (flip || newH.length) {
     const dep = flip ? !!next.inRental : newH.some((h) => h.kind === 'departure');
     push(dep ? 'dep' : 'ret', dep ? 'Départ client' : 'Retour signalé');
+    const curS = new Set((cur.returnSheets || []).map((x) => String(x?.id)));
+    (next.returnSheets || []).filter((x) => x && !curS.has(String(x.id))).forEach((x) => {
+      const n = Object.values(x.values || {}).filter((v) => v === 'def').length;
+      push('sheet', 'Feuille retour', [x.stay?.dossier ? `Dossier ${x.stay.dossier}` : '', n ? `${n} défaut${n > 1 ? 's' : ''}` : 'aucun défaut'].filter(Boolean).join(' · '));
+    });
     return out;
   }
 

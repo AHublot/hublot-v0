@@ -4,7 +4,7 @@
 // Module pur : aucune dépendance, aucun accès au navigateur ni au disque.
 
 /** Listes d'éléments suivis un par un. La valeur dit où s'ajoute un nouvel élément. */
-export const LISTS = { tasks: 'end', pendingOnReturn: 'end', maintenance: 'end', importantEvents: 'end', fiches: 'end', history: 'start' };
+export const LISTS = { tasks: 'end', pendingOnReturn: 'end', maintenance: 'end', importantEvents: 'end', fiches: 'end', history: 'start', returnSheets: 'start' };
 const LOG_MAX = 200;
 /** Champs posés par le serveur : un poste ne peut pas les imposer. */
 export const STAMPS = ['doneBy', 'addedBy', 'by'];
@@ -68,7 +68,7 @@ export function applyOps(boat, ops, { by = '' } = {}) {
       if (i >= 0) continue; // déjà là (envoi rejoué)
       const it = clone(o.item);
       if (by && (o.a === 'tasks' || o.a === 'pendingOnReturn') && !it.addedBy) it.addedBy = by;
-      if (by && o.a === 'history') it.by = by; // qui a signalé le départ ou le retour
+      if (by && (o.a === 'history' || o.a === 'returnSheets')) it.by = by; // qui a signalé le départ ou le retour, qui a validé la feuille
       if (LISTS[o.a] === 'start') list.unshift(it); else list.push(it);
     } else if (o.op === 'upd') {
       if (i < 0) continue; // retiré entre-temps par quelqu'un d'autre
@@ -110,12 +110,13 @@ export function deniedOps(role, ops, boat) {
 const LIFE_KEYS = new Set(['inRental', 'departureArchived', 'lastDeparture', 'departure', 'returnDate', 'cycle']);
 function lifeMay(o) {
   if (o.op === 'set' || o.op === 'unset') return LIFE_KEYS.has(o.k);
-  if (o.a === 'history') return o.op === 'add';
+  if (o.a === 'history' || o.a === 'returnSheets') return o.op === 'add';
   return o.a === 'tasks' || o.a === 'pendingOnReturn';
 }
 function techMay(o, boat) {
-  if (o.op === 'set') return o.k === 'hours';
-  if (o.op === 'unset') return false;
+  // feuille retour en cours : tout le monde la remplit
+  if (o.op === 'set') return o.k === 'hours' || o.k === 'returnDraft';
+  if (o.op === 'unset') return o.k === 'returnDraft';
   if (o.a === 'logs') return o.op === 'add';
   const list = Array.isArray(boat?.[o.a]) ? boat[o.a] : [];
   const cur = list.find((it) => keyOf(it) === o.key);

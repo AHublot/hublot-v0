@@ -1,7 +1,7 @@
 // Toutes les modifications de données. Chaque fonction reçoit l'état « brouillon » (muté en place)
 // via store.mutate(), qui s'occupe de l'enregistrement et de l'annulation.
 import { uid, todayStr, nowIso, clone, norm } from './util.js';
-import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES } from './model.js';
+import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, normalizeSheet } from './model.js';
 
 const find = (s, id) => {
   const b = s.boats.find((x) => x.id === id);
@@ -140,6 +140,7 @@ export function confirmDeparture(s, id, { auto = false } = {}) {
   const entry = {
     id: uid(), date: b.cycle || todayStr(), tasks: clone(b.tasks), kind: 'departure',
     at: nowIso(), automatic: !!auto, departure: b.departure || '',
+    ...(b.hours && (b.hours.port || b.hours.stbd) ? { hours: { port: b.hours.port || '', stbd: b.hours.stbd || '' } } : {}),
   };
   b.history = [entry, ...b.history];
   // Seules les observations non terminées passent au retour : les tâches habituelles repartent à zéro.
@@ -308,3 +309,106 @@ export function setPref(s, key, value) {
   s.prefs = { ...s.prefs, [key]: value };
 }
 export { normalizeBoat, DEFAULT_TEMPLATES };
+
+// ---- feuille retour -------------------------------------------------------------------------
+// 1 retour = 1 feuille. Le brouillon (`returnDraft`) est synchronisé : on peut reprendre plus tard.
+// À la validation : retour signalé, chaque Défaut devient une observation (titre = la note, telle quelle).
+
+/** Commence (ou reprend) la feuille retour d'un bateau en location. */
+export function startReturnSheet(s, id, user = '') {
+  const b = find(s, id);
+  if (b.returnDraft) return b.returnDraft;
+  const st = b.stay || {};
+  b.returnDraft = {
+    id: uid(), startedAt: nowIso(), startedBy: user || '',
+    stay: { dossier: st.dossier || '', client: st.client || '', skipper: st.skipper || '' },
+    values: {}, notes: {}, bill: {}, nums: {}, clientObs: '', other: '', note: '',
+  };
+  log(b, 'Feuille retour commencée');
+  return b.returnDraft;
+}
+const draftOf = (s, id) => { const b = find(s, id); if (!b.returnDraft) throw new Error('Aucune feuille retour en cours'); return [b, b.returnDraft]; };
+/** OK ou Défaut sur un point ; même valeur une 2e fois = on retire la réponse. */
+export function setSheetValue(s, id, itemId, value) {
+  const [, d] = draftOf(s, id);
+  const v = { ...d.values };
+  if (v[itemId] === value) delete v[itemId]; else v[itemId] = value;
+  d.values = v;
+}
+export function setSheetNote(s, id, itemId, text) { const [, d] = draftOf(s, id); d.notes = { ...d.notes, [itemId]: String(text || '') }; }
+export function setSheetBill(s, id, itemId, on) { const [, d] = draftOf(s, id); d.bill = { ...d.bill, [itemId]: !!on }; }
+export function setSheetNum(s, id, key, value) { const [, d] = draftOf(s, id); d.nums = { ...d.nums, [key]: String(value || '').trim() }; }
+/** Champs libres : clientObs, other, note, et le séjour (stay.dossier, stay.client, stay.skipper). */
+export function setSheetText(s, id, field, value) {
+  const [, d] = draftOf(s, id);
+  const v = String(value || '');
+  if (field.startsWith('stay.')) d.stay = { ...d.stay, [field.slice(5)]: v };
+  else if (['clientObs', 'other', 'note'].includes(field)) d[field] = v;
+}
+export function cancelReturnSheet(s, id) {
+  const b = find(s, id);
+  b.returnDraft = null;
+  log(b, 'Feuille retour annulée');
+}
+/** Ce qui manque pour valider : points sans réponse, Défauts sans note. */
+export function sheetMissing(s, b, d = b.returnDraft) {
+  const items = sheetItems(sheetOf(s));
+  return {
+    unseen: items.filter((it) => !d?.values?.[it.id]),
+    noNote: items.filter((it) => d?.values?.[it.id] === 'def' && !String(d?.notes?.[it.id] || '').trim()),
+    total: items.length,
+  };
+}
+const numOrNull = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+/** Heures du séjour par moteur = relevé au retour − relevé au départ (null si l'un des deux manque). */
+export function tripHours(b, nums) {
+  const dep = (b.history || []).find((h) => h.kind === 'departure')?.hours || {};
+  const diff = (now, before) => { const a = numOrNull(now), c = numOrNull(before); return a != null && c != null && a >= c ? Math.round((a - c) * 10) / 10 : null; };
+  return { port: diff(nums.hoursPort, dep.port), stbd: diff(nums.hoursStbd, dep.stbd) };
+}
+/**
+ * Valide la feuille : retour signalé (préparation archivée comme aujourd'hui), une observation par Défaut,
+ * relevé moteur mis à jour, feuille rangée dans `returnSheets`. Refuse une feuille incomplète.
+ */
+export function validateReturnSheet(s, id, user = '', now = new Date()) {
+  const b = find(s, id);
+  const d = b.returnDraft;
+  if (!d) throw new Error('Aucune feuille retour en cours');
+  const miss = sheetMissing(s, b, d);
+  if (miss.unseen.length) throw new Error(`Encore ${miss.unseen.length} point${miss.unseen.length > 1 ? 's' : ''} à voir`);
+  if (miss.noNote.length) throw new Error(`Décris le défaut : ${miss.noNote[0].label}`);
+  const sheet = sheetOf(s);
+  const trip = tripHours(b, d.nums || {});
+  newReturn(s, id, now);
+  const open = new Set(b.tasks.filter((t) => !t.done).map((t) => norm(t.title)));
+  const obsIds = [];
+  sheetItems(sheet).filter((it) => d.values[it.id] === 'def').forEach((it) => {
+    const title = String(d.notes[it.id]).trim();
+    if (open.has(norm(title))) return;
+    open.add(norm(title));
+    const t = mkTask(title, false, { sheet: d.id, ...(d.stay?.dossier ? { dossier: d.stay.dossier } : {}), ...(d.bill[it.id] ? { bill: true } : {}) });
+    b.tasks.push(t);
+    obsIds.push(t.id);
+  });
+  const nums = d.nums || {};
+  if (nums.hoursPort || nums.hoursStbd) {
+    b.hours = { ...(b.hours || {}), ...(nums.hoursPort ? { port: nums.hoursPort } : {}), ...(nums.hoursStbd ? { stbd: nums.hoursStbd } : {}), date: nowIso() };
+  }
+  b.returnSheets = [{ ...clone(d), at: nowIso(), by: user || '', sheet, tripHours: trip, obsIds }, ...(b.returnSheets || [])];
+  b.returnDraft = null;
+  b.stay = null;
+  log(b, `Feuille retour validée${obsIds.length ? ` : ${obsIds.length} observation${obsIds.length > 1 ? 's' : ''} créée${obsIds.length > 1 ? 's' : ''}` : ', aucun défaut'}`);
+  return { obs: obsIds.length };
+}
+
+// ---- modèle de feuille (managers) ---------------------------------------------------------------
+const sheetEdit = (s, fn) => { const sh = sheetOf(s); fn(sh); s.returnSheet = normalizeSheet(sh); };
+export function sheetAddSection(s, title) { sheetEdit(s, (sh) => sh.push({ id: uid(), title: String(title || '').trim() || 'Nouvelle partie', items: [] })); }
+export function sheetRenameSection(s, secId, title) { sheetEdit(s, (sh) => { const x = sh.find((y) => y.id === secId); if (x && String(title).trim()) x.title = String(title).trim(); }); }
+export function sheetDeleteSection(s, secId) { sheetEdit(s, (sh) => { const i = sh.findIndex((y) => y.id === secId); if (i >= 0) sh.splice(i, 1); }); }
+export function sheetMoveSection(s, secId, dir) { sheetEdit(s, (sh) => { const i = sh.findIndex((y) => y.id === secId), j = i + dir; if (i >= 0 && j >= 0 && j < sh.length) [sh[i], sh[j]] = [sh[j], sh[i]]; }); }
+export function sheetAddItem(s, secId, label) { const l = String(label || '').trim(); if (!l) return; sheetEdit(s, (sh) => { const x = sh.find((y) => y.id === secId); if (x) x.items.push({ id: uid(), label: l }); }); }
+export function sheetRenameItem(s, secId, itemId, label) { sheetEdit(s, (sh) => { const it = sh.find((y) => y.id === secId)?.items.find((z) => z.id === itemId); if (it && String(label).trim()) it.label = String(label).trim(); }); }
+export function sheetDeleteItem(s, secId, itemId) { sheetEdit(s, (sh) => { const x = sh.find((y) => y.id === secId); if (x) x.items = x.items.filter((z) => z.id !== itemId); }); }
+export function sheetMoveItem(s, secId, itemId, dir) { sheetEdit(s, (sh) => { const x = sh.find((y) => y.id === secId); if (!x) return; const i = x.items.findIndex((z) => z.id === itemId), j = i + dir; if (i >= 0 && j >= 0 && j < x.items.length) [x.items[i], x.items[j]] = [x.items[j], x.items[i]]; }); }
+export function sheetReset(s) { s.returnSheet = normalizeSheet(); }
