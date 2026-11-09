@@ -898,3 +898,10 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .tag.opt { background: var(--rent-soft); color: var(--rent); border-color: transparent; font-weight: 600; }
 .tag.tight, .kchip.tight { background: var(--warn-soft, #FFF1D6); color: var(--warn); border-color: transparent; font-weight: 600; }
 .resaat { font-size: 12px; }
+
+/* « Collé » sous la pastille de statut, en dégradé */
+.tightrow { flex-basis: 100%; display: flex; }
+.pill.tight { border: 0; color: var(--warn); background: linear-gradient(90deg, rgba(255,214,150,.95) 0%, rgba(255,214,150,0) 100%); padding-right: 18px; }
+.pill.tight::before { display: none; } .pill.tight .ic { width: 12px; height: 12px; }
+[data-theme="dark"] .pill.tight { background: linear-gradient(90deg, color-mix(in srgb, var(--warn) 30%, transparent) 0%, transparent 100%); }
+.tag.tight { background: linear-gradient(90deg, rgba(255,214,150,.95) 0%, rgba(255,214,150,0) 100%); }

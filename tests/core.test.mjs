@@ -349,3 +349,19 @@ test('feuille retour : le modèle par défaut n’est pas enregistré (une mise 
   A.sheetDeleteSection(s, sheetOf(s).at(-1).id);
   assert.equal(s.returnSheet, null);
 });
+
+test('feuille retour : options du séjour à vérifier, dossier court', async () => {
+  const { shortDossier } = await import('../src/model.js');
+  assert.equal(shortDossier('ACM-2026-5426'), '5426');
+  const s = fresh();
+  const id = s.boats[0].id;
+  A.confirmDeparture(s, id);
+  s.boats[0].stay = { dossier: 'ACM-2026-5426', client: 'Durand', options: [{ key: 'paddle', label: 'Paddle', qty: 2 }] };
+  A.startReturnSheet(s, id);
+  const sh = A.draftSheet(s, s.boats[0].returnDraft);
+  assert.equal(sh.at(-1).items[0].label, 'Paddle ×2');
+  sh.flatMap((x) => x.items).forEach((it) => A.setSheetValue(s, id, it.id, 'ok'));
+  A.setSheetValue(s, id, 'opt-paddle', 'def'); A.setSheetNote(s, id, 'opt-paddle', 'Paddle crevé');
+  A.validateReturnSheet(s, id);
+  assert.ok(s.boats[0].tasks.some((t) => t.title === 'Paddle crevé' && t.dossier === 'ACM-2026-5426'));
+});

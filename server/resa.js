@@ -81,8 +81,11 @@ export function resaOps(boat, r) {
   if (boat.inRental) fill('returnDate', r.status === 'sea' ? r.nextRet : '');
   set('resa', r);
   set('resaDates', keep);
-  // Séjour en cours : dossier, client, skipper → en-tête de la feuille retour (seulement pendant la location dans Hublot).
-  if (boat.inRental && r.status === 'sea' && r.cur) set('stay', { dossier: r.cur.dossier, client: r.cur.client, skipper: r.cur.skipper && r.cur.skipper !== 'à attribuer' ? r.cur.skipper : '' });
+  // Séjour en cours : dossier, client, skipper, dates, options → en-tête de la feuille retour (pendant la location dans Hublot).
+  if (boat.inRental && r.status === 'sea' && r.cur) {
+    set('stay', { dossier: r.cur.dossier, client: r.cur.client, skipper: r.cur.skipper && r.cur.skipper !== 'à attribuer' ? r.cur.skipper : '', dep: r.cur.dep, ret: r.cur.ret, options: r.cur.options });
+  }
+  ops.push(...optionTaskOps(boat, r));
   return ops;
 }
 
@@ -123,4 +126,37 @@ export function dueSlot(now = new Date()) {
   const local = new Date(now.getTime() + TZ_OFFSET_H * 3600e3);
   const h = local.getUTCHours();
   return RESA_HOURS.includes(h) ? `${local.toISOString().slice(0, 10)}T${h}` : null;
+}
+
+/**
+ * Options de la prochaine location → observations à cocher, pour ne rien oublier d'embarquer.
+ * Les options arrivent souvent au dernier moment et une par une : chaque récupération ajoute celles qui manquent,
+ * met à jour la quantité, et retire (si elles ne sont pas cochées) celles qui ne sont plus réservées.
+ * Bateau à quai → dans la préparation ; en location → « à reprendre au retour » (elles passent dans la préparation au retour).
+ */
+export const optTitle = (o) => `Option client : ${o.label}${o.qty > 1 ? ` ×${o.qty}` : ''}`;
+export function optionTaskOps(boat, r, today = new Date(Date.now() + TZ_OFFSET_H * 3600e3).toISOString().slice(0, 10)) {
+  const ops = [];
+  const next = r.next;
+  const list = boat.inRental ? 'pendingOnReturn' : 'tasks';
+  const want = next && next.dossier ? next.options : [];
+  const all = [['tasks', boat.tasks || []], ['pendingOnReturn', boat.pendingOnReturn || []]];
+  // retirer les options non cochées qui ne correspondent plus à la prochaine location
+  for (const [a, items] of all) {
+    for (const t of items) {
+      if (!t.opt || t.done) continue;
+      const still = next && t.dossier === next.dossier && want.some((o) => o.key === t.opt) && a === list;
+      if (!still) ops.push({ op: 'del', a, key: `i${t.id}` });
+    }
+  }
+  for (const o of want) {
+    const have = (boat[list] || []).find((t) => t.opt === o.key && t.dossier === next.dossier);
+    if (have) {
+      if (!have.done && have.title !== optTitle(o)) ops.push({ op: 'upd', a: list, key: `i${have.id}`, set: { title: optTitle(o) }, unset: [] });
+      continue;
+    }
+    const id = `opt-${next.dossier}-${o.key}`.replace(/[^\w-]/g, '');
+    ops.push({ op: 'add', a: list, key: `i${id}`, item: { id, title: optTitle(o), done: false, blocked: false, origin: today, opt: o.key, dossier: next.dossier, ...(boat.inRental ? { carried: true } : {}) } });
+  }
+  return ops;
 }

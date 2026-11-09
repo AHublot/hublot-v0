@@ -473,7 +473,7 @@ document.addEventListener('click', (e) => {
     case 'rSet': {
       M('', (st) => A.setSheetValue(st, id, d.it, d.v));
       // partie terminée sans défaut : on la referme et on ouvre la suivante qui reste à voir
-      const st2 = getState(), b2 = st2.boats.find((x) => x.id === id), sh = sheetOf(st2), vals = b2?.returnDraft?.values || {};
+      const st2 = getState(), b2 = st2.boats.find((x) => x.id === id), sh = A.draftSheet(st2, b2?.returnDraft), vals = b2?.returnDraft?.values || {};
       const i = sh.findIndex((x) => x.items.some((it) => it.id === d.it)), x = sh[i];
       if (x && x.items.every((it) => vals[it.id]) && !x.items.some((it) => vals[it.id] === 'def')) {
         const o = ui.rOpen || (ui.rOpen = {});

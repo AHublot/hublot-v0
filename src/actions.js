@@ -77,7 +77,8 @@ export function addObservations(s, id, items) {
   const target = b.inRental ? b.pendingOnReturn : b.tasks;
   const have = new Set(target.filter((t) => !t.done).map((t) => t.title.toLowerCase()));
   const fresh = items.filter((i) => !have.has(i.title.toLowerCase()));
-  fresh.forEach((i) => target.push(mkTask(i.title, false, { blocked: !!i.blocked, ...(b.inRental ? { carried: true } : {}) })));
+  // pendant une location, l'observation garde le numéro de dossier du séjour (export de refacturation)
+  fresh.forEach((i) => target.push(mkTask(i.title, false, { blocked: !!i.blocked, ...(b.inRental ? { carried: true } : {}), ...(b.inRental && b.stay?.dossier ? { dossier: b.stay.dossier } : {}) })));
   if (fresh.length) log(b, fresh.length === 1 ? `Observation ajoutée : ${fresh[0].title}` : `${fresh.length} observations ajoutées`);
   return fresh.length;
 }
@@ -321,7 +322,7 @@ export function startReturnSheet(s, id, user = '') {
   const st = b.stay || {};
   b.returnDraft = {
     id: uid(), startedAt: nowIso(), startedBy: user || '',
-    stay: { dossier: st.dossier || '', client: st.client || '', skipper: st.skipper || '' },
+    stay: { dossier: st.dossier || '', client: st.client || '', skipper: st.skipper || '', dep: st.dep || b.lastDeparture || '', ret: st.ret || b.returnDate || '', options: Array.isArray(st.options) ? st.options : [] },
     values: {}, notes: {}, bill: {}, nums: {}, clientObs: '',
   };
   log(b, 'Feuille retour commencée');
@@ -355,9 +356,15 @@ export function sheetObsTitle(it, note) {
   const n = String(note ?? '').trim();
   return it.kind === 'mix' ? `Mélange à faire : ${n.replace('.', ',')} L` : n;
 }
+/** Feuille d'un brouillon : le modèle, plus les options du séjour (à vérifier au retour). */
+export function draftSheet(s, d) {
+  const sh = sheetOf(s);
+  const o = Array.isArray(d?.stay?.options) ? d.stay.options : [];
+  return o.length ? [...sh, { id: 'opts', title: 'Options du séjour', items: o.map((x) => ({ id: `opt-${x.key}`, label: `${x.label}${x.qty > 1 ? ` ×${x.qty}` : ''}` })) }] : sh;
+}
 /** Ce qui manque pour valider : points sans réponse, Défauts sans note. */
 export function sheetMissing(s, b, d = b.returnDraft) {
-  const items = sheetItems(sheetOf(s));
+  const items = sheetItems(draftSheet(s, d));
   return {
     unseen: items.filter((it) => !d?.values?.[it.id]),
     noNote: items.filter((it) => d?.values?.[it.id] === 'def' && !String(d?.notes?.[it.id] || '').trim()),
@@ -382,7 +389,7 @@ export function validateReturnSheet(s, id, user = '', now = new Date()) {
   const miss = sheetMissing(s, b, d);
   if (miss.unseen.length) throw new Error(`Encore ${miss.unseen.length} point${miss.unseen.length > 1 ? 's' : ''} à voir`);
   if (miss.noNote.length) throw new Error(miss.noNote[0].kind === 'mix' ? 'Indique les litres à mélanger' : `Décris le défaut : ${miss.noNote[0].label}`);
-  const sheet = sheetOf(s);
+  const sheet = draftSheet(s, d);
   const trip = tripHours(b, d.nums || {});
   newReturn(s, id, now);
   const open = new Set(b.tasks.filter((t) => !t.done).map((t) => norm(t.title)));

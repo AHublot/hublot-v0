@@ -1,7 +1,7 @@
 // Rapport mensuel des observations (Excel) : une feuille de synthèse, puis une feuille par bateau.
 // Le mois d'une observation est celui de son constat. À refacturer en évidence, le reste plus discret.
 import { buildXlsx, sheetName } from './xlsx.js';
-import { observationsOf, obsState, baseLabel, sortBoats } from './model.js';
+import { observationsOf, obsState, baseLabel, sortBoats, shortDossier } from './model.js';
 import { todayStr } from './util.js';
 
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -64,6 +64,7 @@ const STYLES = {
   bTxt: bill(),
   bDate: bill({ numFmt: 'dd/mm/yyyy', align: { h: 'center' } }),
   bNum: bill({ numFmt: '0.0#', align: { h: 'center' }, font: { b: true } }),
+  bDos: bill({ align: { h: 'center' }, font: { b: true, color: VIOLET } }),
   bDone: bill({ font: { color: GREEN, b: true }, align: { h: 'center' } }),
   bOpen: bill({ font: { color: ORANGE, b: true }, align: { h: 'center' } }),
   bYes: { fill: GBG, border: 'all', borderColor: VLINE, font: { b: true, color: GREEN }, align: { h: 'center', v: 'top', wrap: true } },
@@ -100,7 +101,8 @@ const D = (day, s) => (day ? { date: day, s } : { v: '', s });
 function boatSheet(name, x, month, baseName, today) {
   const rows = [], merges = [];
   const add = (cells, ht) => { rows.push({ cells, ht }); return rows.length; };
-  const span = (r, a = 'A', z = 'G') => merges.push(`${a}${r}:${z}${r}`);
+  const span = (r, a = 'A', z = 'H') => merges.push(`${a}${r}:${z}${r}`);
+  const dos = (o) => (o.dossier ? shortDossier(o.dossier) : '');
   span(add([C(x.b.name, 'title')], 32));
   span(add([C(`Observations ${/^[aeiouyéè]/.test(monthLabel(month)) ? 'd’' : 'de '}${monthLabel(month)} · ${baseLabel(x.b)}${x.b.model ? ' · ' + x.b.model : ''} · ${baseName} · exporté le ${today}`, 'sub')], 18));
   const parts = [`${x.items.length} observation${x.items.length > 1 ? 's' : ''}`];
@@ -112,18 +114,22 @@ function boatSheet(name, x, month, baseName, today) {
   // À refacturer
   span(add([C(`À REFACTURER  ·  ${x.bill.length}`, 'secBill')], 24));
   if (x.bill.length) {
-    add([C('Constatée le', 'hdrBillC'), C('Observation', 'hdrBill'), C('Statut', 'hdrBillC'), C('Réglée le', 'hdrBillC'), C('Heures', 'hdrBillC'), C('Matériel', 'hdrBill'), C('Refacturé au client', 'hdrBillC')], 28);
+    add([C('Dossier', 'hdrBillC'), C('Constatée le', 'hdrBillC'), C('Observation', 'hdrBill'), C('Statut', 'hdrBillC'), C('Réglée le', 'hdrBillC'), C('Heures', 'hdrBillC'), C('Matériel', 'hdrBill'), C('Refacturé au client', 'hdrBillC')], 28);
     const first = rows.length + 1;
-    x.bill.forEach((o) => {
+    // une location (numéro de dossier) par bloc, séparés par 2 lignes vides
+    const groups = [];
+    x.bill.forEach((o) => { const k = o.dossier || ''; let g = groups.find((y) => y.k === k); if (!g) groups.push(g = { k, items: [] }); g.items.push(o); });
+    groups.sort((g1, g2) => (g1.k ? 0 : 1) - (g2.k ? 0 : 1));
+    groups.forEach((g, gi) => { if (gi) { add([], 12); add([], 12); } g.items.forEach((o) => {
       const st = obsState(o);
-      add([D(o.origin, 'bDate'), C(o.title, 'bTitle'), C(st.label, o.done ? 'bDone' : 'bOpen'), D(localDay(o.doneAt), 'bDate'),
+      add([C(dos(o), 'bDos'), D(o.origin, 'bDate'), C(o.title, 'bTitle'), C(st.label, o.done ? 'bDone' : 'bOpen'), D(localDay(o.doneAt), 'bDate'),
         hoursOf(o) ? C(hoursOf(o), 'bNum') : C('', 'bNum'), C(o.material || '', 'bTxt'),
         o.billed ? C(`Oui${o.billedAt ? ' · ' + localDay(o.billedAt).split('-').reverse().slice(0, 2).join('/') : ''}`, 'bYes') : C('Non', 'bTodo')],
       Math.max(22, 15 * Math.ceil(Math.max(o.title.length / 46, (o.material || '').length / 30, 1)) + 7));
-    });
+    }); });
     const last = rows.length;
-    const r = add([null, null, null, C('Total heures', 'totLbl'), C(x.hours, 'totNum', { f: `SUM(E${first}:E${last})` })], 22);
-    merges.push(`A${r}:C${r}`);
+    const r = add([null, null, null, null, C('Total heures', 'totLbl'), C(x.hours, 'totNum', { f: `SUM(F${first}:F${last})` })], 22);
+    merges.push(`A${r}:D${r}`);
   } else {
     span(add([C('Aucune observation à refacturer ce mois-ci.', 'none')], 22));
   }
@@ -132,17 +138,17 @@ function boatSheet(name, x, month, baseName, today) {
   // Observations courantes
   span(add([C(`OBSERVATIONS COURANTES  ·  ${x.basic.length}`, 'secBasic')], 22));
   if (x.basic.length) {
-    const h = add([C('Constatée le', 'hdrBasicC'), C('Observation', 'hdrBasic'), C('Statut', 'hdrBasicC'), C('Réglée le', 'hdrBasicC'), C('Remarque', 'hdrBasic')], 22);
-    merges.push(`E${h}:G${h}`);
+    const h = add([C('Dossier', 'hdrBasicC'), C('Constatée le', 'hdrBasicC'), C('Observation', 'hdrBasic'), C('Statut', 'hdrBasicC'), C('Réglée le', 'hdrBasicC'), C('Remarque', 'hdrBasic')], 22);
+    merges.push(`F${h}:H${h}`);
     x.basic.forEach((o) => {
-      const r = add([D(o.origin, 'kDate'), C(o.title, 'kTxt'), C(obsState(o).label, 'kSt'), D(localDay(o.doneAt), 'kDate'),
+      const r = add([C(dos(o), 'kSt'), D(o.origin, 'kDate'), C(o.title, 'kTxt'), C(obsState(o).label, 'kSt'), D(localDay(o.doneAt), 'kDate'),
         C(o.blocked && !o.done ? 'Bloquante' : '', 'kNote'), C('', 'kNote'), C('', 'kNote')], Math.max(19, 14 * Math.ceil(o.title.length / 48) + 5));
-      merges.push(`E${r}:G${r}`);
+      merges.push(`F${r}:H${r}`);
     });
   } else {
     span(add([C('Aucune autre observation ce mois-ci.', 'none')], 20));
   }
-  return { name, cols: [13, 48, 14, 13, 10, 32, 17], rows, merges, tabColor: x.bill.length ? VIOLET : 'A9B8C2' };
+  return { name, cols: [10, 13, 48, 14, 13, 10, 32, 17], rows, merges, tabColor: x.bill.length ? VIOLET : 'A9B8C2' };
 }
 
 function summarySheet(data, names, month, scope, baseName, today) {

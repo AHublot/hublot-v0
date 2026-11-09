@@ -2,7 +2,7 @@ import { esc, fmtD, fmtDT, fmtWDT, plural, parseLocal } from '../util.js';
 import {
   boatStats, boatStatus, maintStatus, maintCounts, baseLabel, tplsOf, pinnedEvents, latestHours,
   observationsOf, obsState, BASES, CATEGORIES, INTERVALS, TPL_CATS, TPL_OTHER, tplCatOf,
-  pendingObs, crewOf, resaStay, isTight, resaMismatch,
+  pendingObs, crewOf, resaStay, isTight, resaMismatch, shortDossier,
 } from '../model.js';
 import { returnPlan } from '../actions.js';
 import { ic } from '../icons.js';
@@ -284,7 +284,7 @@ function resaBlock(b, ui) {
   const api = b.inRental ? (r.status === 'sea' ? r.nextRet : '') : r.nextDep;
   const differs = api && b[field] && b[field].slice(0, 16) !== api;
   const bits = st ? [
-    st.dossier ? `<span class="mono">${esc(st.dossier)}</span>` : '',
+    st.dossier ? `Dossier <span class="mono">${esc(shortDossier(st.dossier))}</span>` : '',
     st.client ? esc(st.client) : '',
     st.mode === 'skipper' ? `${ic('users')} Skipper : ${esc(st.skipper)}` : 'Sans skipper',
     st.hostess ? `Hôtesse : ${esc(st.hostess)}` : '',
@@ -292,8 +292,9 @@ function resaBlock(b, ui) {
   return `<section class="panel resa" aria-label="Réservation">
     <span class="eyebrow">${b.inRental ? 'Location en cours' : 'Prochaine location'}</span>
     ${st ? `<p class="resaline">${bits.join(' · ')}</p>` : '<p class="small mut">Aucune réservation à venir</p>'}
-    ${st?.options?.length || isTight(b) ? `<div class="resaopts">${isTight(b) ? `<span class="tag tight">${ic('clock')} Collé : repart le jour même</span>` : ''}${(st?.options || []).map((o) => `<span class="tag opt">${esc(o.label)}${o.qty > 1 ? ` ×${o.qty}` : ''}</span>`).join('')}</div>` : ''}
-    ${differs ? `<p class="small t-warn">Réservation : ${esc(fmtWDT(api))} <button type="button" class="linkbtn" data-chg-now="${field}" data-act="resaUse" data-id="${b.id}" data-v="${esc(api)}">Reprendre cette date</button></p>` : ''}
+    ${isTight(b) ? `<div class="resaopts"><span class="tag tight">${ic('clock')} Collé : repart le jour même</span></div>` : ''}
+    ${!b.inRental && st?.options?.length ? `<p class="small mut">Options : ${st.options.map((o) => esc(`${o.label}${o.qty > 1 ? ` ×${o.qty}` : ''}`)).join(', ')} · ajoutées à la préparation, à cocher</p>` : ''}
+    ${differs ? `<p class="small t-warn">Réservation : ${esc(fmtWDT(api))}${ui.isManager ? ` <button type="button" class="linkbtn" data-act="resaUse" data-id="${b.id}" data-v="${esc(api)}">Reprendre cette date</button>` : ''}</p>` : ''}
     ${resaMismatch(b) ? `<p class="small t-bad">${ic('alert')} Réservations : ${r.status === 'sea' ? 'en mer' : 'à quai'} · Hublot : ${b.inRental ? 'en location' : 'à quai'}. À vérifier.</p>` : ''}
     <p class="small mut resaat">Réservations mises à jour ${esc(fmtDT(r.at))}${ui.isManager ? ` · <button type="button" class="linkbtn" data-act="resaRefresh">Actualiser</button>` : ''}</p>
   </section>`;

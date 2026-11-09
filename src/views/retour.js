@@ -2,8 +2,8 @@
 // Deux modes : brouillon en cours (#/retour/<bateau>) et feuille validée en lecture seule (#/retour/<bateau>/<feuille>).
 import { esc, fmtWDT } from '../util.js';
 import { ic } from '../icons.js';
-import { sheetOf, SHEET_NUMS } from '../model.js';
-import { sheetMissing, tripHours, sheetObsTitle } from '../actions.js';
+import { SHEET_NUMS, shortDossier } from '../model.js';
+import { sheetMissing, tripHours, sheetObsTitle, draftSheet } from '../actions.js';
 
 const hh = (v) => (v == null || v === '' ? '—' : `${String(v).replace('.', ',')} h`);
 const when = (iso) => { try { return fmtWDT(new Date(iso)); } catch { return iso || ''; } };
@@ -20,7 +20,7 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
       ${b.inRental ? `<div class="row gap"><button type="button" class="btn pri" data-act="retAsk" data-id="${b.id}">${ic('left')} Commencer la feuille retour</button></div>` : ''}</section></div>`;
   }
   const ro = !!done;
-  const sheet = ro ? d.sheet : sheetOf(s);
+  const sheet = ro ? d.sheet : draftSheet(s, d);
   const miss = ro ? null : sheetMissing(s, b, d);
   const total = sheet.reduce((n, x) => n + x.items.length, 0);
   const seen = sheet.reduce((n, x) => n + x.items.filter((it) => d.values[it.id]).length, 0);
@@ -30,9 +30,10 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
 
   const field = (label, f, val, ph = '') => `<div><dt>${label}</dt><dd>${ro ? (val ? esc(val) : '<span class="mut">—</span>') : `<input data-chg="rText" data-id="${b.id}" data-f="${f}" value="${esc(val || '')}" placeholder="${ph}" aria-label="${label}">`}</dd></div>`;
   const info = `<section class="panel rinfo"><dl>
-      ${field('Dossier', 'stay.dossier', d.stay?.dossier, 'ACM-…')}
+      ${field('Dossier', 'stay.dossier', shortDossier(d.stay?.dossier), 'N°')}
       ${field('Locataire', 'stay.client', d.stay?.client, 'Nom')}
       ${field('Skipper', 'stay.skipper', d.stay?.skipper, 'Sans skipper')}
+      ${d.stay?.dep || d.stay?.ret ? `<div><dt>Séjour</dt><dd>${esc(d.stay.dep ? when(d.stay.dep) : '?')} → ${esc(d.stay.ret ? when(d.stay.ret) : '?')}</dd></div>` : ''}
       <div><dt>${ro ? 'Retour validé' : 'Commencée'}</dt><dd>${esc(when(ro ? d.at : d.startedAt))}</dd></div>
       <div><dt>Technicien</dt><dd>${esc((ro ? d.by : d.startedBy) || user || '—')}</dd></div>
     </dl></section>`;

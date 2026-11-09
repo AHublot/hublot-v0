@@ -68,9 +68,9 @@ function card(b, now) {
     ? `<span class="dcol"><b>${b.inRental ? 'Retour' : 'Départ'} ${esc(fmtWDT(dateStr))}</b><em>${b.inRental || dep > now ? 'dans' : 'dépassé depuis'} ${cd(dateStr, now)}</em></span>`
     : `<span class="mut">${b.inRental ? 'Retour à renseigner' : 'Pas de départ planifié'}</span>`;
   return `<article class="bcard ${stt.key}${b.base === 'Martinique' ? '' : ' other'}" data-open="${b.id}">
-    <header><span class="bico fp"><img src="icons/${isFP(b) ? 'fp' : 'lagoon'}-mark.png" alt="" width="28" height="28" decoding="async"></span><h3>${esc(b.name)}</h3>${pill(stt)}</header>
+    <header><span class="bico fp"><img src="icons/${isFP(b) ? 'fp' : 'lagoon'}-mark.png" alt="" width="28" height="28" decoding="async"></span><h3>${esc(b.name)}</h3>${pill(stt)}${isTight(b) ? `<span class="pill tight" title="Rentre le matin et repart le soir même">${ic('clock')} Collé</span>` : ''}</header>
     ${prep}
-    <div class="bkey">${key.join('')}${isTight(b) ? `<span class="kchip tight" title="Rentre le matin et repart le soir même">${ic('clock')} Collé</span>` : ''}</div>
+    <div class="bkey">${key.join('')}</div>
     <div class="bwhen small"><span class="dwrap">${ic('clock')} ${dateTxt}</span><label class="editdate" title="Modifier la date"><span class="vh">Modifier la date</span>${ic('edit')}<input type="datetime-local" value="${esc(dateStr || '')}" data-chg="${b.inRental ? 'ret' : 'dep'}" data-id="${b.id}" aria-label="${b.inRental ? 'Retour prévu' : 'Prochain départ'} : ${esc(b.name)}"></label></div>
     ${minor.length ? `<div class="notes small">${minor.join('')}</div>` : ''}
     <footer>

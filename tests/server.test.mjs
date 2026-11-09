@@ -214,5 +214,17 @@ test('réservations : dates pré-remplies sans écraser une saisie, options util
   const set = Object.fromEntries(ops.map((o) => [o.k, o.v]));
   assert.equal(set.departure, '2026-11-10T17:00');
   assert.equal('returnDate' in set, false); // saisie à la main : gardée
-  assert.deepEqual(set.stay, { dossier: 'ACM-1', client: 'Durand', skipper: '' });
+  assert.equal(set.stay.dossier, 'ACM-1'); assert.equal(set.stay.client, 'Durand'); assert.equal(set.stay.skipper, '');
+  // options de la prochaine location → observations à cocher, ajoutées au fil de l'eau
+  const { optionTaskOps } = await import('../server/resa.js');
+  const r2 = compactResa({ ...api, prochain_sejour: { dossier: 'ACM-2', options: [{ nom: 'Stand Up Paddle', quantite: 1 }] } });
+  const quay = { inRental: false, tasks: [], pendingOnReturn: [] };
+  const add1 = optionTaskOps(quay, r2);
+  assert.deepEqual(add1.map((o) => [o.op, o.a, o.item?.title]), [['add', 'tasks', 'Option client : Paddle']]);
+  quay.tasks.push(add1[0].item);
+  assert.deepEqual(optionTaskOps(quay, r2), []); // rien à refaire
+  const r3 = compactResa({ ...api, prochain_sejour: { dossier: 'ACM-2', options: [{ nom: 'Stand Up Paddle', quantite: 1 }, { nom: 'Starlink à bord', quantite: 1 }] } });
+  assert.deepEqual(optionTaskOps(quay, r3).map((o) => o.item?.title), ['Option client : Starlink']); // option ajoutée au dernier moment
+  const r4 = compactResa({ ...api, prochain_sejour: { dossier: 'ACM-2', options: [] } });
+  assert.deepEqual(optionTaskOps(quay, r4).map((o) => o.op), ['del']); // option retirée, pas encore cochée
 });

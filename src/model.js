@@ -229,7 +229,7 @@ export function observationsOf(b) {
     if (!t || t.template || !t.title) return;
     map.set(obsKey(t), {
       id: t.id, title: t.title, origin: t.origin || '', done: !!t.done, doneAt: t.doneAt || '',
-      blocked: !!t.blocked, bill: !!t.bill, hours: t.hours || '', material: t.material || '', billed: !!t.billed, billedAt: t.billedAt || '', where, archivedAt: at,
+      blocked: !!t.blocked, bill: !!t.bill, hours: t.hours || '', material: t.material || '', billed: !!t.billed, billedAt: t.billedAt || '', dossier: t.dossier || '', where, archivedAt: at,
     });
   };
   [...arr(b.history)].reverse().forEach((h) => arr(h.tasks).forEach((t) => put(t, 'archive', h.at || h.date || '')));
@@ -343,3 +343,5 @@ export function isTight(b) {
 }
 /** L'état des réservations (en mer / à quai) ne correspond pas à Hublot. */
 export const resaMismatch = (b) => !!b.resa && (b.resa.status === 'sea') !== !!b.inRental;
+/** Numéro de dossier affiché : les 4 derniers chiffres (« ACM-2026-5426 » → « 5426 »). */
+export const shortDossier = (d) => { const m = String(d || '').match(/(\d+)\D*$/); return m ? m[1].slice(-4) : String(d || ''); };
