@@ -202,9 +202,9 @@ export function boatStats(b) {
 }
 
 export function boatStatus(b) {
-  if (b.inRental) return { key: 'rental', label: 'En location' };
+  if (b.inRental) return { key: 'rental', label: onConvoy(b) ? 'En convoyage' : 'En location' };
   // Bateaux des autres bases (Guadeloupe…) : on ne signale pas leurs départs, l'état vient des réservations.
-  if (seaByResa(b)) return { key: 'rental', label: 'En mer', resa: true };
+  if (seaByResa(b)) return { key: 'rental', label: onConvoy(b) ? 'En convoyage' : 'En mer', resa: true };
   const st = boatStats(b);
   if (st.blocked) return { key: 'blocked', label: 'Bloqué' };
   if (st.total && !st.open) return { key: 'ready', label: 'Prêt' };
@@ -340,11 +340,14 @@ export const pinnedEvents = (b) => b.importantEvents.filter((e) => e.pinned);
 
 // ---- Réservations (API) ----------------------------------------------------------------------------
 /** Séjour à montrer : en location → le séjour en cours ; à quai → le prochain. */
-export const resaStay = (b) => (b.resa ? (b.inRental ? b.resa.cur || b.resa.next : b.resa.next) : null);
+export const resaStay = (b) => (b.resa ? (b.inRental && !b.resa.conv ? b.resa.cur || b.resa.next : b.resa.next) : null);
 /** Bateau « collé » : il rentre et repart le même jour (retour 9 h, départ 17 h). */
 export function isTight(b) {
   const r = b.resa;
-  if (!r || !r.nextRet || !r.nextDep) return false;
+  if (!r) return false;
+  // réservations avec convoyages : arrivée au port d'attache et départ suivant du même port, le même jour
+  if ('homeRet' in r) return !!r.homeRet && !!r.homeDep && r.homeRet.slice(0, 10) === r.homeDep.slice(0, 10);
+  if (!r.nextRet || !r.nextDep) return false;
   const ret = r.status === 'sea' ? r.nextRet : r.next?.ret;
   const dep = r.status === 'sea' ? r.nextDep : '';
   // seulement au Marin : retour et départ suivant en Martinique
@@ -357,10 +360,20 @@ export const resaMismatch = (b) => inMartinique(b) && !!b.resa && (b.resa.status
 export function seaByResa(b) { return !b.inRental && !inMartinique(b) && b.resa?.status === 'sea'; }
 // Où est le bateau d'après les réservations : base du séjour en cours (en mer) ou base actuelle (à quai).
 const MQ = /\ble marin\b|martinique/i; // attention : « Marina Bas-du-Fort » contient « marin »
+/** Base de la réservation = la base d'attache du bateau dans Hublot ? (Martinique : Le Marin ; Guadeloupe : Bas-du-Fort.) Base inconnue = oui. */
+export function homeBase(b, base) {
+  if (!base) return true;
+  if (b.base === 'Martinique') return MQ.test(base);
+  if (b.base === 'Guadeloupe') return !MQ.test(base);
+  return true;
+}
+/** Pendant un convoyage inter-îles (en mer, sans séjour client). */
+export const onConvoy = (b) => b.resa?.status === 'sea' && !!b.resa.conv;
 export function resaPlace(b) {
   const r = b.resa;
   if (!r) return '';
-  return r.status === 'sea' ? (r.cur?.retBase || r.cur?.depBase || '') : r.base || '';
+  // en mer : base d'arrivée du mouvement en cours (location ou convoyage)
+  return r.status === 'sea' ? (r.retBase || r.cur?.retBase || r.cur?.depBase || '') : r.base || '';
 }
 /** Le bateau est-il en Martinique ? Sa base dans Hublot, sauf si les réservations le placent ailleurs (loué en Guadeloupe). */
 export function inMartinique(b) {

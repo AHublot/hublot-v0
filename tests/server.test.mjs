@@ -231,3 +231,47 @@ test('réservations : dates pré-remplies sans écraser une saisie, options util
   const gone = { inRental: true, departure: '2026-11-01T16:00', lastDeparture: '2026-11-01T16:00', returnDate: '', resaDates: { departure: '2026-11-01T17:00' } };
   assert.equal(Object.fromEntries(resaOps(gone, r).map((o) => [o.k, o.v])).departure, '2026-11-10T17:00');
 });
+
+test('réservations v2 : convoyages inter-îles (départ du Marin, location en Guadeloupe, retour au Marin)', async () => {
+  const { compactResa, resaOps } = await import('../server/resa.js');
+  const M = await import('../src/model.js');
+  const Z = (l) => new Date(Date.parse(l + ':00Z') + 4 * 3600e3).toISOString(); // heure de Martinique → UTC
+  const LM = 'Le Marin', BDF = 'Marina Bas-du-Fort';
+  const conv = (d, db, r, rb, who = 'Jean Convoi') => ({ type: 'convoyage', depart: { date: Z(d), base: db }, retour: { date: Z(r), base: rb }, convoyeur: { nom: who, telephone: '0696', email: 'c@x.y' }, manuel: false, critique: false });
+  const loc = (dos, d, db, r, rb, opts = []) => ({ type: 'location', dossier: dos, mode: 'bareboat', depart: { date: Z(d), base: db }, retour: { date: Z(r), base: rb }, chef_de_bord: { nom: 'Martin', telephone: '0696', email: 'a@b.c' }, options: opts });
+  const C1 = conv('2026-11-20T08:00', LM, '2026-11-21T09:00', BDF);
+  const G = loc('ACM-2026-7001', '2026-11-21T17:00', BDF, '2026-11-28T09:00', BDF, [{ nom: 'Paddle', quantite: 1 }]);
+  const C2 = conv('2026-11-28T10:00', BDF, '2026-11-29T09:00', LM);
+  const L = loc('ACM-2026-7002', '2026-11-29T17:00', LM, '2026-12-06T09:00', LM);
+  const api = (statut, base, depart, retour, cur, next, moves) => ({ statut, base_actuelle: base, prochain_depart: depart, prochain_retour: retour, sejour_en_cours: cur, prochain_sejour: next, prochains_mouvements: moves });
+  const boat = { name: 'Yellow Dog', base: 'Martinique', inRental: false, departure: '', returnDate: '', resaDates: {}, tasks: [], pendingOnReturn: [] };
+  const apply = (b, d) => { for (const o of resaOps(b, compactResa(d))) if (o.op === 'set') b[o.k] = o.v; return b; };
+
+  // 1. à quai au Marin, convoyage vers la Guadeloupe à venir : départ prévu = convoyage, pastille « Collé » non
+  apply(boat, api('a_quai', LM, { ...C1.depart, type: 'convoyage' }, C1.retour, null, G, [C1, G]));
+  assert.equal(boat.departure, '2026-11-20T08:00');
+  assert.equal(boat.resa.homeDepType, 'convoyage');
+  assert.equal(JSON.stringify(boat.resa).includes('0696') || JSON.stringify(boat.resa).includes('c@x.y'), false);
+  assert.equal(boat.resa.moves[0].who, 'Jean Convoi');
+  assert.equal(M.inMartinique(boat), true);
+  // 2. parti (signalé), convoyage en cours vers Bas-du-Fort : « En convoyage », compté en Guadeloupe, pas de retour prévu au Marin
+  boat.inRental = true; boat.lastDeparture = boat.departure;
+  apply(boat, api('en_mer', null, { ...G.depart, type: 'location' }, C1.retour, null, G, [C1, G]));
+  assert.equal(M.boatStatus(boat).label, 'En convoyage');
+  assert.equal(M.inMartinique(boat), false);
+  assert.equal(boat.returnDate, '');
+  // 3. en location en Guadeloupe, convoyage retour prévu : retour prévu = arrivée au Marin, séjour = location de Guadeloupe
+  apply(boat, api('en_mer', null, { ...C2.depart, type: 'convoyage' }, G.retour, G, L, [G, C2]));
+  assert.equal(M.boatStatus(boat).label, 'En location');
+  assert.equal(boat.returnDate, '2026-11-29T09:00');
+  assert.equal(boat.stay.dossier, 'ACM-2026-7001');
+  // 4. convoyage retour en cours : de nouveau en Martinique, collé (arrivée 9 h, départ 17 h), séjour de Guadeloupe gardé
+  apply(boat, api('en_mer', null, { ...L.depart, type: 'location' }, C2.retour, null, L, [C2, L]));
+  assert.equal(M.boatStatus(boat).label, 'En convoyage');
+  assert.equal(M.inMartinique(boat), true);
+  assert.equal(boat.returnDate, '2026-11-29T09:00');
+  assert.equal(boat.departure, '2026-11-29T17:00');
+  assert.equal(M.isTight(boat), true);
+  assert.equal(boat.stay.dossier, 'ACM-2026-7001');
+  assert.equal(M.resaMismatch(boat), false);
+});

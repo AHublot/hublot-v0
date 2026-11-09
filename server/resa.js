@@ -4,6 +4,7 @@
 // Données personnelles : on ne garde que les noms (client, skipper, hôtesse), jamais téléphone ni e-mail.
 import { applySync } from './lib.js';
 import { stable } from '../src/merge.js';
+import { homeBase } from '../src/model.js';
 
 export const RESA_HOURS = [6, 12, 16];
 const TZ_OFFSET_H = -4; // Martinique = UTC−4, sans heure d'été
@@ -56,7 +57,37 @@ export function compactResa(d, at = new Date().toISOString()) {
     at, status: d.statut === 'en_mer' ? 'sea' : 'quay', base: String(d.base_actuelle || ''),
     nextDep: toLocal(d.prochain_depart?.date), nextRet: toLocal(d.prochain_retour?.date),
     cur: stayOf(d.sejour_en_cours), next: stayOf(d.prochain_sejour),
+    // convoyages (API v2) : base et type des prochains départ / retour, deux prochains mouvements
+    depBase: String(d.prochain_depart?.base || ''), depType: d.prochain_depart?.type === 'convoyage' ? 'convoyage' : 'location',
+    retBase: String(d.prochain_retour?.base || ''),
+    conv: d.statut === 'en_mer' && !d.sejour_en_cours && Array.isArray(d.prochains_mouvements),
+    moves: (Array.isArray(d.prochains_mouvements) ? d.prochains_mouvements : []).slice(0, 2).map(moveOf),
   };
+}
+/** Un mouvement : location ou convoyage (convoyeur : le nom seulement). */
+function moveOf(m) {
+  const conv = m?.type === 'convoyage';
+  return {
+    type: conv ? 'convoyage' : 'location',
+    dep: toLocal(m?.depart?.date), depBase: String(m?.depart?.base || ''),
+    ret: toLocal(m?.retour?.date), retBase: String(m?.retour?.base || ''),
+    ...(conv ? { who: nm(m.convoyeur), critique: !!m.critique } : { dossier: String(m?.dossier || '') }),
+  };
+}
+/**
+ * Dates qui comptent pour l'équipe du bateau : prochain départ de SON port (location ou convoyage),
+ * et, s'il est parti, son arrivée à SON port (retour de location ou arrivée d'un convoyage).
+ */
+export function homeDates(boat, r) {
+  // en mer, le premier mouvement est celui en cours : son départ est déjà passé
+  const next = (r.moves || []).slice(r.status === 'sea' ? 1 : 0);
+  const legs = [{ date: r.nextDep, base: r.depBase, type: r.depType }, ...next.map((m) => ({ date: m.dep, base: m.depBase, type: m.type })), { date: r.next?.dep, base: r.next?.depBase, type: 'location' }];
+  const dep = legs.filter((x) => x.date && homeBase(boat, x.base)).sort((a, b) => a.date.localeCompare(b.date))[0];
+  // à quai à son port : rien à attendre (ou location hors réservations)
+  const away = r.status === 'sea' || !homeBase(boat, r.base);
+  const rets = [{ date: r.status === 'sea' ? r.nextRet : '', base: r.retBase }, ...(r.moves || []).map((m) => ({ date: m.ret, base: m.retBase }))];
+  const ret = away ? rets.filter((x) => x.date && homeBase(boat, x.base)).sort((a, b) => a.date.localeCompare(b.date))[0] : null;
+  return { homeDep: dep?.date || '', homeDepType: dep?.type || '', homeRet: ret?.date || '' };
 }
 
 const slug = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -79,8 +110,13 @@ export function resaOps(boat, r) {
     const done = k === 'departure' && boat.inRental && cur === (boat.lastDeparture || '');
     if (!cur || cur === last[k] || done) { set(k, v); keep[k] = v; }
   };
-  fill('departure', r.nextDep);
-  if (boat.inRental) fill('returnDate', r.status === 'sea' ? r.nextRet : '');
+  if (Array.isArray(r.moves) && r.moves.length) r = { ...r, ...homeDates(boat, r) };
+  const dep = 'homeDep' in r ? r.homeDep : r.nextDep;
+  const ret = 'homeRet' in r ? r.homeRet : r.status === 'sea' ? r.nextRet : '';
+  fill('departure', dep);
+  if (boat.inRental) fill('returnDate', ret);
+  // parti hors de son port sans retour prévu (loué depuis l'autre île) : l'ancienne date des réservations n'a plus de sens
+  if (boat.inRental && 'homeRet' in r && !r.homeRet && last.returnDate && boat.returnDate === last.returnDate) { set('returnDate', ''); keep.returnDate = ''; }
   set('resa', r);
   set('resaDates', keep);
   // Séjour en cours : dossier, client, skipper, dates, options → en-tête de la feuille retour (pendant la location dans Hublot).

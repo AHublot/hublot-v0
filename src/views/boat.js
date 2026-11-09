@@ -287,12 +287,19 @@ export function boatView(s, ui, id, now = new Date()) {
 }
 
 // ---- Réservations : dossier, client, skipper, hôtesse, options (sous « Prochain départ ») ----------------
+/** Convoyages inter-îles à venir ou en cours (d'après les réservations). */
+function convoyLines(r) {
+  const c = (r.moves || []).filter((m) => m.type === 'convoyage');
+  if (!c.length) return '';
+  const place = (x) => esc(String(x || '?').replace(/^Marina\s+/i, ''));
+  return c.map((m) => `<p class="convline">${ic('boat')}<span><b>${r.conv && m === r.moves[0] ? 'Convoyage en cours' : 'Convoyage'}</b> ${place(m.depBase)} → ${place(m.retBase)} · ${esc(fmtWDT(m.dep))}${m.ret ? ` → ${esc(fmtWDT(m.ret))}` : ''}${m.who ? ` · Convoyeur : ${esc(m.who)}` : ' · Convoyeur à attribuer'}${m.critique ? ' <span class="tag tight">Moins de 24 h</span>' : ''}</span></p>`).join('');
+}
 function resaBlock(b, ui) {
   const r = b.resa;
   if (!r) return '';
   const st = resaStay(b);
   const field = b.inRental ? 'returnDate' : 'departure';
-  const api = b.inRental ? (r.status === 'sea' ? r.nextRet : '') : r.nextDep;
+  const api = 'homeRet' in r ? (b.inRental ? r.homeRet : r.homeDep) : b.inRental ? (r.status === 'sea' ? r.nextRet : '') : r.nextDep;
   const differs = api && b[field] && b[field].slice(0, 16) !== api;
   const bits = st ? [
     st.dossier ? `Dossier <span class="mono">${esc(shortDossier(st.dossier))}</span>` : '',
@@ -301,8 +308,9 @@ function resaBlock(b, ui) {
     st.hostess ? `Hôtesse : ${esc(st.hostess)}` : '',
   ].filter(Boolean) : [];
   return `<section class="panel resa" aria-label="Réservation">
-    <span class="eyebrow">${b.inRental ? 'Location en cours' : 'Prochaine location'}</span>
+    <span class="eyebrow">${b.inRental && !r.conv && r.cur ? 'Location en cours' : 'Prochaine location'}</span>
     ${st ? `<p class="resaline">${bits.join(' · ')}</p>` : '<p class="small mut">Aucune réservation à venir</p>'}
+    ${convoyLines(r)}
     ${isTight(b) ? `<div class="resaopts"><span class="tag tight">${ic('clock')} Collé : repart le jour même</span></div>` : ''}
     ${!b.inRental && st?.options?.length ? `<p class="small mut">Options : ${st.options.map((o) => esc(`${o.label}${o.qty > 1 ? ` ×${o.qty}` : ''}`)).join(', ')} · ajoutées à la préparation, à cocher</p>` : ''}
     ${differs ? `<p class="small t-warn">Réservation : ${esc(fmtWDT(api))}${ui.isManager ? ` <button type="button" class="linkbtn" data-act="resaUse" data-id="${b.id}" data-v="${esc(api)}">Reprendre cette date</button>` : ''}</p>` : ''}

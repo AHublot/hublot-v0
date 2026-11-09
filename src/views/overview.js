@@ -47,6 +47,8 @@ function kpis(f, ui) {
 const NOT_FP = new Set(['fakarava', 'ios', 'myst']);
 const isFP = (b) => !NOT_FP.has(norm(b.name).trim());
 
+/** Le prochain départ est un convoyage (d'après les réservations, date non modifiée à la main). */
+const convDep = (b) => b.resa?.homeDepType === 'convoyage' && !!b.departure && b.departure.slice(0, 16) === b.resa.homeDep;
 function card(b, now) {
   const st = boatStats(b), stt = boatStatus(b), mc = maintCounts(b, now), miss = missingDates(b, now);
   const dep = !b.inRental && parseLocal(b.departure);
@@ -67,8 +69,8 @@ function card(b, now) {
   const prep = sea ? '' : `<div class="prep"><div class="row between"><span class="pcount mono">${st.done}/${st.total} tâches</span><b class="mono">${st.pct} %</b></div>${bar(st.pct, st.blocked ? 'bad' : st.open ? '' : 'ok')}</div>`;
   const dateStr = b.inRental ? b.returnDate : stt.resa ? b.resa.nextRet : b.departure;
   const dateTxt = dateStr
-    ? `<span class="dcol"><b>${sea ? 'Retour' : 'Départ'} ${esc(fmtWDT(dateStr))}</b><em>${sea || dep > now ? 'dans' : 'dépassé depuis'} ${cd(dateStr, now)}</em></span>`
-    : `<span class="mut">${sea ? 'Retour à renseigner' : 'Pas de départ planifié'}</span>`;
+    ? `<span class="dcol"><b>${sea ? 'Retour' : convDep(b) ? 'Convoyage' : 'Départ'} ${esc(fmtWDT(dateStr))}</b><em>${sea || dep > now ? 'dans' : 'dépassé depuis'} ${cd(dateStr, now)}</em></span>`
+    : `<span class="mut">${sea ? (b.inRental && !inMartinique(b) ? 'Retour au Marin pas encore prévu' : 'Retour à renseigner') : 'Pas de départ planifié'}</span>`;
   return `<article class="bcard ${stt.key}${inMartinique(b) ? '' : ' other'}" data-open="${b.id}">
     <header><span class="bico fp"><img src="icons/${isFP(b) ? 'fp' : 'lagoon'}-mark.png" alt="" width="28" height="28" decoding="async"></span><h3>${esc(b.name)}</h3>${pill(stt)}${isTight(b) ? `<span class="pill tight" title="Rentre le matin et repart le soir même">${ic('clock')} Collé</span>` : ''}</header>
     ${prep}
