@@ -343,6 +343,9 @@ export const pinnedEvents = (b) => b.importantEvents.filter((e) => e.pinned);
 export const resaStay = (b) => (b.resa ? (b.inRental && !b.resa.conv ? b.resa.cur || b.resa.next : b.resa.next) : null);
 /** Bateau « collé » : il rentre et repart le même jour (retour 9 h, départ 17 h). */
 export function isTight(b) {
+  // D'abord les dates de Hublot (saisies à la main comprises, ex. location hors réservations) :
+  // en location, retour prévu et départ suivant le même jour.
+  if (b.inRental && b.returnDate && b.departure && b.departure >= b.returnDate) return b.departure.slice(0, 10) === b.returnDate.slice(0, 10);
   const r = b.resa;
   if (!r) return false;
   // réservations avec convoyages : arrivée au port d'attache et départ suivant du même port, le même jour

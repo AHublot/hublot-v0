@@ -385,3 +385,14 @@ test('réservations : « Collé » seulement au Marin, bateau loué en Guadeloup
   assert.equal(inMartinique(mk('Marina Bas-du-Fort')), false);
   assert.equal(inMartinique({ base: 'Martinique' }), true);
 });
+
+test('collé : dates saisies à la main (location hors réservations)', async () => {
+  const { isTight } = await import('../src/model.js');
+  const b = { base: 'Martinique', inRental: true, departure: '2026-11-14T17:00', returnDate: '2026-11-14T09:00', resa: { status: 'quay', base: 'Le Marin', homeRet: '', homeDep: '2026-11-14T17:00', moves: [] } };
+  assert.equal(isTight(b), true);
+  b.returnDate = '2026-11-13T09:00';
+  assert.equal(isTight(b), false);
+  b.departure = '2026-11-01T17:00'; // ancien départ (déjà effectué) : on s'en remet aux réservations
+  b.returnDate = '2026-11-14T09:00';
+  assert.equal(isTight(b), false);
+});
