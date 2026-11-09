@@ -173,7 +173,11 @@ export function normalizeState(raw) {
 // ---- dérivés ---------------------------------------------------------------
 export const baseLabel = (b) => (b.base === 'Autre' ? b.otherBase || 'Autre' : b.base || 'Sans base');
 /** Observations à reprendre au retour (les anciennes données pouvaient y contenir des tâches habituelles). */
-export const pendingObs = (b) => (b.pendingOnReturn || []).filter((t) => !t.template);
+export const pendingObs = (b) => (b.pendingOnReturn || []).filter((t) => !t.template && !t.opt);
+/** Options client de la prochaine location (observations « à embarquer » créées par les réservations). */
+export const optsOf = (list) => (list || []).filter((t) => t.opt);
+/** « Option client : Paddle ×2 » → « Paddle ×2 » (dans la liste Options, le préfixe est inutile). */
+export const optLabel = (t) => String(t.title || '').replace(/^Option client\s*:\s*/i, '');
 export const tplsOf = (s, b) => (b.templates?.length ? b.templates : s.templates);
 
 /** Qui prépare ce bateau : les comptes qui ont coché au moins une tâche de la préparation en cours (le plus actif d'abord). */
@@ -185,13 +189,15 @@ export function crewOf(b) {
 export function boatStats(b) {
   const t = b.tasks;
   const rec = t.filter((x) => x.template);
-  const obs = t.filter((x) => !x.template);
+  const obs = t.filter((x) => !x.template && !x.opt);
+  const opt = t.filter((x) => x.opt);
   const done = t.filter((x) => x.done).length;
   return {
     total: t.length, done, open: t.length - done, pct: t.length ? Math.round((100 * done) / t.length) : 0,
     blocked: t.filter((x) => x.blocked && !x.done).length,
     recTotal: rec.length, recOpen: rec.filter((x) => !x.done).length,
     obsTotal: obs.length, obsOpen: obs.filter((x) => !x.done).length,
+    optTotal: opt.length, optOpen: opt.filter((x) => !x.done).length,
   };
 }
 

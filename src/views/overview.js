@@ -55,6 +55,7 @@ function card(b, now) {
   if (!b.inRental) {
     key.push(st.obsOpen ? `<span class="kchip warn">${ic('tool')} ${plural(st.obsOpen, 'observation', 'observations')} à traiter</span>` : `<span class="kchip ok">${ic('check')} Aucune observation</span>`);
     if (st.blocked) key.push(`<span class="kchip bad">${ic('flag')} ${plural(st.blocked, 'bloquant', 'bloquants')}</span>`);
+    if (st.optOpen) key.push(`<span class="kchip opt">${ic('bag')} ${plural(st.optOpen, 'option', 'options')} à embarquer</span>`);
   } else {
     const n = pendingObs(b).length;
     key.push(n ? `<span class="kchip rent">${ic('tool')} ${n} à reprendre au retour</span>` : `<span class="kchip calm">Rien à reprendre au retour</span>`);
@@ -166,7 +167,7 @@ export function overviewView(s, ui, now = new Date()) {
 
 /** Clic sur « Observations à traiter » : les problèmes de chaque bateau, regroupés, plutôt que les cartes. */
 function obsOverview(boats, now) {
-  const rows = boats.map((b) => ({ b, items: b.tasks.filter((t) => !t.template && !t.done).sort((x, y) => (y.blocked ? 1 : 0) - (x.blocked ? 1 : 0)) }))
+  const rows = boats.map((b) => ({ b, items: b.tasks.filter((t) => !t.template && !t.opt && !t.done).sort((x, y) => (y.blocked ? 1 : 0) - (x.blocked ? 1 : 0)) }))
     .filter((r) => r.items.length);
   if (!rows.length) return empty('check', 'Aucune observation à traiter', 'Tout ce qui a été noté est réglé.');
   return `<div class="obsgrid">${rows.map(({ b, items }) => {

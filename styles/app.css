@@ -907,3 +907,12 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .tag.tight { background: linear-gradient(90deg, rgba(255,214,150,.95) 0%, rgba(255,214,150,0) 100%); }
 .resabtn .ic { width: 14px; height: 14px; }
 @media (max-width: 860px) { .resabtn { order: 9; } }
+
+/* Options client : une liste à part (turquoise, comme la préparation) */
+:root { --opt: #0B7F8A; --opt-soft: #D7F1F2; }
+:root[data-theme="dark"] { --opt: #5CCFD6; --opt-soft: #0E2E31; }
+.kchip.opt { background: linear-gradient(90deg, rgba(170,230,232,.95) 0%, rgba(170,230,232,0) 100%); color: var(--opt); }
+[data-theme="dark"] .kchip.opt { background: linear-gradient(90deg, color-mix(in srgb, var(--opt) 26%, transparent) 0%, transparent 100%); }
+.optpanel { border-left: 4px solid var(--opt); background: linear-gradient(90deg, var(--opt-soft), transparent 60%), var(--panel); }
+.optpanel .phead h3 .ic { color: var(--opt); }
+.optpanel .optwho { color: var(--opt); font-weight: 700; }

@@ -2,7 +2,7 @@ import { esc, fmtD, fmtDT, fmtWDT, plural, parseLocal } from '../util.js';
 import {
   boatStats, boatStatus, maintStatus, maintCounts, baseLabel, tplsOf, pinnedEvents, latestHours,
   observationsOf, obsState, BASES, CATEGORIES, INTERVALS, TPL_CATS, TPL_OTHER, tplCatOf,
-  pendingObs, crewOf, resaStay, isTight, resaMismatch, shortDossier,
+  pendingObs, crewOf, resaStay, isTight, resaMismatch, shortDossier, optsOf, optLabel,
 } from '../model.js';
 import { returnPlan } from '../actions.js';
 import { ic } from '../icons.js';
@@ -32,17 +32,17 @@ function taskRow(b, t, { edit = false, pending = false } = {}) {
   if (t.blocked && !t.done) meta.push('<b class="t-bad">Bloquant</b>');
   if (t.bill) meta.push(`<b class="t-bill">${billText(t)}</b>`);
   if (t.bill && t.billed) meta.push(`<b class="t-ok">${ic('check')} Refacturé au client</b>`);
-  if (t.carried) meta.push(`Reportée · depuis le ${esc(fmtD(t.origin))}`);
+  if (t.carried && !t.opt) meta.push(`Reportée · depuis le ${esc(fmtD(t.origin))}`);
   else if (!t.template && t.origin) meta.push(`Ajoutée le ${esc(fmtD(t.origin))}${t.addedBy ? ` · ${esc(t.addedBy)}` : ''}`);
   if (t.done && t.doneAt) meta.push(`Terminée le ${esc(fmtDT(t.doneAt))}${t.doneBy ? ` · ${esc(t.doneBy)}` : ''}`);
   const chk = pending
     ? `<span class="chk off" aria-hidden="true"></span>`
     : `<button type="button" class="chk" role="checkbox" aria-checked="${!!t.done}" aria-label="${esc(t.title)}" data-act="tgl" data-id="${b.id}" data-tid="${t.id}" data-fk="tgl-${t.id}">${ic('check')}</button>`;
-  const bill = !pending && !t.template
+  const bill = !pending && !t.template && !t.opt
     ? `<button type="button" class="tbtn bill ${t.bill ? 'on' : ''}" data-act="bill" data-id="${b.id}" data-tid="${t.id}" data-fk="bill-${t.id}" aria-pressed="${!!t.bill}" title="À refacturer au propriétaire">${ic('euro')}<span>Refacturer</span></button>`
     : '';
   return `<li class="task ${t.done ? 'done' : ''} ${t.blocked && !t.done ? 'blocked' : ''} ${t.bill ? 'billed' : ''}">${chk}
-    <div class="tbody"><div class="ttl">${esc(t.title)}</div>${meta.length ? `<div class="tmeta">${meta.join('<span>·</span>')}</div>` : ''}
+    <div class="tbody"><div class="ttl">${esc(t.opt ? optLabel(t) : t.title)}</div>${meta.length ? `<div class="tmeta">${meta.join('<span>·</span>')}</div>` : ''}
       ${!pending && isEngineCheck(t) ? engineHoursRow(b) : ''}
       ${t.bill && !pending ? `<div class="billf"><label class="bh"><input inputmode="decimal" value="${esc(String(t.hours || '').replace('.', ','))}" placeholder="0" aria-label="Heures à refacturer : ${esc(t.title)}" data-chg="billf" data-f="hours" data-id="${b.id}" data-tid="${t.id}" id="hrs-${t.id}"><span>h</span></label>
         <input class="bm" value="${esc(t.material || '')}" placeholder="Matériel utilisé" aria-label="Matériel à refacturer : ${esc(t.title)}" data-chg="billf" data-f="material" data-id="${b.id}" data-tid="${t.id}" id="mat-${t.id}" autocomplete="off">
@@ -138,6 +138,17 @@ function header(s, b, ui, now) {
 }
 
 // ---- Préparation ---------------------------------------------------------------
+/** Options client de la prochaine location : une liste à part (préparation, observations, options). */
+function optPanel(b, list, { pending = false } = {}) {
+  if (!list.length) return '';
+  const n = b.resa?.next, dos = list[0]?.dossier;
+  const who = n && n.dossier === dos ? [`Dossier ${esc(shortDossier(dos))}`, n.client ? esc(n.client) : '', n.dep ? `départ ${esc(fmtWDT(n.dep))}` : ''].filter(Boolean).join(' · ') : (dos ? `Dossier ${esc(shortDossier(dos))}` : '');
+  const left = list.filter((t) => !t.done).length;
+  return `<section class="panel optpanel"><div class="phead"><h3>${ic('bag')} Options client</h3><span class="count mono">${pending ? list.length : `${left} à embarquer`}</span></div>
+    <p class="mut small">${pending ? 'Pour la prochaine location : elles passeront dans la préparation au retour.' : 'À embarquer pour la prochaine location, d’après les réservations.'}${who ? `<br><b class="optwho">${who}</b>` : ''}</p>
+    <ul class="tasks">${list.map((t) => taskRow(b, t, { pending })).join('')}</ul>${!pending && !left ? `<div class="okbar">${ic('check')} Toutes les options sont à bord.</div>` : ''}
+  </section>`;
+}
 function tabPrep(s, b, ui, now) {
   const st = boatStats(b);
   const obsDraft = ui.drafts[`obs-${b.id}`] || '';
@@ -155,11 +166,11 @@ function tabPrep(s, b, ui, now) {
     return `<div class="two"><div class="col"><section class="panel"><div class="phead"><h3>À reprendre au retour</h3><span class="count mono">${p.length}</span></div>
       <p class="mut small">Le bateau est en location. Ces points seront remis dans la préparation au retour, avec les tâches habituelles.</p>
       ${p.length ? `<ul class="tasks">${p.map((t) => taskRow(b, t, { pending: true })).join('')}</ul>` : empty('check', 'Rien en attente', 'Ajoute ici ce qu’il faudra regarder au retour.')}
-      <div class="row gap"><button class="btn pri" data-act="retAsk" data-id="${b.id}">${ic('left')} ${b.returnDraft ? 'Reprendre la feuille retour' : 'Signaler le retour'}</button></div></section></div>
+      <div class="row gap"><button class="btn pri" data-act="retAsk" data-id="${b.id}">${ic('left')} ${b.returnDraft ? 'Reprendre la feuille retour' : 'Signaler le retour'}</button></div></section>${optPanel(b, optsOf(b.pendingOnReturn), { pending: true })}</div>
       <aside class="col">${add}</aside></div>`;
   }
   const rec = b.tasks.filter((t) => t.template);
-  const obs = b.tasks.filter((t) => !t.template).sort((a, c) => ((c.blocked && !c.done) - (a.blocked && !a.done)) || (a.done - c.done));
+  const obs = b.tasks.filter((t) => !t.template && !t.opt).sort((a, c) => ((c.blocked && !c.done) - (a.blocked && !a.done)) || (a.done - c.done));
   const tpls = tplsOf(s, b);
   const have = new Set(b.tasks.map((t) => t.template || t.title));
   const missing = tpls.filter((t) => !have.has(t)).length;
@@ -178,7 +189,7 @@ function tabPrep(s, b, ui, now) {
     ${obs.length ? `<ul class="tasks">${obs.map((t) => taskRow(b, t)).join('')}</ul>${st.obsOpen === 0 ? `<div class="okbar">${ic('check')} Toutes les observations sont traitées.</div>` : ''}`
       : empty('wave', 'Aucune observation', 'Note ce que tu vois sur le bateau avec le champ à droite.')}
   </section>`;
-  return `<div class="two prepgrid"><div class="col">${recPanel}${obsPanel}</div><aside class="col">${add}</aside></div>`;
+  return `<div class="two prepgrid"><div class="col">${recPanel}${obsPanel}${optPanel(b, optsOf(b.tasks))}</div><aside class="col">${add}</aside></div>`;
 }
 
 // ---- Entretiens ------------------------------------------------------------------------
