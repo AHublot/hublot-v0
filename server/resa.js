@@ -75,7 +75,9 @@ export function resaOps(boat, r) {
   const fill = (k, v) => {
     if (!v) return;
     const cur = boat[k] || '';
-    if (!cur || cur === last[k]) { set(k, v); keep[k] = v; }
+    // départ déjà effectué (bateau parti à cette date) : la date n'a plus d'intérêt, on prend la suivante
+    const done = k === 'departure' && boat.inRental && cur === (boat.lastDeparture || '');
+    if (!cur || cur === last[k] || done) { set(k, v); keep[k] = v; }
   };
   fill('departure', r.nextDep);
   if (boat.inRental) fill('returnDate', r.status === 'sea' ? r.nextRet : '');

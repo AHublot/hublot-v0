@@ -136,8 +136,11 @@ export function setReturnDate(s, id, value) {
   b.returnDate = value || '';
   log(b, value ? 'Retour prévu modifié' : 'Retour prévu effacé');
 }
-export function confirmDeparture(s, id, { auto = false } = {}) {
+export function confirmDeparture(s, id, { auto = false, now = new Date() } = {}) {
   const b = find(s, id);
+  // La location qui commence est dans les réservations : retour prévu et séjour tout de suite (sans attendre la synchro).
+  const n = b.resa?.next;
+  const startsNow = n?.dossier && n.dep && Math.abs(new Date(n.dep) - now) < 36 * 3600e3;
   const entry = {
     id: uid(), date: b.cycle || todayStr(), tasks: clone(b.tasks), kind: 'departure',
     at: nowIso(), automatic: !!auto, departure: b.departure || '',
@@ -150,6 +153,10 @@ export function confirmDeparture(s, id, { auto = false } = {}) {
   b.departureArchived = true;
   b.inRental = true;
   b.lastDeparture = b.departure || '';
+  if (startsNow) {
+    if (!b.returnDate && n.ret) { b.returnDate = n.ret; b.resaDates = { ...(b.resaDates || {}), returnDate: n.ret }; }
+    b.stay = { dossier: n.dossier, client: n.client || '', skipper: n.skipper && n.skipper !== 'à attribuer' ? n.skipper : '', dep: n.dep, ret: n.ret || '', options: n.options || [] };
+  } else if (b.stay) b.stay = null; // reste d'une location précédente
   log(b, auto
     ? 'Départ automatique : préparation archivée, observations non terminées reportées au retour'
     : 'Départ signalé : préparation archivée, observations non terminées reportées au retour');

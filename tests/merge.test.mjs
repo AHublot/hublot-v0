@@ -160,3 +160,24 @@ test('feuille retour : un technicien remplit le brouillon et valide le retour', 
   A.validateReturnSheet(s, before.id, 'Léa');
   assert.deepEqual(deniedOps('tech', diffBoat(filled, s.boats[0]), filled), []);
 });
+
+test('feuille retour : un technicien valide aussi quand la réservation a rempli le séjour', async () => {
+  const A = await import('../src/actions.js');
+  const { emptyState, sheetOf } = await import('../src/model.js');
+  const s = emptyState();
+  A.addBoat(s, { name: 'T', base: 'Martinique' });
+  const id = s.boats[0].id;
+  s.boats[0].resa = { status: 'quay', next: { dossier: 'ACM-9', client: 'Martin', skipper: '', dep: '2026-11-20T17:00', ret: '2026-11-27T09:00', options: [] } };
+  const b0 = JSON.parse(JSON.stringify(s.boats[0]));
+  A.confirmDeparture(s, id, { now: new Date('2026-11-20T16:30') });
+  assert.equal(s.boats[0].returnDate, '2026-11-27T09:00');
+  assert.equal(s.boats[0].stay.dossier, 'ACM-9');
+  assert.deepEqual(deniedOps('tech', diffBoat(b0, s.boats[0]), b0), []);
+  A.startReturnSheet(s, id, 'Léa');
+  sheetOf(s).flatMap((x) => x.items).forEach((it) => A.setSheetValue(s, id, it.id, it.kind === 'mix' ? 'def' : 'ok'));
+  const mix = sheetOf(s).flatMap((x) => x.items).find((it) => it.kind === 'mix'); if (mix) A.setSheetNote(s, id, mix.id, '5');
+  const filled = JSON.parse(JSON.stringify(s.boats[0]));
+  A.validateReturnSheet(s, id, 'Léa');
+  assert.equal(s.boats[0].stay, null);
+  assert.deepEqual(deniedOps('tech', diffBoat(filled, s.boats[0]), filled), []);
+});

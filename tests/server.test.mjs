@@ -227,4 +227,7 @@ test('réservations : dates pré-remplies sans écraser une saisie, options util
   assert.deepEqual(optionTaskOps(quay, r3).map((o) => o.item?.title), ['Option client : Starlink']); // option ajoutée au dernier moment
   const r4 = compactResa({ ...api, prochain_sejour: { dossier: 'ACM-2', options: [] } });
   assert.deepEqual(optionTaskOps(quay, r4).map((o) => o.op), ['del']); // option retirée, pas encore cochée
+  // départ déjà effectué à une heure changée à la main : la date suivante des réservations est reprise
+  const gone = { inRental: true, departure: '2026-11-01T16:00', lastDeparture: '2026-11-01T16:00', returnDate: '', resaDates: { departure: '2026-11-01T17:00' } };
+  assert.equal(Object.fromEntries(resaOps(gone, r).map((o) => [o.k, o.v])).departure, '2026-11-10T17:00');
 });

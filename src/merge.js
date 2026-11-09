@@ -107,7 +107,8 @@ export function deniedOps(role, ops, boat) {
   const life = (flips(true) && adds('history')) || (flips(false) && (adds('history') || adds('tasks')));
   return ops.filter((o) => !techMay(o, boat) && !(life && lifeMay(o)));
 }
-const LIFE_KEYS = new Set(['inRental', 'departureArchived', 'lastDeparture', 'departure', 'returnDate', 'cycle']);
+// stay / resaDates : séjour de la réservation (en-tête de la feuille retour), posé au départ et effacé au retour
+const LIFE_KEYS = new Set(['inRental', 'departureArchived', 'lastDeparture', 'departure', 'returnDate', 'cycle', 'stay', 'resaDates']);
 function lifeMay(o) {
   if (o.op === 'set' || o.op === 'unset') return LIFE_KEYS.has(o.k);
   if (o.a === 'history' || o.a === 'returnSheets') return o.op === 'add';
