@@ -148,7 +148,9 @@ export function confirmDeparture(s, id, { auto = false, now = new Date() } = {})
   };
   b.history = [entry, ...b.history];
   // Seules les observations non terminées passent au retour : les tâches habituelles repartent à zéro.
-  b.pendingOnReturn = clone(b.tasks.filter((t) => !t.done && !t.template)).map((t) => ({ ...t, carried: true }));
+  // Les options client de la location qui part ne sont pas reportées : elles sont vérifiées au retour (feuille retour, « Options du séjour »).
+  const leaving = startsNow ? n.dossier : '';
+  b.pendingOnReturn = clone(b.tasks.filter((t) => !t.done && !t.template && !(t.opt && leaving && t.dossier === leaving))).map((t) => ({ ...t, carried: true }));
   b.tasks = [];
   b.departureArchived = true;
   b.inRental = true;

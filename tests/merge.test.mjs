@@ -169,7 +169,11 @@ test('feuille retour : un technicien valide aussi quand la réservation a rempli
   const id = s.boats[0].id;
   s.boats[0].resa = { status: 'quay', next: { dossier: 'ACM-9', client: 'Martin', skipper: '', dep: '2026-11-20T17:00', ret: '2026-11-27T09:00', options: [] } };
   const b0 = JSON.parse(JSON.stringify(s.boats[0]));
+  s.boats[0].tasks.push({ id: 'o1', title: 'Option client : Paddle', done: false, blocked: false, opt: 'paddle', dossier: 'ACM-9' }, { id: 'o2', title: 'Option client : BBQ', done: false, blocked: false, opt: 'bbq', dossier: 'ACM-10' });
+  const b0b = JSON.parse(JSON.stringify(s.boats[0]));
   A.confirmDeparture(s, id, { now: new Date('2026-11-20T16:30') });
+  assert.deepEqual(s.boats[0].pendingOnReturn.filter((t) => t.opt).map((t) => t.opt), ['bbq']); // l'option de la location qui part n'est pas reportée
+  assert.deepEqual(deniedOps('tech', diffBoat(b0b, s.boats[0]), b0b), []);
   assert.equal(s.boats[0].returnDate, '2026-11-27T09:00');
   assert.equal(s.boats[0].stay.dossier, 'ACM-9');
   assert.deepEqual(deniedOps('tech', diffBoat(b0, s.boats[0]), b0), []);
