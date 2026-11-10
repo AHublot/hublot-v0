@@ -1,7 +1,7 @@
 // Toutes les modifications de données. Chaque fonction reçoit l'état « brouillon » (muté en place)
 // via store.mutate(), qui s'occupe de l'enregistrement et de l'annulation.
 import { uid, todayStr, nowIso, clone, norm } from './util.js';
-import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet, inMartinique } from './model.js';
+import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet, inMartinique, homeBase } from './model.js';
 
 const find = (s, id) => {
   const b = s.boats.find((x) => x.id === id);
@@ -157,7 +157,7 @@ export function confirmDeparture(s, id, { auto = false, now = new Date() } = {})
   b.lastDeparture = b.departure || '';
   if (startsNow) {
     if (!b.returnDate && n.ret) { b.returnDate = n.ret; b.resaDates = { ...(b.resaDates || {}), returnDate: n.ret }; }
-    b.stay = { dossier: n.dossier, client: n.client || '', skipper: n.skipper && n.skipper !== 'à attribuer' ? n.skipper : '', dep: n.dep, ret: n.ret || '', options: n.options || [] };
+    b.stay = { dossier: n.dossier, client: n.client || '', skipper: n.skipper && n.skipper !== 'à attribuer' ? n.skipper : '', dep: n.dep, ret: n.ret || '', options: homeBase({ base: 'Martinique' }, n.depBase || '') ? n.options || [] : [] };
   } else if (b.stay) b.stay = null; // reste d'une location précédente
   log(b, auto
     ? 'Départ automatique : préparation archivée, observations non terminées reportées au retour'

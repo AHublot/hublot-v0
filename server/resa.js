@@ -7,6 +7,8 @@ import { stable } from '../src/merge.js';
 import { homeBase } from '../src/model.js';
 
 export const RESA_HOURS = [6, 12, 16];
+/** Location au départ de la Martinique ? Les options d'une location qui part de Guadeloupe sont embarquées là-bas. */
+export const fromMartinique = (boat, st) => (st?.depBase ? homeBase({ base: 'Martinique' }, st.depBase) : boat.base !== 'Guadeloupe');
 const TZ_OFFSET_H = -4; // Martinique = UTC−4, sans heure d'été
 
 // Options utiles à l'équipe technique (les autres — annexe, linge de lit, nettoyage, caution — sont dans toutes les locations).
@@ -121,7 +123,7 @@ export function resaOps(boat, r) {
   set('resaDates', keep);
   // Séjour en cours : dossier, client, skipper, dates, options → en-tête de la feuille retour (pendant la location dans Hublot).
   if (boat.inRental && r.status === 'sea' && r.cur) {
-    set('stay', { dossier: r.cur.dossier, client: r.cur.client, skipper: r.cur.skipper && r.cur.skipper !== 'à attribuer' ? r.cur.skipper : '', dep: r.cur.dep, ret: r.cur.ret, options: r.cur.options });
+    set('stay', { dossier: r.cur.dossier, client: r.cur.client, skipper: r.cur.skipper && r.cur.skipper !== 'à attribuer' ? r.cur.skipper : '', dep: r.cur.dep, ret: r.cur.ret, options: fromMartinique(boat, r.cur) ? r.cur.options : [] });
   }
   ops.push(...optionTaskOps(boat, r));
   return ops;
@@ -177,7 +179,7 @@ export function optionTaskOps(boat, r, today = new Date(Date.now() + TZ_OFFSET_H
   const ops = [];
   const next = r.next;
   const list = boat.inRental ? 'pendingOnReturn' : 'tasks';
-  const want = next && next.dossier ? next.options : [];
+  const want = next && next.dossier && fromMartinique(boat, next) ? next.options : [];
   const all = [['tasks', boat.tasks || []], ['pendingOnReturn', boat.pendingOnReturn || []]];
   // retirer les options non cochées qui ne correspondent plus à la prochaine location
   for (const [a, items] of all) {

@@ -275,3 +275,13 @@ test('réservations v2 : convoyages inter-îles (départ du Marin, location en G
   assert.equal(boat.stay.dossier, 'ACM-2026-7001');
   assert.equal(M.resaMismatch(boat), false);
 });
+
+test('options client : rien pour une location au départ de la Guadeloupe (embarquées là-bas)', async () => {
+  const { optionTaskOps } = await import('../server/resa.js');
+  const next = { dossier: 'ACM-1', depBase: 'Marina Bas-du-Fort', options: [{ key: 'paddle', label: 'Paddle', qty: 2 }] };
+  const tortuga = { base: 'Guadeloupe', inRental: false, tasks: [{ id: 'opt-ACM-1-paddle', title: 'Option client : Paddle ×2', opt: 'paddle', dossier: 'ACM-1', done: false }], pendingOnReturn: [] };
+  assert.deepEqual(optionTaskOps(tortuga, { next }).map((o) => o.op), ['del']); // l'ancienne est retirée
+  const fakarava = { base: 'Martinique', inRental: false, tasks: [], pendingOnReturn: [] };
+  assert.deepEqual(optionTaskOps(fakarava, { next }), []);
+  assert.equal(optionTaskOps(fakarava, { next: { ...next, depBase: 'Le Marin' } }).length, 1);
+});
