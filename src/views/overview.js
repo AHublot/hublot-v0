@@ -19,22 +19,23 @@ function hero(s, now, ui = {}) {
   const conv = (b) => convDep(b);
   const deps = mine.filter((b) => b.departure && parseLocal(b.departure) < horizon && (!b.inRental || (b.returnDate && b.departure >= b.returnDate && isTight(b))))
     .map((b) => ({ b, st: boatStats(b), d: parseLocal(b.departure) })).sort((x, y) => x.d - y.d);
-  const all = deps.filter((x) => x.st.open > 0 || x.b.inRental), todo = all.slice(0, 3), more = all.slice(3);
+  const all = deps, todo = all.slice(0, 3), more = all.slice(3); // tous les départs des prochains jours, prêts compris
   const rets = mine.filter((b) => b.inRental && b.returnDate && parseLocal(b.returnDate) >= day0 && parseLocal(b.returnDate) < horizon)
     .sort((x, y) => parseLocal(x.returnDate) - parseLocal(y.returnDate));
   const retsTop = rets.slice(0, 3), retsMore = rets.slice(3);
   const chip = (id, name, when, info, hot, tight) => `<button type="button" class="pj2-row ${hot ? 'hot' : ''} ${tight ? 'tight' : ''}" data-act="open" data-id="${id}"><b class="pj2-n">${esc(name)}</b><span class="pj2-w">${esc(when)}</span><span class="pj2-i">${info}</span></button>`;
   const dInfo = (b, st) => b.inRental
     ? `${conv(b) ? 'Convoyage ' : ''}<b class="pj2-tight">Collé</b>`
+    : st.open === 0 ? `${conv(b) ? 'Convoyage ' : ''}<b class="pj2-ok">Prêt</b>`
     : [conv(b) ? 'Convoyage' : '', `${st.open} à finir${st.blocked ? ' · <i>bloquant</i>' : ''}`].filter(Boolean).join(' · ');
   const dRows = todo.map(({ b, st, d }, i) => chip(b.id, b.name, dw(d), dInfo(b, st), !b.inRental && i === 0 && d < addDays(day0, 1) && st.pct < 50, b.inRental)).join('');
   const chip2 = (id, name, when, n) => `<button type="button" class="pj2-chip" data-act="open" data-id="${id}"><b>${esc(name)}</b><span>${esc(when)}</span>${n != null ? `<i>${n}</i>` : ''}</button>`;
   const block = (list, noun, chipsHtml) => (list.length ? `<button type="button" class="pj2-more" data-act="pjMore" aria-expanded="${!!ui.pjAll}">${ui.pjAll ? 'Réduire' : `+ ${list.length} autre${list.length > 1 ? 's' : ''} ${noun}${list.length > 1 ? 's' : ''}`}</button>${ui.pjAll ? `<div class="pj2-chips">${chipsHtml}</div>` : ''}` : '');
-  const dMore = block(more, 'départ', more.map(({ b, st, d }) => chip2(b.id, b.name, dw(d), b.inRental ? null : st.open)).join(''));
+  const dMore = block(more, 'départ', more.map(({ b, st, d }) => chip2(b.id, b.name, dw(d), b.inRental || !st.open ? null : st.open)).join(''));
   const rMore = block(retsMore, 'retour', retsMore.map((b) => chip2(b.id, b.name, dw(parseLocal(b.returnDate)))).join(''));
   const rRows = retsTop.map((b) => chip(b.id, b.name, dw(parseLocal(b.returnDate)), 'retour')).join('');
   return `<section class="hero pj2"><h2>Le point du jour <span>· ${esc(fmtWDT(now).split(',')[0])}</span></h2>
-    <div class="pj2-grid"><div><h3>${ic('boat')} Départs</h3>${dRows || '<p class="mut small">Rien à préparer</p>'}${dMore}</div>
+    <div class="pj2-grid"><div><h3>${ic('boat')} Départs</h3>${dRows || '<p class="mut small">Aucun départ prévu</p>'}${dMore}</div>
     <div><h3>${ic('left')} Retours</h3>${rRows || '<p class="mut small">Aucun retour prévu</p>'}${rMore}</div></div></section>`;
 }
 

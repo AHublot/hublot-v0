@@ -929,3 +929,4 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 /* Point du jour : petit « Collé » jaune (dégradé vers transparent) et ligne teintée orange chaud */
 .pj2-tight { display: inline-block; margin-left: 5px; padding: 0 6px 0 5px; border-radius: 99px; font: 700 8px/1.6 var(--f-cond); letter-spacing: .08em; text-transform: uppercase; color: #FFD27A; background: linear-gradient(90deg, rgba(255,200,90,.42) 0%, rgba(255,200,90,0) 100%); vertical-align: 1px; }
 .pj2-row.tight { background: linear-gradient(90deg, rgba(255,140,90,.16) 0%, rgba(255,140,90,0) 70%), #12293C; }
+.pj2-ok { display: inline-block; margin-left: 5px; padding: 0 6px 0 5px; border-radius: 99px; font: 700 8px/1.6 var(--f-cond); letter-spacing: .08em; text-transform: uppercase; color: #7BE3A8; background: linear-gradient(90deg, rgba(60,200,120,.38) 0%, rgba(60,200,120,0) 100%); vertical-align: 1px; }
