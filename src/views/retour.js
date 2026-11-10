@@ -3,7 +3,7 @@
 import { esc, fmtWDT } from '../util.js';
 import { ic } from '../icons.js';
 import { SHEET_NUMS, shortDossier } from '../model.js';
-import { sheetMissing, tripHours, sheetObsTitle, draftSheet } from '../actions.js';
+import { sheetMissing, tripHours, sheetObsTitle, draftSheet, clientObsList } from '../actions.js';
 
 const hh = (v) => (v == null || v === '' ? '—' : `${String(v).replace('.', ',')} h`);
 const when = (iso) => { try { return fmtWDT(new Date(iso)); } catch { return iso || ''; } };
@@ -80,9 +80,10 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
   const pct = total ? Math.round((seen / total) * 100) : 0;
   // Ce qu'il reste à remplir (points sans réponse + Défauts sans note), en ambre ; vert quand tout est rempli
   const left = ro ? 0 : miss.unseen.length + miss.noNote.length;
+  const nObs = defs + (ro ? 0 : clientObsList(d.clientObs).length);
   const bar = ro ? '' : `<div class="rbar">${left
     ? `<div class="small"><b class="rcount todo">${left} à remplir</b><br><span class="mut">« Point suivant » t’y emmène</span></div><button type="button" class="btn" data-act="rNext" data-id="${b.id}">Point suivant ${ic('down')}</button>`
-    : `<div class="small"><b class="rcount done">${ic('check')} Tout est rempli</b><br><span class="mut">${defs} observation${defs > 1 ? 's' : ''} ${defs > 1 ? 'seront créées' : 'sera créée'}</span></div><button type="button" class="btn pri" data-act="rDone" data-id="${b.id}">Valider le retour</button>`}</div>`;
+    : `<div class="small"><b class="rcount done">${ic('check')} Tout est rempli</b><br><span class="mut">${nObs} observation${nObs > 1 ? 's' : ''} ${nObs > 1 ? 'seront créées' : 'sera créée'}</span></div><button type="button" class="btn pri" data-act="rDone" data-id="${b.id}">Valider le retour</button>`}</div>`;
 
   return `<div class="rwrap ${ro ? 'ro' : ''}">
     ${top(b, ro ? 'Feuille retour validée' : 'Feuille retour', ro ? `<button type="button" class="btn sm" data-act="rPrint">${ic('download')} PDF</button>` : `<button type="button" class="btn ghost sm" data-act="rCancel" data-id="${b.id}">Annuler la feuille</button>`)}
@@ -91,25 +92,33 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
     ${ro ? `<p class="small mut">${defs} défaut${defs > 1 ? 's' : ''} · heures du séjour bâbord ${hh(trip.port)}, tribord ${hh(trip.stbd)}</p>` : `<div class="rprog ${left ? 'todo' : 'done'}" aria-label="Avancement"><div>${left ? `<b class="rcount todo">${left} à remplir</b>` : `<b class="rcount done">${ic('check')} Tout est rempli</b>`} <span class="mut small">${seen} / ${total}</span></div><i><span style="width:${pct}%"></span></i></div>`}
     <div class="rsecs">${sheet.map(sec).join('')}</div>
     ${ro && !d.clientObs ? '' : `<section class="panel rfree">
-      ${text('clientObs', 'Observations du client et autre', 'Ce que le client signale en rendant le bateau, et tout le reste')}
+      ${text('clientObs', 'Observations du client et autre', 'Une ligne = une observation à cocher.&#10;Exemple :&#10;Le client signale que le frigo refroidit mal&#10;Coussin de cockpit déchiré')}
+      ${ro ? '' : `<p class="small mut" data-cobs-out>${cobsHint(d.clientObs)}</p>`}
     </section>`}
     ${bar}
   </div>${!ro && ui.rRecap === b.id ? recap(s, b, d, sheet, miss, trip) : ''}`;
 }
 
+/** Sous la zone « Observations du client et autre » : combien d'observations à cocher seront créées. */
+export function cobsHint(text) {
+  const n = clientObsList(text).length;
+  return n ? `<b>${n} observation${n > 1 ? 's' : ''} à cocher ${n > 1 ? 'seront créées' : 'sera créée'}</b> (une par ligne)` : 'Une ligne = une observation à cocher.';
+}
 function top(b, kicker, extra = '') {
   return `<div class="rtop"><a href="#/boat/${encodeURIComponent(b.id)}/prep" class="btn ghost icon" aria-label="Retour au bateau">${ic('left')}</a>
     <div class="grow"><p class="k">${kicker}</p><h1>${esc(b.name)}</h1></div>${extra}</div>`;
 }
 
 function recap(s, b, d, sheet, miss, trip) {
+  const cl = clientObsList(d.clientObs);
   const defs = sheet.flatMap((x) => x.items.filter((it) => d.values[it.id] === 'def').map((it) => ({ sec: x.title, it, note: String(d.notes[it.id] || '').trim() ? sheetObsTitle({ ...it, sec: x }, d.notes[it.id]) : '', bill: !!d.bill[it.id] })));
   return `<div class="sheet-back" data-act="rRecapNo"></div><div class="rrecap panel" role="dialog" aria-label="Valider le retour">
     <h2>Valider le retour de ${esc(b.name)} ?</h2>
     <p class="mut small">${d.stay?.dossier ? `Dossier ${esc(d.stay.dossier)} · ` : ''}${d.stay?.client ? `${esc(d.stay.client)} · ` : ''}${sheet.reduce((n, x) => n + x.items.length, 0)} points vus</p>
     ${miss.noNote.length ? `<p class="t-bad small" role="alert">Décris le défaut avant de valider : ${miss.noNote.map((it) => esc(it.label)).join(', ')}.</p>` : ''}
-    <p class="k">${defs.length ? `Observations créées (${defs.length})` : 'Aucun défaut : aucune observation créée'}</p>
+    <p class="k">${defs.length + cl.length ? `Observations créées (${defs.length + cl.length})` : 'Aucun défaut : aucune observation créée'}</p>
     ${defs.length ? `<ul class="rlist2">${defs.map((x) => `<li><span class="jic k-new">${ic('plus')}</span><div><p>${x.note ? esc(x.note) : '<span class="t-bad">Note manquante</span>'}</p><p class="small mut">${esc(x.sec)} · ${esc(x.it.label)}${x.bill ? ' · <span class="jrole">À refacturer</span>' : ''}</p></div></li>`).join('')}</ul>` : ''}
+    ${cl.length ? `<ul class="rlist2">${cl.map((o) => `<li><span class="jic k-new">${ic('plus')}</span><div><p>${esc(o.title)}</p><p class="small mut">Observations du client et autre${o.blocked ? ' · <span class="t-bad">bloquante</span>' : ''}</p></div></li>`).join('')}</ul>` : ''}
     <p class="small mut">Relevé moteur : bâbord ${d.nums?.hoursPort ? esc(d.nums.hoursPort) + ' h' : '—'} · tribord ${d.nums?.hoursStbd ? esc(d.nums.hoursStbd) + ' h' : '—'}. Heures du séjour : bâbord ${hh(trip.port)}, tribord ${hh(trip.stbd)}.<br>La préparation en cours est archivée, comme pour un retour habituel, et la feuille est rangée dans les archives du bateau.</p>
     <div class="row gap"><button type="button" class="btn" data-act="rRecapNo">Modifier</button><button type="button" class="btn pri" data-act="rValidate" data-id="${b.id}" ${miss.noNote.length ? 'disabled' : ''}>Valider</button></div>
   </div>`;

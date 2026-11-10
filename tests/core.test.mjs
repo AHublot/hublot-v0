@@ -413,3 +413,21 @@ test('feuille retour : contexte des observations, pas de bascule au second appui
   assert.equal(A.sheetObsTitle({ label: 'Extincteurs', sec: { id: 'x1', title: 'Sécurité' } }, 'périmé'), 'Sécurité – Extincteurs : périmé');
   assert.equal(A.sheetObsTitle({ label: 'Paddle ×2', sec: { id: 'opts' } }, 'percé'), 'Option Paddle ×2 : percé');
 });
+
+test('feuille retour : observations du client → une observation à cocher par ligne', () => {
+  const s = fresh();
+  const id = s.boats[0].id;
+  A.confirmDeparture(s, id);
+  s.boats[0].stay = { dossier: 'ACM-2026-0002' };
+  A.startReturnSheet(s, id);
+  sheetOf(s).flatMap((x) => x.items).forEach((it) => A.setSheetValue(s, id, it.id, it.kind === 'mix' ? 'def' : 'ok'));
+  const mix = sheetOf(s).flatMap((x) => x.items).find((it) => it.kind === 'mix'); if (mix) A.setSheetNote(s, id, mix.id, '4');
+  A.setSheetText(s, id, 'clientObs', 'Le frigo refroidit mal, surtout l’après-midi quand il fait chaud dans le carré\n\n! fuite au WC avant\nfrigo refroidit mal');
+  assert.deepEqual(A.clientObsList(s.boats[0].returnDraft.clientObs).map((o) => o.title).length, 3);
+  const r = A.validateReturnSheet(s, id);
+  const t = s.boats[0].tasks.filter((x) => x.sheet && !x.title.startsWith('Mélange'));
+  assert.deepEqual(t.map((x) => x.title), ['Le frigo refroidit mal, surtout l’après-midi quand il fait chaud dans le carré', 'Fuite au WC avant', 'Frigo refroidit mal']);
+  assert.equal(t[1].blocked, true);
+  assert.equal(t[0].dossier, 'ACM-2026-0002');
+  assert.equal(r.obs, 4); // + mélange
+});

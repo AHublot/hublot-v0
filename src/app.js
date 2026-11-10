@@ -13,7 +13,7 @@ import { boatReport, fleetReport } from './whatsapp.js';
 import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
 import { journalView, journalDays } from './views/journal.js';
-import { retourView } from './views/retour.js';
+import { retourView, cobsHint } from './views/retour.js';
 import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal, refreshResa, syncNow } from './remote.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -253,11 +253,12 @@ function layerHTML(s, now) {
 }
 
 /** Champ de saisie de la feuille retour en cours d'utilisation (clavier ouvert sur téléphone). */
+let pointerDown = false; // doigt posé : ne pas remplacer l'élément qu'on est en train de toucher
 const typingSheet = () => { const ae = document.activeElement; return !!(ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && ae.type !== 'checkbox')) && ae.closest('#view .rwrap')); };
 function render() {
   // Pendant la saisie d'une note dans la feuille retour, on ne redessine pas la page (synchro, autre action) :
   // sinon le champ est remplacé, le clavier se ferme et le texte en cours est perdu. On redessine à la sortie du champ.
-  if (ui.route.name === 'retour' && (typingSheet() || ui.holdRender)) { ui.deferRender = true; return; }
+  if (ui.route.name === 'retour' && (typingSheet() || ui.holdRender || pointerDown)) { ui.deferRender = true; return; }
   ui.deferRender = false;
   const s = getState(), now = new Date();
   ui.isManager = !!ui.server && !isTech();
@@ -573,15 +574,21 @@ document.addEventListener('click', (e) => {
 const slugify = (s) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 // ---- champs : brouillons, changements, formulaires ------------------------------------------------------
-document.addEventListener('focusout', () => setTimeout(() => { if (ui.deferRender && !ui.holdRender && !typingSheet()) render(); }, 0));
+// Redessin mis de côté pendant la saisie : on le fait une fois le geste terminé (jamais au milieu d'un appui,
+// sinon le bouton ou le champ touché est remplacé : appui perdu, clavier qui se ferme).
+const flushRender = () => { if (ui.deferRender && !ui.holdRender && !pointerDown && !typingSheet()) render(); };
+document.addEventListener('pointerdown', () => { pointerDown = true; }, true);
+['pointerup', 'pointercancel'].forEach((t) => document.addEventListener(t, () => { pointerDown = false; setTimeout(flushRender, 300); }, true));
+document.addEventListener('focusout', () => setTimeout(flushRender, 300));
 /** Une note vient d'être enregistrée parce qu'on a touché un autre champ : on laisse ce champ prendre le clavier avant de redessiner. */
 function holdSheet() {
   ui.holdRender = true;
-  setTimeout(() => { ui.holdRender = false; if (ui.deferRender && !typingSheet()) render(); }, 80);
+  setTimeout(() => { ui.holdRender = false; flushRender(); }, 80);
 }
 document.addEventListener('input', (e) => {
   const el = e.target;
   if (el.dataset?.draft) ui.drafts[el.dataset.draft] = el.value;
+  if (el.dataset?.chg === 'rText' && el.dataset.f === 'clientObs') { const out = el.closest('.rfree')?.querySelector('[data-cobs-out]'); if (out) out.innerHTML = cobsHint(el.value); }
   if (el.dataset?.live === 'q') { ui.q = el.value; render(); }
   if (el.matches?.('textarea[data-parse]')) updateParse(el);
   if (el.id === 'pq' && ui.palette) { ui.palette.q = el.value; ui.palette.i = 0; $('#plist').innerHTML = paletteList(getState()); }

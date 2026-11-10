@@ -1,6 +1,6 @@
 // Toutes les modifications de données. Chaque fonction reçoit l'état « brouillon » (muté en place)
 // via store.mutate(), qui s'occupe de l'enregistrement et de l'annulation.
-import { uid, todayStr, nowIso, clone, norm } from './util.js';
+import { uid, todayStr, nowIso, clone, norm, parseObservations } from './util.js';
 import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet, inMartinique, homeBase } from './model.js';
 
 const find = (s, id) => {
@@ -384,6 +384,8 @@ export function sheetObsTitle(it, note) {
   const n = String(note ?? '').trim();
   return it.kind === 'mix' ? `Mélange à faire : ${n.replace('.', ',')} L` : `${sheetObsContext(it)} : ${n}`;
 }
+/** « Observations du client et autre » (client et technicien) : une ligne (ou « ; ») = une observation à cocher, sans préfixe, comme « Ajouter mes observations ». « ! » devant = bloquante. */
+export const clientObsList = (text) => parseObservations(text).map((o) => ({ title: o.title, raw: o.title, blocked: !!o.blocked }));
 /** Feuille d'un brouillon : le modèle, plus les options du séjour (à vérifier au retour). */
 export function draftSheet(s, d) {
   const sh = sheetOf(s);
@@ -428,6 +430,13 @@ export function validateReturnSheet(s, id, user = '', now = new Date()) {
     if (open.has(norm(title)) || (it.kind !== 'mix' && open.has(norm(d.notes[it.id])))) return;
     open.add(norm(title));
     const t = mkTask(title, false, { sheet: d.id, ...(d.stay?.dossier ? { dossier: d.stay.dossier } : {}), ...(d.bill[it.id] ? { bill: true } : {}) });
+    b.tasks.push(t);
+    obsIds.push(t.id);
+  });
+  clientObsList(d.clientObs).forEach((o) => {
+    if (open.has(norm(o.title)) || open.has(norm(o.raw))) return;
+    open.add(norm(o.title));
+    const t = mkTask(o.title, false, { blocked: o.blocked, sheet: d.id, ...(d.stay?.dossier ? { dossier: d.stay.dossier } : {}) });
     b.tasks.push(t);
     obsIds.push(t.id);
   });
