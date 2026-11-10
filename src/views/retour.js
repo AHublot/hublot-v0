@@ -46,7 +46,8 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
         ${v === 'def' && !mix ? `<p class="rnote-ro">${esc(d.notes[it.id] || '')}${d.bill[it.id] ? ' <span class="jrole">À refacturer</span>' : ''}</p>` : ''}</li>`;
     }
     const mix = it.kind === 'mix';
-    return `<li class="rrow ${v || 'todo'} ${mix ? 'mix' : ''}" id="r-${esc(it.id)}">
+    const nonote = v === 'def' && !String(d.notes[it.id] || '').trim();
+    return `<li class="rrow ${v || 'todo'} ${mix ? 'mix' : ''} ${nonote ? 'nonote' : ''}" id="r-${esc(it.id)}">
       <span class="rlab">${esc(it.label)}</span>
       <span class="rbtn" role="group" aria-label="${esc(it.label)}">
         <button type="button" class="ok ${v === 'ok' ? 'on' : ''}" data-act="rSet" data-id="${b.id}" data-it="${esc(it.id)}" data-v="ok" aria-pressed="${v === 'ok'}">${mix ? 'Fait' : 'OK'}</button>
@@ -62,7 +63,9 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
     const full = n === x.items.length;
     const isOpen = ro ? true : !!open[x.id]; // toutes les parties fermées à l'ouverture de la feuille
     const p = x.items.length ? Math.round((100 * n) / x.items.length) : 100;
-    const state = full && !nd ? `<span class="rs-ok">${ic('check')} OK</span>` : nd ? `<span class="rs-def">${nd} défaut${nd > 1 ? 's' : ''}${full ? '' : ` · ${n}/${x.items.length}`}</span>` : `<span class="mut">${n} / ${x.items.length}</span>`;
+    const left = x.items.length - n + (ro ? 0 : x.items.filter((it) => d.values[it.id] === 'def' && !String(d.notes[it.id] || '').trim()).length);
+    const todo = left ? `<span class="rs-todo">${left} à remplir</span>` : '';
+    const state = full && !nd ? `<span class="rs-ok">${ic('check')} OK</span>` : `${nd ? `<span class="rs-def">${nd} défaut${nd > 1 ? 's' : ''}</span>` : ''}${ro ? '' : todo}`;
     const nm = x.num && SHEET_NUMS[x.num];
     const numVal = d.nums?.[x.num] || '';
     const numRow = nm ? `<label class="rnum"><span>${nm.label}</span>${ro ? `<b>${numVal ? esc(numVal) : '—'}</b>` : `<input inputmode="decimal" data-chg="rNum" data-id="${b.id}" data-k="${x.num}" value="${esc(numVal)}" placeholder="—">`}<em>${nm.unit}</em></label>
@@ -75,15 +78,17 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
   };
   const text = (f, label, ph) => (ro && !d[f] ? '' : `<label class="rtext"><span>${label}</span>${ro ? `<p>${esc(d[f])}</p>` : `<textarea rows="2" data-chg="rText" data-id="${b.id}" data-f="${f}" placeholder="${ph}">${esc(d[f] || '')}</textarea>`}</label>`);
   const pct = total ? Math.round((seen / total) * 100) : 0;
-  const bar = ro ? '' : `<div class="rbar">${miss.unseen.length
-    ? `<div class="small"><b>Encore ${miss.unseen.length} point${miss.unseen.length > 1 ? 's' : ''} à voir</b><br><span class="mut">${defs} défaut${defs > 1 ? 's' : ''} pour l’instant</span></div><button type="button" class="btn" data-act="rNext">Point suivant ${ic('down')}</button>`
-    : `<div class="small"><b>Tous les points sont vus</b><br><span class="mut">${defs} observation${defs > 1 ? 's' : ''} ${defs > 1 ? 'seront créées' : 'sera créée'}</span></div><button type="button" class="btn pri" data-act="rDone" data-id="${b.id}">Valider le retour</button>`}</div>`;
+  // Ce qu'il reste à remplir (points sans réponse + Défauts sans note), en ambre ; vert quand tout est rempli
+  const left = ro ? 0 : miss.unseen.length + miss.noNote.length;
+  const bar = ro ? '' : `<div class="rbar">${left
+    ? `<div class="small"><b class="rcount todo">${left} à remplir</b><br><span class="mut">« Point suivant » t’y emmène</span></div><button type="button" class="btn" data-act="rNext" data-id="${b.id}">Point suivant ${ic('down')}</button>`
+    : `<div class="small"><b class="rcount done">${ic('check')} Tout est rempli</b><br><span class="mut">${defs} observation${defs > 1 ? 's' : ''} ${defs > 1 ? 'seront créées' : 'sera créée'}</span></div><button type="button" class="btn pri" data-act="rDone" data-id="${b.id}">Valider le retour</button>`}</div>`;
 
   return `<div class="rwrap ${ro ? 'ro' : ''}">
     ${top(b, ro ? 'Feuille retour validée' : 'Feuille retour', ro ? `<button type="button" class="btn sm" data-act="rPrint">${ic('download')} PDF</button>` : `<button type="button" class="btn ghost sm" data-act="rCancel" data-id="${b.id}">Annuler la feuille</button>`)}
     ${ui.rCancel === b.id ? `<section class="panel rcancel" role="alert"><p><b>Annuler cette feuille retour ?</b> Les réponses seront perdues. Le bateau reste en location.</p><div class="row gap"><button type="button" class="btn" data-act="rCancelNo">Garder la feuille</button><button type="button" class="btn bad" data-act="rCancelYes" data-id="${b.id}">Annuler la feuille</button></div></section>` : ''}
     ${info}
-    ${ro ? `<p class="small mut">${defs} défaut${defs > 1 ? 's' : ''} · heures du séjour bâbord ${hh(trip.port)}, tribord ${hh(trip.stbd)}</p>` : `<div class="rprog" aria-label="Avancement"><div><b>${seen} / ${total}</b> points vus${defs ? ` · <b class="t-bad">${defs} défaut${defs > 1 ? 's' : ''}</b>` : ''}</div><i><span style="width:${pct}%"></span></i></div>`}
+    ${ro ? `<p class="small mut">${defs} défaut${defs > 1 ? 's' : ''} · heures du séjour bâbord ${hh(trip.port)}, tribord ${hh(trip.stbd)}</p>` : `<div class="rprog ${left ? 'todo' : 'done'}" aria-label="Avancement"><div>${left ? `<b class="rcount todo">${left} à remplir</b>` : `<b class="rcount done">${ic('check')} Tout est rempli</b>`} <span class="mut small">${seen} / ${total}</span></div><i><span style="width:${pct}%"></span></i></div>`}
     <div class="rsecs">${sheet.map(sec).join('')}</div>
     ${ro && !d.clientObs ? '' : `<section class="panel rfree">
       ${text('clientObs', 'Observations du client et autre', 'Ce que le client signale en rendant le bateau, et tout le reste')}
@@ -98,7 +103,7 @@ function top(b, kicker, extra = '') {
 }
 
 function recap(s, b, d, sheet, miss, trip) {
-  const defs = sheet.flatMap((x) => x.items.filter((it) => d.values[it.id] === 'def').map((it) => ({ sec: x.title, it, note: String(d.notes[it.id] || '').trim() ? sheetObsTitle(it, d.notes[it.id]) : '', bill: !!d.bill[it.id] })));
+  const defs = sheet.flatMap((x) => x.items.filter((it) => d.values[it.id] === 'def').map((it) => ({ sec: x.title, it, note: String(d.notes[it.id] || '').trim() ? sheetObsTitle({ ...it, sec: x }, d.notes[it.id]) : '', bill: !!d.bill[it.id] })));
   return `<div class="sheet-back" data-act="rRecapNo"></div><div class="rrecap panel" role="dialog" aria-label="Valider le retour">
     <h2>Valider le retour de ${esc(b.name)} ?</h2>
     <p class="mut small">${d.stay?.dossier ? `Dossier ${esc(d.stay.dossier)} · ` : ''}${d.stay?.client ? `${esc(d.stay.client)} · ` : ''}${sheet.reduce((n, x) => n + x.items.length, 0)} points vus</p>

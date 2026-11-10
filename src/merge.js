@@ -29,9 +29,22 @@ export function diffBoat(base, cur) {
       const have = new Set((a || []).map(stable));
       (b || []).forEach((e) => { if (!have.has(stable(e))) ops.push({ op: 'add', a: 'logs', item: e }); });
     } else if (k in LISTS) diffItems(k, a || [], b || [], ops);
+    else if (k === 'returnDraft' && a && b && a.id && a.id === b.id) diffDraft(a, b, ops);
     else if (!same(a, b)) ops.push(b === undefined ? { op: 'unset', k } : { op: 'set', k, v: b });
   }
   return ops;
+}
+// Feuille retour en cours : envoyée point par point (op « draft »), pour que deux téléphones ne s'effacent pas.
+const DRAFT_MAPS = ['values', 'notes', 'bill', 'nums'];
+function diffDraft(a, b, ops) {
+  for (const f of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (f === 'id' || same(a[f], b[f])) continue;
+    if (DRAFT_MAPS.includes(f) && a[f] && b[f] && typeof a[f] === 'object' && typeof b[f] === 'object') {
+      for (const key of new Set([...Object.keys(a[f]), ...Object.keys(b[f])])) {
+        if (!same(a[f][key], b[f][key])) ops.push(b[f][key] === undefined ? { op: 'draft', id: b.id, f, key } : { op: 'draft', id: b.id, f, key, v: b[f][key] });
+      }
+    } else ops.push(b[f] === undefined ? { op: 'draft', id: b.id, f } : { op: 'draft', id: b.id, f, v: b[f] });
+  }
 }
 function diffItems(k, a, b, ops) {
   const am = new Map(a.map((it) => [keyOf(it), it]));
@@ -55,7 +68,22 @@ export function applyOps(boat, ops, { by = '' } = {}) {
   const b = clone(boat);
   let logsTouched = false;
   for (const o of ops) {
-    if (o.op === 'set') { if (o.k !== 'id') b[o.k] = clone(o.v); continue; }
+    if (o.op === 'set') {
+      if (o.k === 'id') continue;
+      // une autre feuille retour est déjà en cours (commencée sur un autre téléphone) : on garde celle-là
+      if (o.k === 'returnDraft' && o.v && b.returnDraft && b.returnDraft.id && o.v.id !== b.returnDraft.id) continue;
+      b[o.k] = clone(o.v); continue;
+    }
+    if (o.op === 'draft') { // un point de la feuille retour en cours ; ignoré si elle a été validée ou annulée entre-temps
+      const d = b.returnDraft;
+      if (!d || d.id !== o.id || typeof o.f !== 'string' || o.f === 'id') continue;
+      if (o.key != null) {
+        const m = { ...(d[o.f] && typeof d[o.f] === 'object' ? d[o.f] : {}) };
+        if ('v' in o) m[o.key] = clone(o.v); else delete m[o.key];
+        d[o.f] = m;
+      } else if ('v' in o) d[o.f] = clone(o.v); else delete d[o.f];
+      continue;
+    }
     if (o.op === 'unset') { delete b[o.k]; continue; }
     if (!Array.isArray(b[o.a])) b[o.a] = [];
     const list = b[o.a];
@@ -116,6 +144,7 @@ function lifeMay(o) {
 }
 function techMay(o, boat) {
   // feuille retour en cours : tout le monde la remplit
+  if (o.op === 'draft') return true;
   if (o.op === 'set') return o.k === 'hours' || o.k === 'returnDraft';
   if (o.op === 'unset') return o.k === 'returnDraft';
   if (o.a === 'logs') return o.op === 'add';

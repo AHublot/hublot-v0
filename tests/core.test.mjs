@@ -282,7 +282,7 @@ test('journal : départ = une seule ligne, tâches habituelles ajoutées non not
   assert.deepEqual(journalEvents({ ...cur, hours: { port: '1' } }, { ...cur, hours: { port: '2', stbd: '3' } })[0], { kind: 'hours', what: 'Heures moteur', note: 'Bâbord 2 h · Tribord 3 h' });
 });
 
-test('feuille retour : tous les points obligatoires, chaque Défaut devient une observation (titre = la note)', () => {
+test('feuille retour : tous les points obligatoires, chaque Défaut devient une observation (contexte : note)', () => {
   const s = fresh();
   const id = s.boats[0].id;
   A.setHours(s, id, 'port', '1000'); A.setHours(s, id, 'stbd', '990');
@@ -305,8 +305,8 @@ test('feuille retour : tous les points obligatoires, chaque Défaut devient une 
   assert.equal(b.inRental, false);
   assert.equal(b.returnDraft, null);
   const obs = b.tasks.filter((t) => t.sheet);
-  assert.deepEqual(obs.map((t) => t.title).sort(), ['Courroie tribord à remplacer', 'la fermeture éclair est cassée']);
-  assert.equal(obs.find((t) => t.title.startsWith('la fermeture')).bill, true);
+  assert.deepEqual(obs.map((t) => t.title).sort(), ['Lazy bag : la fermeture éclair est cassée', 'Moteur tribord – Courroie : Courroie tribord à remplacer']);
+  assert.equal(obs.find((t) => t.title.startsWith('Lazy bag')).bill, true);
   assert.equal(obs[0].dossier, 'ACM-2026-0001');
   assert.equal(b.hours.port, '1012,5');
   assert.deepEqual(b.returnSheets[0].tripHours, { port: 12.5, stbd: 11 });
@@ -373,7 +373,7 @@ test('feuille retour : options du séjour à vérifier, dossier court', async ()
   sh.flatMap((x) => x.items).forEach((it) => A.setSheetValue(s, id, it.id, 'ok'));
   A.setSheetValue(s, id, 'opt-paddle', 'def'); A.setSheetNote(s, id, 'opt-paddle', 'Paddle crevé');
   A.validateReturnSheet(s, id);
-  assert.ok(s.boats[0].tasks.some((t) => t.title === 'Paddle crevé' && t.dossier === 'ACM-2026-5426'));
+  assert.ok(s.boats[0].tasks.some((t) => t.title === 'Option Paddle ×2 : Paddle crevé' && t.dossier === 'ACM-2026-5426'));
 });
 
 test('réservations : « Collé » seulement au Marin, bateau loué en Guadeloupe traité comme la Guadeloupe', async () => {
@@ -395,4 +395,21 @@ test('collé : dates saisies à la main (location hors réservations)', async ()
   b.departure = '2026-11-01T17:00'; // ancien départ (déjà effectué) : on s'en remet aux réservations
   b.returnDate = '2026-11-14T09:00';
   assert.equal(isTight(b), false);
+});
+
+test('feuille retour : contexte des observations, pas de bascule au second appui', () => {
+  const s = fresh();
+  const id = s.boats[0].id;
+  A.confirmDeparture(s, id);
+  A.startReturnSheet(s, id);
+  A.setSheetValue(s, id, 'mbd6', 'ok');
+  A.setSheetValue(s, id, 'mbd6', 'ok'); // second appui : reste OK
+  assert.equal(s.boats[0].returnDraft.values.mbd6, 'ok');
+  const sh = sheetOf(s), it = (sid, label) => ({ ...sh.find((x) => x.id === sid).items.find((i) => i.label === label), sec: sh.find((x) => x.id === sid) });
+  assert.equal(A.sheetObsTitle(it('mbd', 'Filtre eau de mer'), 'colmaté'), 'Moteur bâbord – Filtre eau de mer : colmaté');
+  assert.equal(A.sheetObsTitle(it('ele', 'Le gasoil est-il plein ?'), 'manque 40 L'), 'Gasoil pas plein : manque 40 L');
+  assert.equal(A.sheetObsTitle(it('des', 'Filtre'), 'encrassé'), 'Dessalinisateur – filtre : encrassé');
+  assert.equal(A.sheetObsTitle(it('inv', 'Gaffe'), 'manquante'), 'Inventaire – Gaffe : manquante');
+  assert.equal(A.sheetObsTitle({ label: 'Extincteurs', sec: { id: 'x1', title: 'Sécurité' } }, 'périmé'), 'Sécurité – Extincteurs : périmé');
+  assert.equal(A.sheetObsTitle({ label: 'Paddle ×2', sec: { id: 'opts' } }, 'percé'), 'Option Paddle ×2 : percé');
 });

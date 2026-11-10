@@ -343,7 +343,9 @@ const draftOf = (s, id) => { const b = find(s, id); if (!b.returnDraft) throw ne
 export function setSheetValue(s, id, itemId, value) {
   const [, d] = draftOf(s, id);
   const v = { ...d.values };
-  if (v[itemId] === value) delete v[itemId]; else v[itemId] = value;
+  // pas de bascule : retoucher le choix déjà fait ne l'efface pas (double appui, appui après un défilement)
+  if (v[itemId] === value) return;
+  v[itemId] = value;
   d.values = v;
 }
 export function setSheetNote(s, id, itemId, text) { const [, d] = draftOf(s, id); d.notes = { ...d.notes, [itemId]: String(text || '') }; }
@@ -362,9 +364,25 @@ export function cancelReturnSheet(s, id) {
   log(b, 'Feuille retour annulée');
 }
 /** Titre de l'observation créée par un Défaut : la note telle quelle ; pour le mélange, les litres à faire. */
+// Contexte d'une question de la feuille retour, devant la note du technicien dans l'observation.
+const OBS_CTX_LABEL = {
+  Drosses: 'Drosses de barre', 'Pompe eau': 'Pompe à eau', Fonds: 'Fonds de coque',
+  'Le sondeur fonctionne-t-il ?': 'Sondeur', 'Le gasoil est-il plein ?': 'Gasoil pas plein',
+};
+const OBS_CTX_SEC = { mbd: 'Moteur bâbord – ', mtd: 'Moteur tribord – ', inv: 'Inventaire – ', des: 'Dessalinisateur – ' };
+const DEFAULT_SECS = new Set(['mbd', 'mtd', 'bat', 'plo', 'cui', 'des', 'ele', 'coq', 'gre', 'voi', 'mou', 'ann', 'inv']);
+/** « Moteur bâbord – Filtre eau de mer » ; point ajouté par un manager → « Partie – Point ». */
+export function sheetObsContext(it) {
+  const sec = it.sec || {};
+  if (sec.id === 'opts') return `Option ${it.label}`;
+  const label = OBS_CTX_LABEL[it.label] || it.label;
+  if (OBS_CTX_SEC[sec.id]) return OBS_CTX_SEC[sec.id] + (sec.id === 'des' ? label.toLowerCase() : label);
+  if (DEFAULT_SECS.has(sec.id) || !sec.title) return label;
+  return `${sec.title} – ${label}`;
+}
 export function sheetObsTitle(it, note) {
   const n = String(note ?? '').trim();
-  return it.kind === 'mix' ? `Mélange à faire : ${n.replace('.', ',')} L` : n;
+  return it.kind === 'mix' ? `Mélange à faire : ${n.replace('.', ',')} L` : `${sheetObsContext(it)} : ${n}`;
 }
 /** Feuille d'un brouillon : le modèle, plus les options du séjour (à vérifier au retour). */
 export function draftSheet(s, d) {
@@ -406,7 +424,8 @@ export function validateReturnSheet(s, id, user = '', now = new Date()) {
   const obsIds = [];
   sheetItems(sheet).filter((it) => d.values[it.id] === 'def').forEach((it) => {
     const title = sheetObsTitle(it, d.notes[it.id]);
-    if (open.has(norm(title))) return;
+    // déjà noté (avec ou sans le contexte de la question) : pas de doublon
+    if (open.has(norm(title)) || (it.kind !== 'mix' && open.has(norm(d.notes[it.id])))) return;
     open.add(norm(title));
     const t = mkTask(title, false, { sheet: d.id, ...(d.stay?.dossier ? { dossier: d.stay.dossier } : {}), ...(d.bill[it.id] ? { bill: true } : {}) });
     b.tasks.push(t);

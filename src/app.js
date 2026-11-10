@@ -1,7 +1,7 @@
 // Contrôleur : routes, rendu, événements. Toute la logique métier est dans actions.js.
 import * as A from './actions.js';
 import { store, getState, load, mutate, undo, replace, subscribe, snapshots, addSnapshot, autoSnapshot, restoreSnapshot, resetAll } from './store.js';
-import { normalizeState, baseLabel, sortBoats, boatStats, sheetOf } from './model.js';
+import { normalizeState, baseLabel, sortBoats, boatStats, sheetOf, sheetItems } from './model.js';
 import { esc, parseObservations, todayStr, fmtHM, plural, norm, nowIso, fmtD, fmtDT } from './util.js';
 import { ic } from './icons.js';
 import { overviewView } from './views/overview.js';
@@ -252,7 +252,13 @@ function layerHTML(s, now) {
   return h;
 }
 
+/** Champ de saisie de la feuille retour en cours d'utilisation (clavier ouvert sur téléphone). */
+const typingSheet = () => { const ae = document.activeElement; return !!(ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && ae.type !== 'checkbox')) && ae.closest('#view .rwrap')); };
 function render() {
+  // Pendant la saisie d'une note dans la feuille retour, on ne redessine pas la page (synchro, autre action) :
+  // sinon le champ est remplacé, le clavier se ferme et le texte en cours est perdu. On redessine à la sortie du champ.
+  if (ui.route.name === 'retour' && (typingSheet() || ui.holdRender)) { ui.deferRender = true; return; }
+  ui.deferRender = false;
   const s = getState(), now = new Date();
   ui.isManager = !!ui.server && !isTech();
   const ae = document.activeElement;
@@ -487,7 +493,16 @@ document.addEventListener('click', (e) => {
       break;
     }
     case 'rOpen': { const o = ui.rOpen || (ui.rOpen = {}); o[d.v] = !o[d.v]; render(); break; }
-    case 'rNext': { const el2 = document.querySelector('.rrow.todo'); if (el2) el2.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); else { const sec = s.boats.find((x) => x.id === id); const it = sec && A.sheetMissing(s, sec).unseen[0]; if (it) { (ui.rOpen || (ui.rOpen = {}))[it.sec.id] = true; render(); document.getElementById('r-' + it.id)?.scrollIntoView({ block: 'center' }); } } break; }
+    case 'rNext': {
+      // premier point à remplir (sans réponse, ou Défaut sans note), dans l'ordre de la feuille : on ouvre sa partie et on le fait clignoter
+      const b3 = s.boats.find((x) => x.id === id); if (!b3?.returnDraft) break;
+      const m = A.sheetMissing(s, b3), want = new Set([...m.unseen, ...m.noNote].map((x) => x.id));
+      const it = sheetItems(A.draftSheet(s, b3.returnDraft)).find((x) => want.has(x.id)); if (!it) break;
+      (ui.rOpen || (ui.rOpen = {}))[it.sec.id] = true; render();
+      const el2 = document.getElementById('r-' + it.id);
+      if (el2) { el2.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); el2.classList.remove('rflash'); void el2.offsetWidth; el2.classList.add('rflash'); }
+      break;
+    }
     case 'rDone': ui.rRecap = id; render(); break;
     case 'rRecapNo': ui.rRecap = null; render(); break;
     case 'rValidate': { const r = M(`Retour signalé · ${nm}`, (st) => A.validateReturnSheet(st, id, remote.user?.name || '')); if (r) { ui.rRecap = null; toast(`Retour signalé · ${nm}${r.obs ? ` · ${r.obs} observation${r.obs > 1 ? 's' : ''} créée${r.obs > 1 ? 's' : ''}` : ''}`, { undo: true }); go('boat', id, 'prep'); } break; }
@@ -558,6 +573,12 @@ document.addEventListener('click', (e) => {
 const slugify = (s) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 // ---- champs : brouillons, changements, formulaires ------------------------------------------------------
+document.addEventListener('focusout', () => setTimeout(() => { if (ui.deferRender && !ui.holdRender && !typingSheet()) render(); }, 0));
+/** Une note vient d'être enregistrée parce qu'on a touché un autre champ : on laisse ce champ prendre le clavier avant de redessiner. */
+function holdSheet() {
+  ui.holdRender = true;
+  setTimeout(() => { ui.holdRender = false; if (ui.deferRender && !typingSheet()) render(); }, 80);
+}
 document.addEventListener('input', (e) => {
   const el = e.target;
   if (el.dataset?.draft) ui.drafts[el.dataset.draft] = el.value;
@@ -590,12 +611,12 @@ document.addEventListener('change', (e) => {
     case 'acctRole': updateAccount({ id: +d.uid, role: el.value }).then((r) => { ui.accounts.list = r.users; ui.accounts.err = ''; render(); }).catch((err) => { ui.accounts.err = err.message; loadAccounts(); }); break;
     case 'dep': M('', (st) => A.setDeparture(st, id, el.value)); break;
     case 'ret': M('', (st) => A.setReturnDate(st, id, el.value)); break;
-    case 'rNote': M('', (st) => A.setSheetNote(st, id, d.it, el.value)); break;
+    case 'rNote': holdSheet(); M('', (st) => A.setSheetNote(st, id, d.it, el.value)); break;
     case 'shSec': M('Partie renommée', (st) => A.sheetRenameSection(st, d.sec, el.value)); break;
     case 'shItem': M('Point renommé', (st) => A.sheetRenameItem(st, d.sec, d.it, el.value)); break;
     case 'rBill': M('', (st) => A.setSheetBill(st, id, d.it, el.checked)); break;
-    case 'rNum': M('', (st) => A.setSheetNum(st, id, d.k, el.value)); break;
-    case 'rText': M('', (st) => A.setSheetText(st, id, d.f, el.value)); break;
+    case 'rNum': holdSheet(); M('', (st) => A.setSheetNum(st, id, d.k, el.value)); break;
+    case 'rText': holdSheet(); M('', (st) => A.setSheetText(st, id, d.f, el.value)); break;
     case 'base': M('', (st) => A.updateBoat(st, id, { base: el.value, otherBase: el.value === 'Autre' ? st.boats.find((b) => b.id === id).otherBase : '' })); break;
     case 'baseFilter': ui.base = el.value; render(); break;
     case 'jWho': ui.journal.who = el.value; render(); break;

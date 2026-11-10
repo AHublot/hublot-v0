@@ -146,8 +146,8 @@ export function changesSince(db, since = 0) {
   };
 }
 
-const OPS = new Set(['set', 'unset', 'add', 'upd', 'del']);
-const okOp = (o) => o && OPS.has(o.op) && (o.op === 'set' || o.op === 'unset' ? typeof o.k === 'string' : (o.a === 'logs' || o.a in LISTS) && (o.op === 'add' ? o.item && typeof o.item === 'object' : typeof o.key === 'string'));
+const OPS = new Set(['set', 'unset', 'add', 'upd', 'del', 'draft']);
+const okOp = (o) => o && OPS.has(o.op) && (o.op === 'draft' ? typeof o.id === 'string' && typeof o.f === 'string' : o.op === 'set' || o.op === 'unset' ? typeof o.k === 'string' : (o.a === 'logs' || o.a in LISTS) && (o.op === 'add' ? o.item && typeof o.item === 'object' : typeof o.key === 'string'));
 
 /**
  * Applique un lot de modifications : réglages communs, bateaux complets (nouveaux), suppressions

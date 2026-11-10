@@ -185,3 +185,22 @@ test('feuille retour : un technicien valide aussi quand la réservation a rempli
   assert.equal(s.boats[0].stay, null);
   assert.deepEqual(deniedOps('tech', diffBoat(filled, s.boats[0]), filled), []);
 });
+
+test('feuille retour : deux téléphones remplissent la même feuille sans s’effacer', () => {
+  const d0 = { id: 'D1', values: { a: 'ok' }, notes: {}, bill: {}, nums: {}, clientObs: '' };
+  const base = { id: 'b', inRental: true, returnDraft: d0 };
+  const A = { ...base, returnDraft: { ...d0, values: { a: 'ok', m1: 'ok', m2: 'ok' } } }; // téléphone A
+  const B = { ...base, returnDraft: { ...d0, values: { a: 'ok', p1: 'def' }, notes: { p1: 'fuite' } } }; // téléphone B, pas à jour
+  const opsA = diffBoat(base, A), opsB = diffBoat(base, B);
+  assert.ok(opsA.every((o) => o.op === 'draft'));
+  assert.deepEqual(deniedOps('tech', opsB, base), []);
+  const server = applyOps(applyOps(base, opsA), opsB);
+  assert.deepEqual(server.returnDraft.values, { a: 'ok', m1: 'ok', m2: 'ok', p1: 'def' });
+  assert.equal(server.returnDraft.notes.p1, 'fuite');
+  // feuille validée entre-temps : les coches en retard sont ignorées
+  const done = applyOps({ ...base, returnDraft: null }, opsB);
+  assert.equal(done.returnDraft, null);
+  // feuille commencée sur deux téléphones : la première reste
+  const other = applyOps(base, [{ op: 'set', k: 'returnDraft', v: { id: 'D2', values: {} } }]);
+  assert.equal(other.returnDraft.id, 'D1');
+});
