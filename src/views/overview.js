@@ -14,17 +14,23 @@ function hero(s, now, ui = {}) {
     const n = Math.round((startOfDay(d) - day0) / 864e5);
     return n < 0 ? 'En retard' : n === 0 ? 'Auj.' : n === 1 ? 'Demain' : `Dans ${n} j`;
   };
-  const deps = s.boats.filter((b) => !b.inRental && b.departure && parseLocal(b.departure) < horizon)
+  // Seulement les bateaux de l'équipe (en Martinique) ; un bateau collé (en location, repart juste après son retour) compte aussi.
+  const mine = s.boats.filter((b) => inMartinique(b));
+  const conv = (b) => convDep(b);
+  const deps = mine.filter((b) => b.departure && parseLocal(b.departure) < horizon && (!b.inRental || (b.returnDate && b.departure >= b.returnDate && isTight(b))))
     .map((b) => ({ b, st: boatStats(b), d: parseLocal(b.departure) })).sort((x, y) => x.d - y.d);
-  const all = deps.filter((x) => x.st.open > 0), todo = all.slice(0, 3), more = all.slice(3);
-  const rets = s.boats.filter((b) => b.inRental && b.returnDate && parseLocal(b.returnDate) >= day0 && parseLocal(b.returnDate) < horizon)
+  const all = deps.filter((x) => x.st.open > 0 || x.b.inRental), todo = all.slice(0, 3), more = all.slice(3);
+  const rets = mine.filter((b) => b.inRental && b.returnDate && parseLocal(b.returnDate) >= day0 && parseLocal(b.returnDate) < horizon)
     .sort((x, y) => parseLocal(x.returnDate) - parseLocal(y.returnDate));
   const retsTop = rets.slice(0, 3), retsMore = rets.slice(3);
-  const chip = (id, name, when, info, hot) => `<button type="button" class="pj2-row ${hot ? 'hot' : ''}" data-act="open" data-id="${id}"><b class="pj2-n">${esc(name)}</b><span class="pj2-w">${esc(when)}</span><span class="pj2-i">${info}</span></button>`;
-  const dRows = todo.map(({ b, st, d }, i) => chip(b.id, b.name, dw(d), `${st.open} à finir${st.blocked ? ' · <i>bloquant</i>' : ''}`, i === 0 && d < addDays(day0, 1) && st.pct < 50)).join('');
+  const chip = (id, name, when, info, hot, tight) => `<button type="button" class="pj2-row ${hot ? 'hot' : ''} ${tight ? 'tight' : ''}" data-act="open" data-id="${id}"><b class="pj2-n">${esc(name)}</b><span class="pj2-w">${esc(when)}</span><span class="pj2-i">${info}</span></button>`;
+  const dInfo = (b, st) => b.inRental
+    ? `${conv(b) ? 'Convoyage ' : ''}<b class="pj2-tight">Collé</b>`
+    : [conv(b) ? 'Convoyage' : '', `${st.open} à finir${st.blocked ? ' · <i>bloquant</i>' : ''}`].filter(Boolean).join(' · ');
+  const dRows = todo.map(({ b, st, d }, i) => chip(b.id, b.name, dw(d), dInfo(b, st), !b.inRental && i === 0 && d < addDays(day0, 1) && st.pct < 50, b.inRental)).join('');
   const chip2 = (id, name, when, n) => `<button type="button" class="pj2-chip" data-act="open" data-id="${id}"><b>${esc(name)}</b><span>${esc(when)}</span>${n != null ? `<i>${n}</i>` : ''}</button>`;
   const block = (list, noun, chipsHtml) => (list.length ? `<button type="button" class="pj2-more" data-act="pjMore" aria-expanded="${!!ui.pjAll}">${ui.pjAll ? 'Réduire' : `+ ${list.length} autre${list.length > 1 ? 's' : ''} ${noun}${list.length > 1 ? 's' : ''}`}</button>${ui.pjAll ? `<div class="pj2-chips">${chipsHtml}</div>` : ''}` : '');
-  const dMore = block(more, 'départ', more.map(({ b, st, d }) => chip2(b.id, b.name, dw(d), st.open)).join(''));
+  const dMore = block(more, 'départ', more.map(({ b, st, d }) => chip2(b.id, b.name, dw(d), b.inRental ? null : st.open)).join(''));
   const rMore = block(retsMore, 'retour', retsMore.map((b) => chip2(b.id, b.name, dw(parseLocal(b.returnDate)))).join(''));
   const rRows = retsTop.map((b) => chip(b.id, b.name, dw(parseLocal(b.returnDate)), 'retour')).join('');
   return `<section class="hero pj2"><h2>Le point du jour <span>· ${esc(fmtWDT(now).split(',')[0])}</span></h2>
@@ -48,7 +54,7 @@ const NOT_FP = new Set(['fakarava', 'ios', 'myst']);
 const isFP = (b) => !NOT_FP.has(norm(b.name).trim());
 
 /** Le prochain départ est un convoyage (d'après les réservations, date non modifiée à la main). */
-const convDep = (b) => b.resa?.homeDepType === 'convoyage' && !!b.departure && b.departure.slice(0, 16) === b.resa.homeDep;
+const convDep = (b) => b.resa?.homeDepType === 'convoyage' && !!b.departure && b.departure.slice(0, 10) === String(b.resa.homeDep || '').slice(0, 10);
 function card(b, now) {
   const st = boatStats(b), stt = boatStatus(b), mc = maintCounts(b, now), miss = missingDates(b, now);
   const dep = !b.inRental && parseLocal(b.departure);

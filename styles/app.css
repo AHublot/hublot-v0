@@ -925,3 +925,7 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .resa .convline { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0 0; font-size: 14px; color: var(--rent); }
 .resa .convline .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
 .resa .convline span { color: var(--tx); } .resa .convline b { color: var(--rent); }
+
+/* Point du jour : petit « Collé » jaune (dégradé vers transparent) et ligne teintée orange chaud */
+.pj2-tight { display: inline-block; margin-left: 5px; padding: 0 6px 0 5px; border-radius: 99px; font: 700 8px/1.6 var(--f-cond); letter-spacing: .08em; text-transform: uppercase; color: #FFD27A; background: linear-gradient(90deg, rgba(255,200,90,.42) 0%, rgba(255,200,90,0) 100%); vertical-align: 1px; }
+.pj2-row.tight { background: linear-gradient(90deg, rgba(255,140,90,.16) 0%, rgba(255,140,90,0) 70%), #12293C; }
