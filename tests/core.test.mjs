@@ -6,7 +6,8 @@ import {
   normalizeState, emptyState, newBoat, boatStats, boatStatus, maintStatus, DEFAULT_TEMPLATES, matchFilter, fleetStats, sheetOf,
 } from '../src/model.js';
 import * as A from '../src/actions.js';
-import { observationsOf } from '../src/model.js';
+import { observationsOf, engItems, engCounter, engineModelOf, maintCounts as mCounts } from '../src/model.js';
+import { diffBoat, deniedOps } from '../src/merge.js';
 import { monthData, monthlyReport, monthsAvailable, monthTotals } from '../src/report.js';
 import { dateSerial, sheetName } from '../src/xlsx.js';
 import { demoState } from '../src/demo.js';
@@ -456,4 +457,71 @@ test('heures du séjour : jamais calculées sur un relevé ancien ou impossible'
   // anciens départs sans date de relevé : on reprend la date du relevé actuel s'il est identique
   delete b.history[0].hours.date; b.hours.date = week(-0.5).toISOString();
   assert.deepEqual(A.tripHours(b, { hoursPort: '1040' }, week(1)), { port: 40, stbd: null });
+});
+
+test('moteurs : compteur le plus haut des deux, périodicité du modèle, observation automatique cochée = entretien noté', () => {
+  const s = fresh();
+  const id = s.boats[0].id, b = s.boats[0];
+  A.setHours(s, id, 'port', '612'); A.setHours(s, id, 'stbd', '1 588');
+  assert.equal(engCounter(b).h, 1588);
+  assert.deepEqual(engItems(s, b).map((x) => x.key), ['missing', 'missing', 'missing', 'missing']);
+  assert.equal(b.tasks.filter((t) => t.engDue).length, 0); // rien de renseigné : pas d'observation
+  // dernière vidange à 1 376 h (tous les 200 h) : 12 h de retard → observation dans la préparation
+  A.setEngField(s, id, 'oil', 'hours', '1376');
+  let oil = engItems(s, b).find((x) => x.type.id === 'oil');
+  assert.equal(oil.key, 'late'); assert.equal(oil.left, -12); assert.equal(oil.next, 1576);
+  let auto = b.tasks.filter((t) => t.engDue === 'oil');
+  assert.equal(auto.length, 1);
+  assert.equal(auto[0].title, 'Vidange + filtre à huile (prévue à 1576 h)');
+  assert.equal(mCounts(b, new Date(), s).late, 1);
+  // pas de doublon quand le compteur bouge encore
+  A.setHours(s, id, 'stbd', '1590');
+  assert.equal(b.tasks.filter((t) => t.engDue === 'oil').length, 1);
+  // cochée : notée au compteur actuel ; décochée : retour au relevé précédent
+  A.toggleTask(s, id, auto[0].id, 'Léa');
+  const rec = b.maintenance.find((m) => m.eng === 'oil');
+  assert.equal(rec.hours, '1590'); assert.equal(rec.log[0].by, 'Léa');
+  assert.equal(engItems(s, b).find((x) => x.type.id === 'oil').key, 'ok');
+  A.toggleTask(s, id, auto[0].id);
+  assert.equal(rec.hours, '1376');
+  // « Faite aujourd'hui » depuis l'onglet Entretiens coche aussi l'observation
+  A.engDone(s, id, 'oil', 'Marc');
+  assert.equal(b.tasks.find((t) => t.engDue === 'oil').done, true);
+  // à moins de 30 h : à prévoir (tombera pendant la prochaine location)
+  A.setEngField(s, id, 'fuel', 'hours', '1220');
+  assert.equal(engItems(s, b).find((x) => x.type.id === 'fuel').key, 'soon');
+  assert.ok(b.tasks.some((t) => t.engDue === 'fuel' && !t.done));
+  // relevé corrigé : plus d'échéance, l'observation non cochée disparaît
+  A.setEngField(s, id, 'fuel', 'hours', '1500');
+  assert.ok(!b.tasks.some((t) => t.engDue === 'fuel'));
+  // un autre modèle avec d'autres périodicités
+  A.addEngineModel(s, 'Volvo D2-40');
+  const volvo = s.engines.models[1];
+  A.setEngineIv(s, volvo.id, 'oil', 'h', '250');
+  A.setBoatEngine(s, id, volvo.id);
+  assert.equal(engineModelOf(s, b).name, 'Volvo D2-40');
+  assert.equal(engItems(s, b).find((x) => x.type.id === 'oil').next, 1840);
+  A.addEnginePart(s, volvo.id, { type: 'oil', label: 'Filtre à huile', ref: '3817524', qty: '1' });
+  assert.equal(s.engines.models[1].parts[0].ref, '3817524');
+});
+
+test('moteurs : en location, rien n’est ajouté ; le retour amène les entretiens à faire ; droits du technicien', () => {
+  const s = fresh();
+  const id = s.boats[0].id, b = s.boats[0];
+  A.setHours(s, id, 'port', '300');
+  A.setEngField(s, id, 'oil', 'hours', '150');
+  b.tasks = b.tasks.filter((t) => !t.engDue);
+  A.confirmDeparture(s, id);
+  A.setHours(s, id, 'port', '420'); // relevé pendant la location
+  assert.ok(!b.tasks.some((t) => t.engDue));
+  A.newReturn(s, id);
+  assert.equal(b.tasks.filter((t) => t.engDue === 'oil').length, 1);
+  // le technicien coche l'observation : la mise à jour de l'entretien lui est permise
+  const before = JSON.parse(JSON.stringify(b));
+  A.toggleTask(s, id, b.tasks.find((t) => t.engDue).id, 'Léa');
+  assert.deepEqual(deniedOps('tech', diffBoat(before, b), before), []);
+  // mais pas le choix du modèle de moteur
+  const b2 = JSON.parse(JSON.stringify(b));
+  A.addEngineModel(s, 'Autre'); A.setBoatEngine(s, id, s.engines.models[1].id);
+  assert.equal(deniedOps('tech', diffBoat(b2, b), b2).length > 0, true);
 });

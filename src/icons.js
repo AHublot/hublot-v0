@@ -21,6 +21,7 @@ const P = {
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   boat: '<path d="M3 16h18l-2.6 4.5H5.6z"/><path d="M12 3v13M12 4.5l6 9H12"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  engine: '<path d="M4 18a8 8 0 1116 0"/><path d="M12 18l4-5"/><circle cx="12" cy="18" r="1.2"/><path d="M7 11.5l-1.2-1.2M12 9V7.5M17 11.5l1.2-1.2"/>',
   tool: '<path d="M14.5 6.5a4 4 0 005 5L10 21a2.1 2.1 0 01-3-3z"/><path d="M14 7l3-3"/>',
   history: '<path d="M3 12a9 9 0 109-9 9 9 0 00-7 3.5M3 4v4h4"/><path d="M12 8v4l3 2"/>',
   sliders: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',

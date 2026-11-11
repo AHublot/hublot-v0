@@ -13,6 +13,7 @@ import { boatReport, fleetReport } from './whatsapp.js';
 import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
 import { journalView, journalDays } from './views/journal.js';
+import { enginesView } from './views/engines.js';
 import { retourView, cobsHint } from './views/retour.js';
 import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal, refreshResa, syncNow, getMail, saveMail, testMail } from './remote.js';
 
@@ -31,8 +32,8 @@ const TECH_PAGES = new Set(['overview', 'boat', 'backup', 'retour']); // « back
 const TECH_ACTS = new Set(['nav', 'open', 'tab', 'filter', 'resetFilters', 'view', 'undo', 'theme', 'palette', 'palRun', 'print', 'copyWA',
   'tgl', 'blk', 'del', 'delp', 'voice', 'obsF', 'banner', 'logout', 'logoutKeep', 'logoutForce', 'confirmNo',
   'pjMore', 'fOpen', 'fClose', 'baseAll', 'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'retYes', 'depNo',
-  'rSet', 'rOpen', 'rNext', 'rDone', 'rRecapNo', 'rValidate', 'rCancel', 'rCancelNo', 'rCancelYes', 'rPrint', 'rView']);
-const TECH_CHG = new Set(['hours', 'baseFilter', 'rNote', 'rBill', 'rNum', 'rText']);
+  'engDone', 'engFix', 'rSet', 'rOpen', 'rNext', 'rDone', 'rRecapNo', 'rValidate', 'rCancel', 'rCancelNo', 'rCancelYes', 'rPrint', 'rView']);
+const TECH_CHG = new Set(['hours', 'baseFilter', 'rNote', 'rBill', 'rNum', 'rText', 'engF']);
 const TECH_MAINT = new Set(['date', 'hours', 'notes']);
 const TECH_FORMS = new Set(['obs', 'pwd', 'firstPwd', 'login']);
 
@@ -55,6 +56,7 @@ function parseHash() {
   if (/^#\/backup/.test(h)) return { name: 'backup' };
   if (/^#\/accounts/.test(h)) return { name: 'accounts' };
   if (/^#\/journal/.test(h)) return { name: 'journal' };
+  if (/^#\/engines/.test(h)) return { name: 'engines' };
   const rm = h.match(/^#\/retour\/([^/]+)(?:\/([^/]+))?/);
   if (rm) return { name: 'retour', id: decodeURIComponent(rm[1]), sheet: rm[2] ? decodeURIComponent(rm[2]) : null };
   return { name: 'overview' };
@@ -130,7 +132,7 @@ function sideHTML(s) {
   const nav = (to, icn, label, n) => `<button type="button" class="nav ${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}" ${ui.route.name === to ? 'aria-current="page"' : ''}>${ic(icn)}<span>${label}</span>${n != null ? `<em class="mono">${n}</em>` : ''}</button>`;
   return `<button type="button" class="brand brandlink" data-act="nav" data-to="overview" title="Vue d’ensemble"><span class="mark"><img src="icons/logo.svg" alt="" width="96" height="96" decoding="async"></span><span class="bt"><b>Hublot</b><small>ACM Caraïbes</small></span></button>
     <span class="k side-k">${remote.user?.role === 'tech' ? 'Espace technicien' : 'Espace manager'}</span>
-    <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${isTech() ? '' : `${nav('checklist', 'list', 'Liste de préparation', s.templates.length)}${ui.server ? nav('journal', 'history', 'Journal') : ''}${ui.server ? nav('accounts', 'users', 'Comptes', ui.accounts?.list ? ui.accounts.list.filter((u) => !u.disabled).length : null) : ''}`}</nav>
+    <nav aria-label="Navigation">${nav('overview', 'grid', 'Vue d’ensemble', s.boats.length)}${isTech() ? '' : `${nav('checklist', 'list', 'Liste de préparation', s.templates.length)}${nav('engines', 'engine', 'Moteurs')}${ui.server ? nav('journal', 'history', 'Journal') : ''}${ui.server ? nav('accounts', 'users', 'Comptes', ui.accounts?.list ? ui.accounts.list.filter((u) => !u.disabled).length : null) : ''}`}</nav>
     <div class="grow"></div>
     <div class="sidecard"><span>${ic('wave')}</span><b>Le prochain départ commence ici.</b><small>Une vue claire, un bateau prêt après l’autre.</small></div>
     <button type="button" class="nav small ${ui.route.name === 'backup' ? 'on' : ''}" data-act="nav" data-to="backup">${ic(isTech() ? 'users' : 'download')}<span>${isTech() ? 'Mon compte' : 'Sauvegardes et restauration'}</span></button>
@@ -177,7 +179,7 @@ function firstPwdHTML() {
 function topHTML(s) {
   const r = ui.route;
   const b = r.name === 'boat' ? s.boats.find((x) => x.id === r.id) : null;
-  const names = { overview: 'Vue d’ensemble', team: 'Mon équipe', checklist: 'Liste de préparation', accounts: 'Comptes', journal: 'Journal', backup: isTech() ? 'Mon compte' : 'Sauvegardes et restauration' };
+  const names = { overview: 'Vue d’ensemble', team: 'Mon équipe', checklist: 'Liste de préparation', engines: 'Moteurs', accounts: 'Comptes', journal: 'Journal', backup: isTech() ? 'Mon compte' : 'Sauvegardes et restauration' };
   const t = store.savedAt;
   return `<div class="trail"><span>${esc(s.baseName)}</span>${ic('chevR')}<b>${esc(b ? b.name : names[r.name] || '')}</b></div>
     <div class="topr">
@@ -190,7 +192,7 @@ function topHTML(s) {
 function tabbarHTML() {
   const t = (to, icn, label) => `<button type="button" class="${ui.route.name === to || (to === 'overview' && ui.route.name === 'boat') ? 'on' : ''}" data-act="nav" data-to="${to}">${ic(icn)}<span>${label}</span></button>`;
   if (isTech()) return `${t('overview', 'grid', 'Flotte')}${t('backup', 'users', 'Compte')}`;
-  return `${t('overview', 'grid', 'Flotte')}${t('checklist', 'list', 'Liste')}${ui.server ? `${t('journal', 'history', 'Journal')}${t('accounts', 'users', 'Comptes')}` : ''}${t('backup', 'download', 'Données')}`;
+  return `${t('overview', 'grid', 'Flotte')}${t('checklist', 'list', 'Liste')}${t('engines', 'engine', 'Moteurs')}${ui.server ? `${t('journal', 'history', 'Journal')}${t('accounts', 'users', 'Comptes')}` : ''}${t('backup', 'download', 'Données')}`;
 }
 function paletteItems(s, q) {
   const items = [
@@ -291,7 +293,7 @@ function render() {
   $('#tabbar').innerHTML = tabbarHTML();
   const r = ui.route;
   $('#view').innerHTML = r.name === 'boat' ? boatView(s, ui, r.id, now) : r.name === 'team' ? teamView(s, ui)
-    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'accounts' ? accountsView(s, ui) : r.name === 'retour' ? retourView(s, ui, r.id, r.sheet, remote.user?.name || '') : r.name === 'journal' ? journalView(s, ui, now) : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
+    : r.name === 'checklist' ? checklistView(s, ui) : r.name === 'accounts' ? accountsView(s, ui) : r.name === 'retour' ? retourView(s, ui, r.id, r.sheet, remote.user?.name || '') : r.name === 'journal' ? journalView(s, ui, now) : r.name === 'engines' ? enginesView(s, ui, now) : r.name === 'backup' ? backupView(s, ui) : overviewView(s, ui, now);
   document.querySelectorAll('#view [data-draft]').forEach((el) => { if (ui.drafts[el.dataset.draft] != null) el.value = ui.drafts[el.dataset.draft]; });
   document.querySelectorAll('#view textarea[data-parse]').forEach(updateParse);
   tickCountdowns();
@@ -459,7 +461,7 @@ document.addEventListener('click', (e) => {
       return; // laisse le lien s'ouvrir
     }
     // tâches
-    case 'tgl': { const t = boat?.tasks.find((x) => x.id === d.tid); ui.fx = t && !t.done ? d.tid : null; M('', (st) => A.toggleTask(st, id, d.tid)); ui.fx = null; break; }
+    case 'tgl': { const t = boat?.tasks.find((x) => x.id === d.tid); ui.fx = t && !t.done ? d.tid : null; M('', (st) => A.toggleTask(st, id, d.tid, remote.user?.name || '')); ui.fx = null; break; }
     case 'blk': M('', (st) => A.toggleBlock(st, id, d.tid)); break;
     case 'bill': M('', (st) => A.toggleBill(st, id, d.tid)); setTimeout(() => document.getElementById(`hrs-${d.tid}`)?.focus(), 0); break;
     case 'del': M(`Tâche retirée`, (st) => A.deleteTask(st, id, d.tid)); break;
@@ -543,6 +545,12 @@ document.addEventListener('click', (e) => {
     case 'shItDel': M('Point retiré de la feuille retour', (st) => A.sheetDeleteItem(st, d.sec, d.it)); break;
     case 'shSecDel': M('Partie retirée de la feuille retour', (st) => A.sheetDeleteSection(st, d.sec)); break;
     case 'shReset': M('Feuille retour d’origine rétablie', (st) => A.sheetReset(st)); break;
+    case 'engDone': M('Entretien noté', (st) => A.engDone(st, id, d.type, remote.user?.name || '')); break;
+    case 'engFix': ui.engFix = { ...(ui.engFix || {}), [d.k]: !ui.engFix?.[d.k] }; render(); break;
+    case 'engTab': ui.engTab = d.v; render(); break;
+    case 'engTypeDel': M('Entretien retiré', (st) => A.deleteEngineType(st, d.type)); break;
+    case 'engModelDel': M('Modèle retiré', (st) => A.deleteEngineModel(st, d.mid)); break;
+    case 'engPartDel': M('Pièce retirée', (st) => A.deleteEnginePart(st, d.mid, d.pid)); break;
     case 'mxOpen': ui.cl = ui.cl === d.v ? null : d.v; render(); break;
     case 'clUp': case 'clDn': ui.clEdit = null; M('', (st) => { const l = st.templates.slice(), i = +d.i, j = a === 'clUp' ? i - 1 : i + 1; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; A.setFleetTemplates(st, l); }); break;
     case 'clDel': ui.clEdit = null; M('Tâche retirée de la liste', (st) => { const l = st.templates.slice(); l.splice(+d.i, 1); A.setFleetTemplates(st, l); }); break;
@@ -641,6 +649,12 @@ document.addEventListener('change', (e) => {
     case 'tplCat': M('', (st) => A.setTplCat(st, st.templates[+d.i], el.value)); break;
     case 'tplNow': ui.tplNow = el.checked; break;
     case 'maint': M('', (st) => A.updateMaint(st, id, d.mid, d.f, el.value)); break;
+    case 'engF': M('', (st) => A.setEngField(st, id, d.type, d.f, el.value, remote.user?.name || '')); break;
+    case 'engModel': M('Modèle de moteur changé', (st) => A.setBoatEngine(st, id, el.value)); break;
+    case 'engTypeName': M('', (st) => A.renameEngineType(st, d.type, el.value)); break;
+    case 'engModelName': M('', (st) => A.renameEngineModel(st, d.mid, el.value)); break;
+    case 'engIv': M('', (st) => A.setEngineIv(st, d.mid, d.type, d.k, el.value)); break;
+    case 'engPart': M('', (st) => A.updateEnginePart(st, d.mid, d.pid, d.f, el.value)); break;
     case 'hours': M('', (st) => A.setHours(st, id, d.f, el.value)); break;
     case 'billf': M('', (st) => A.setBillField(st, id, d.tid, d.f, el.value)); break;
     case 'billed': M(el.checked ? 'Refacturé au client' : 'Refacturation annulée', (st) => A.setBilled(st, id, d.tid, el.checked)); break;
@@ -716,6 +730,9 @@ document.addEventListener('submit', (e) => {
       if (ok === false) toast('Cette tâche est déjà dans la liste');
       break;
     }
+    case 'engTypeAdd': { const l = g('label'); if (l) M('Entretien ajouté', (st) => A.addEngineType(st, l)); break; }
+    case 'engModelAdd': { const n = g('name'); if (n) M('Modèle ajouté', (st) => A.addEngineModel(st, n)); break; }
+    case 'engPartAdd': { const l = g('label'); if (l) M('Pièce ajoutée', (st) => A.addEnginePart(st, form.dataset.mid, { label: l, ref: g('ref'), qty: g('qty'), type: g('type') })); break; }
     case 'addMaint': { const t = g('title'); if (!t) return; delete ui.drafts[`maint-${id}`]; M('Entretien ajouté', (st) => A.addMaint(st, id, t)); break; }
     case 'addEvent': {
       if (!g('title')) return;

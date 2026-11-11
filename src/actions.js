@@ -1,7 +1,7 @@
 // Toutes les modifications de données. Chaque fonction reçoit l'état « brouillon » (muté en place)
 // via store.mutate(), qui s'occupe de l'enregistrement et de l'annulation.
 import { uid, todayStr, nowIso, clone, norm, parseObservations } from './util.js';
-import { mkTask, mkMaint, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet, inMartinique, homeBase } from './model.js';
+import { mkTask, mkMaint, engConf, engCounter, normEngines, engineDue, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet, inMartinique, homeBase } from './model.js';
 
 const find = (s, id) => {
   const b = s.boats.find((x) => x.id === id);
@@ -13,11 +13,15 @@ export function log(b, text) {
 }
 
 // ---- tâches ----------------------------------------------------------------
-export function toggleTask(s, id, tid) {
+export function toggleTask(s, id, tid, user = '') {
   const b = find(s, id), t = b.tasks.find((x) => x.id === tid);
   if (!t) return;
-  if (t.done) { t.done = false; delete t.doneAt; log(b, `Rouverte : ${t.title}`); }
-  else { t.done = true; t.doneAt = nowIso(); log(b, `Terminée : ${t.title}`); }
+  if (t.done) { t.done = false; delete t.doneAt; log(b, `Rouverte : ${t.title}`); if (t.engDue) engUndo(s, b, t.engDue, t.engAt); }
+  else {
+    t.done = true; t.doneAt = nowIso(); log(b, `Terminée : ${t.title}`);
+    // observation « entretien moteur » cochée : l'entretien est noté au compteur actuel
+    if (t.engDue) { engDone(s, id, t.engDue, user); t.engAt = engRecordOf(b, t.engDue)?.date || ''; }
+  }
 }
 export function toggleBlock(s, id, tid) {
   const b = find(s, id), t = b.tasks.find((x) => x.id === tid);
@@ -193,6 +197,7 @@ export function newReturn(s, id, now = new Date()) {
   if (!b.departure || new Date(b.departure) <= now) b.departure = '';
   b.returnDate = '';
   b.cycle = todayStr(now);
+  syncEngineTasks(s, b, now);
   log(b, `Nouveau retour : préparation archivée${plan.kept.length ? `, ${plan.kept.length} observation${plan.kept.length > 1 ? 's' : ''} non terminée${plan.kept.length > 1 ? 's' : ''} gardée${plan.kept.length > 1 ? 's' : ''}` : ''}`);
   return plan;
 }
@@ -215,6 +220,7 @@ export function setHours(s, id, field, value) {
   const b = find(s, id);
   b.hours = { ...(b.hours || {}), [field]: String(value || '').trim(), date: nowIso() };
   log(b, `Relevé moteur ${field === 'port' ? 'bâbord' : 'tribord'} : ${value || '—'} h`);
+  syncEngineTasks(s, b);
 }
 
 // ---- entretiens et événements --------------------------------------------------
@@ -224,6 +230,135 @@ export function updateMaint(s, id, mid, field, value) {
   m[field] = ['intervalDays', 'intervalHours'].includes(field) ? (Number(value) || undefined) : value;
   log(b, `Entretien mis à jour : ${m.title}`);
 }
+// ---- moteurs : entretiens à l'heure (compteur le plus haut des deux moteurs) -----------------
+const engType = (s, typeId) => engConf(s).types.find((t) => t.id === typeId);
+function engRec(s, b, typeId) {
+  let m = b.maintenance.find((x) => x.eng === typeId);
+  if (!m) { // id fixe : deux téléphones qui notent le même entretien ne créent pas de doublon
+    m = { id: `eng-${typeId}`, title: engType(s, typeId)?.label || 'Entretien moteur', eng: typeId, date: '', hours: '', notes: '', log: [] };
+    b.maintenance.push(m);
+  }
+  if (!Array.isArray(m.log)) m.log = [];
+  return m;
+}
+const fmtNum = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+const engRecordOf = (b, typeId) => b.maintenance.find((x) => x.eng === typeId);
+/** Observation rouverte : on retire ce qu'elle avait noté (si rien n'a été noté depuis). */
+function engUndo(s, b, typeId, at) {
+  const m = engRecordOf(b, typeId);
+  if (!m || !at || m.date !== at || !m.log?.length) return;
+  m.log.shift();
+  m.hours = m.log[0]?.h || ''; m.date = m.log[0]?.d || '';
+  log(b, `${m.title} : retour au relevé précédent`);
+}
+/**
+ * Observations automatiques : un entretien moteur en retard, ou qui tombera pendant la prochaine location,
+ * devient une observation de la préparation (le bateau n'est pas « Prêt » tant qu'elle n'est pas cochée).
+ * Plus d'échéance (relevé corrigé, périodicité changée) : l'observation non cochée disparaît.
+ */
+export function syncEngineTasks(s, b, now = new Date()) {
+  if (b.inRental || !inMartinique(b)) return 0;
+  const due = engineDue(s, b, now);
+  const ids = new Set(due.map((x) => x.type.id));
+  b.tasks = b.tasks.filter((t) => !(t.engDue && !t.done && !ids.has(t.engDue)));
+  let n = 0;
+  due.forEach((x) => {
+    if (b.tasks.some((t) => t.engDue === x.type.id && !t.done)) return;
+    const when = x.next != null ? `prévue à ${fmtNum(x.next)} h` : x.label.toLowerCase();
+    b.tasks.push(mkTask(`${x.type.label} (${when})`, false, { engDue: x.type.id }));
+    n++;
+  });
+  if (n) log(b, `${n} entretien${n > 1 ? 's' : ''} moteur à faire ajouté${n > 1 ? 's' : ''} à la préparation`);
+  return n;
+}
+/** « Faite aujourd'hui » : date du jour et compteur actuel (corrigeables ensuite). */
+export function engDone(s, id, typeId, user = '', now = new Date()) {
+  const b = find(s, id);
+  if (!engType(s, typeId)) return;
+  const m = engRec(s, b, typeId);
+  const c = engCounter(b);
+  m.hours = c ? fmtNum(c.h) : '';
+  m.date = todayStr(now);
+  m.log = [{ h: m.hours, d: m.date, ...(user ? { by: user } : {}) }, ...m.log].slice(0, 30);
+  log(b, `${m.title} faite${m.hours ? ` à ${m.hours} h` : ''}`);
+  b.tasks.forEach((t) => { if (t.engDue === typeId && !t.done) { t.done = true; t.doneAt = nowIso(); t.engAt = m.date; } });
+  syncEngineTasks(s, b, now);
+}
+/** Correction du compteur ou de la date de la dernière fois (l'historique suit). */
+export function setEngField(s, id, typeId, field, value, user = '') {
+  if (!['hours', 'date'].includes(field)) return;
+  const b = find(s, id);
+  if (!engType(s, typeId)) return;
+  const m = engRec(s, b, typeId);
+  const v = String(value || '').trim();
+  const last = m.log[0];
+  if (last && last.h === m.hours && last.d === m.date) { if (field === 'hours') last.h = v; else last.d = v; }
+  else if (v) m.log = [{ h: field === 'hours' ? v : m.hours, d: field === 'date' ? v : m.date, ...(user ? { by: user } : {}) }, ...m.log].slice(0, 30);
+  m[field] = v;
+  log(b, `${m.title} : ${m.hours ? `${m.hours} h` : '—'}${m.date ? ` le ${m.date.split('-').reverse().join('/')}` : ''}`);
+  syncEngineTasks(s, b);
+}
+export function setBoatEngine(s, id, modelId) {
+  const b = find(s, id);
+  const first = engConf(s).models[0]?.id;
+  if (!modelId || modelId === first) delete b.engineModel; else b.engineModel = modelId;
+  log(b, `Modèle de moteur : ${engConf(s).models.find((m) => m.id === (modelId || first))?.name || '—'}`);
+  syncEngineTasks(s, b);
+}
+// réglages de la page Moteurs (manager)
+const engCfg = (s) => { s.engines = normEngines(s.engines); return s.engines; };
+const engModel = (s, mid) => engCfg(s).models.find((m) => m.id === mid);
+export function addEngineModel(s, name) {
+  const c = engCfg(s);
+  const n = String(name || '').trim();
+  if (!n) return;
+  c.models.push({ id: uid(), name: n, iv: clone(c.models[0]?.iv || {}), parts: [] });
+}
+export function renameEngineModel(s, mid, name) { const m = engModel(s, mid); if (m && String(name).trim()) m.name = String(name).trim(); }
+export function deleteEngineModel(s, mid) {
+  const c = engCfg(s);
+  if (c.models.length < 2) throw new Error('Il faut garder au moins un modèle');
+  c.models = c.models.filter((m) => m.id !== mid);
+  s.boats.forEach((b) => { if (b.engineModel === mid) { delete b.engineModel; log(b, `Modèle de moteur : ${c.models[0].name}`); syncEngineTasks(s, b); } });
+}
+export function setEngineIv(s, mid, typeId, k, value) {
+  const m = engModel(s, mid);
+  if (!m || !['h', 'd'].includes(k)) return;
+  const n = Number(String(value || '').replace(',', '.'));
+  const cur = { ...(m.iv[typeId] || {}) };
+  if (Number.isFinite(n) && n > 0) cur[k] = n; else delete cur[k];
+  m.iv[typeId] = cur;
+  s.boats.forEach((b) => syncEngineTasks(s, b));
+}
+export function addEngineType(s, label) {
+  const c = engCfg(s);
+  const l = String(label || '').trim();
+  if (!l || c.types.some((t) => norm(t.label) === norm(l))) return;
+  c.types.push({ id: uid().slice(0, 8), label: l });
+}
+export function renameEngineType(s, typeId, label) {
+  const t = engCfg(s).types.find((x) => x.id === typeId), l = String(label || '').trim();
+  if (!t || !l) return;
+  t.label = l;
+  s.boats.forEach((b) => b.maintenance.forEach((m) => { if (m.eng === typeId) m.title = l; }));
+}
+export function deleteEngineType(s, typeId) {
+  const c = engCfg(s);
+  c.types = c.types.filter((t) => t.id !== typeId);
+  c.models.forEach((m) => { delete m.iv[typeId]; });
+  s.boats.forEach((b) => syncEngineTasks(s, b));
+}
+export function addEnginePart(s, mid, part) {
+  const m = engModel(s, mid);
+  if (!m || !String(part?.label || '').trim()) return;
+  m.parts.push({ id: uid(), type: part.type || '', label: String(part.label).trim(), ref: String(part.ref || '').trim(), qty: String(part.qty || '').trim(), note: String(part.note || '').trim() });
+}
+export function updateEnginePart(s, mid, pid, field, value) {
+  const p = engModel(s, mid)?.parts.find((x) => x.id === pid);
+  if (p && ['type', 'label', 'ref', 'qty', 'note'].includes(field)) p[field] = String(value ?? '').trim();
+}
+export function deleteEnginePart(s, mid, pid) { const m = engModel(s, mid); if (m) m.parts = m.parts.filter((x) => x.id !== pid); }
+
 export function addMaint(s, id, title) {
   const b = find(s, id);
   b.maintenance.push(mkMaint(title));
@@ -469,6 +604,7 @@ export function validateReturnSheet(s, id, user = '', now = new Date()) {
   b.returnSheets = [{ ...clone(d), at: nowIso(), by: user || '', sheet, tripHours: trip, obsIds }, ...(b.returnSheets || [])];
   b.returnDraft = null;
   b.stay = null;
+  syncEngineTasks(s, b, now); // relevé du retour : les entretiens moteur à faire arrivent dans la préparation
   log(b, `Feuille retour validée${obsIds.length ? ` : ${obsIds.length} observation${obsIds.length > 1 ? 's' : ''} créée${obsIds.length > 1 ? 's' : ''}` : ', aucun défaut'}`);
   return { obs: obsIds.length };
 }

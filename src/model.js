@@ -1,5 +1,5 @@
 // Modèle de données, normalisation (import de l'ancienne sauvegarde) et calculs dérivés.
-import { uid, todayStr, nowIso, parseLocal, addDays, num, arr, cap, norm } from './util.js';
+import { uid, todayStr, nowIso, parseLocal, addDays, num, arr, cap, norm, clone } from './util.js';
 
 export const SCHEMA = 2;
 
@@ -99,13 +99,92 @@ export function guessInterval(title = '') {
 }
 export const DEFAULT_MAINT = ['Survie', 'Extincteurs', 'Entretien moteur'];
 export const mkMaint = (title, extra = {}) => ({ id: uid(), title, date: '', hours: '', notes: '', ...guessInterval(title), ...extra });
+// ---- moteurs : entretiens à l'heure ----------------------------------------------------------
+// Les deux moteurs comptent comme un seul : on suit le compteur le plus haut des deux.
+// Les entretiens suivis et leurs périodicités dépendent du modèle de moteur (page Moteurs).
+export const ENGINE_TYPES = [
+  { id: 'oil', label: 'Vidange + filtre à huile' },
+  { id: 'fuel', label: 'Filtre à gasoil' },
+  { id: 'prefuel', label: 'Préfiltre à gasoil' },
+  { id: 'imp', label: 'Impeller' },
+];
+const DEFAULT_IV = { oil: { h: 200 }, fuel: { h: 400 }, prefuel: { h: 200 }, imp: { h: 600, d: 365 } };
+/** « À prévoir » : ce qui tombera pendant la prochaine location (une semaine ≈ 30 h moteur). */
+export const SOON_HOURS = 30;
+export const defaultEngines = () => ({ types: clone(ENGINE_TYPES), models: [{ id: 'std', name: 'Moteur standard', iv: clone(DEFAULT_IV), parts: [] }] });
+const posNum = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : undefined; };
+export function normEngines(e) {
+  if (!e || typeof e !== 'object') return defaultEngines();
+  const types = arr(e.types).filter((t) => t && t.id).map((t) => ({ id: String(t.id), label: String(t.label || 'Entretien') }));
+  const models = arr(e.models).filter((m) => m && m.id).map((m) => ({
+    id: String(m.id), name: String(m.name || 'Moteur'),
+    iv: Object.fromEntries(Object.entries(m.iv && typeof m.iv === 'object' ? m.iv : {}).map(([k, v]) => [k, { ...(posNum(v?.h) ? { h: posNum(v.h) } : {}), ...(posNum(v?.d) ? { d: posNum(v.d) } : {}) }])),
+    parts: arr(m.parts).filter(Boolean).map((p) => ({ id: p.id || uid(), type: p.type || '', label: String(p.label || ''), ref: String(p.ref || ''), qty: String(p.qty ?? ''), note: String(p.note || '') })),
+  }));
+  const d = defaultEngines();
+  return { types: types.length ? types : d.types, models: models.length ? models : d.models };
+}
+export const engConf = (s) => (s?.engines?.models?.length ? s.engines : defaultEngines());
+/** Modèle de moteur du bateau (le premier de la liste s'il n'en a pas). */
+export const engineModelOf = (s, b) => { const c = engConf(s); return c.models.find((m) => m.id === b.engineModel) || c.models[0]; };
+/** Compteur suivi : le plus haut des deux moteurs. */
+export function engCounter(b) {
+  const lh = latestHours(b);
+  if (!lh) return null;
+  const v = [lh.port, lh.stbd].filter((x) => x != null);
+  return v.length ? { h: Math.max(...v), side: lh.port != null && lh.port >= (lh.stbd ?? -1) ? 'bâbord' : 'tribord', date: lh.date, both: v.length === 2 } : null;
+}
+export const engRecord = (b, typeId) => arr(b.maintenance).find((m) => m.eng === typeId) || null;
+const fmtHr = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+/** Où en est un entretien moteur sur un bateau (null si le modèle ne le suit pas). */
+export function engItem(s, b, type, now = new Date(), cnt = engCounter(b)) {
+  const iv = engineModelOf(s, b)?.iv?.[type.id] || {};
+  if (!iv.h && !iv.d) return null;
+  const rec = engRecord(b, type.id);
+  const h = num(rec?.hours), d = rec?.date ? parseLocal(rec.date) : null, cur = cnt ? cnt.h : null;
+  const out = { type, iv, rec, h, date: rec?.date || '', cur, next: null, left: null, leftDays: null, used: null, key: 'ok', label: 'À jour' };
+  if (h == null && !d) return { ...out, key: 'missing', label: 'À renseigner' };
+  const parts = [];
+  let key = 'ok';
+  if (iv.h && h != null) {
+    out.next = h + iv.h;
+    if (cur != null) {
+      out.left = Math.round(out.next - cur);
+      out.used = Math.min(100, Math.max(0, ((cur - h) / iv.h) * 100));
+      if (out.left < 0) { key = 'late'; parts.push(`${-out.left} h de retard`); }
+      else { if (out.left <= SOON_HOURS) key = 'soon'; parts.push(`encore ${out.left} h`); }
+    } else parts.push(`prochaine à ${fmtHr(out.next)} h`);
+  }
+  if (iv.d && d) {
+    out.leftDays = Math.round((addDays(d, iv.d) - now) / 864e5);
+    if (out.leftDays < 0) { key = 'late'; parts.unshift(`en retard de ${-out.leftDays} j`); }
+    else if (out.leftDays <= 30) { if (key !== 'late') key = 'soon'; parts.push(`dans ${out.leftDays} j`); }
+  }
+  return { ...out, key, label: cap(parts.join(' · ')) || 'À jour' };
+}
+/** Tous les entretiens moteur suivis pour ce bateau. */
+export function engItems(s, b, now = new Date()) {
+  const cnt = engCounter(b);
+  return engConf(s).types.map((t) => engItem(s, b, t, now, cnt)).filter(Boolean);
+}
+/** Entretiens moteur à faire maintenant : en retard, ou qui tomberont pendant la prochaine location. */
+export const engineDue = (s, b, now = new Date()) => engItems(s, b, now).filter((x) => x.key === 'late' || x.key === 'soon');
+const ENG_RANK = { late: 0, soon: 1, missing: 2, ok: 3 };
+/** Urgence d'un bateau (pour trier la flotte) : le plus pressé d'abord. */
+export function engUrgency(s, b, now = new Date()) {
+  const it = engItems(s, b, now);
+  const rank = Math.min(4, ...it.map((x) => ENG_RANK[x.key]));
+  const left = Math.min(Infinity, ...it.filter((x) => x.left != null).map((x) => x.left));
+  return { rank, left, items: it };
+}
+
 export const mkTask = (title, tpl = false, extra = {}) => ({
   id: uid(), title, done: false, blocked: false, origin: todayStr(), ...(tpl ? { template: title } : {}), ...extra,
 });
 
 export function emptyState() {
   return {
-    schema: SCHEMA, baseName: 'Ma base', team: [], templates: DEFAULT_TEMPLATES.slice(), tplCats: {}, returnSheet: null, boats: [],
+    schema: SCHEMA, baseName: 'Ma base', team: [], templates: DEFAULT_TEMPLATES.slice(), tplCats: {}, returnSheet: null, engines: null, boats: [],
     prefs: { autoDeparture: true }, updatedAt: nowIso(),
   };
 }
@@ -138,6 +217,7 @@ export function normalizeBoat(raw, i = 0) {
     stay: r.stay && typeof r.stay === 'object' ? r.stay : null,
     resa: r.resa && typeof r.resa === 'object' ? r.resa : null,
     resaDates: r.resaDates && typeof r.resaDates === 'object' ? r.resaDates : null,
+    ...(r.engineModel ? { engineModel: String(r.engineModel) } : {}),
   };
   const fixTask = (t) => ({ ...t, id: t.id || uid(), title: String(t.title || ''), done: !!t.done, blocked: !!t.blocked });
   b.tasks = b.tasks.map(fixTask);
@@ -148,6 +228,7 @@ export function normalizeBoat(raw, i = 0) {
       id: m.id || uid(), title: m.title || 'Entretien', date: m.date || '', hours: m.hours || '', notes: m.notes || '',
       intervalDays: m.intervalDays ?? g.intervalDays, intervalHours: m.intervalHours ?? g.intervalHours,
       ...(m.by ? { by: m.by } : {}),
+      ...(m.eng ? { eng: String(m.eng), log: arr(m.log) } : {}),
     };
   });
   return b;
@@ -165,7 +246,7 @@ export function normalizeState(raw) {
   const first = boats.find((b) => b.templates.length);
   const templates = arr(d.templates).length ? d.templates.slice() : first ? first.templates.slice() : DEFAULT_TEMPLATES.slice();
   return {
-    schema: SCHEMA, baseName: d.baseName || 'Ma base', team, templates, tplCats: d.tplCats && typeof d.tplCats === 'object' ? { ...d.tplCats } : {}, returnSheet: storedSheet(d.returnSheet), boats,
+    schema: SCHEMA, baseName: d.baseName || 'Ma base', team, templates, tplCats: d.tplCats && typeof d.tplCats === 'object' ? { ...d.tplCats } : {}, returnSheet: storedSheet(d.returnSheet), engines: d.engines ? normEngines(d.engines) : null, boats,
     prefs: { autoDeparture: true, ...(d.prefs || {}) }, updatedAt: nowIso(),
   };
 }
@@ -272,12 +353,14 @@ export function maintStatus(m, b, now = new Date()) {
   return { key, label: parts.length ? cap(parts.join(' · ')) : 'À jour' };
 }
 
-export const maintCounts = (b, now = new Date()) => {
+/** Entretiens en retard, à prévoir, sans date. Avec `s` : les entretiens moteur comptent aussi (retard et à prévoir). */
+export const maintCounts = (b, now = new Date(), s = null) => {
   let late = 0, missing = 0, soon = 0;
-  b.maintenance.forEach((m) => {
+  b.maintenance.filter((m) => !m.eng).forEach((m) => {
     const k = maintStatus(m, b, now).key;
     if (k === 'late') late++; else if (k === 'missing') missing++; else if (k === 'soon') soon++;
   });
+  if (s) engineDue(s, b, now).forEach((x) => { if (x.key === 'late') late++; else soon++; });
   return { late, missing, soon };
 };
 export const missingDates = (b, now) => maintCounts(b, now).missing + (!b.inRental && !b.departure ? 1 : 0);
@@ -290,11 +373,11 @@ export const FILTERS = [
   { key: 'missing', label: 'Dates manquantes' },
   { key: 'ready', label: 'Listes terminées' },
 ];
-export function matchFilter(b, key, now = new Date()) {
+export function matchFilter(b, key, now = new Date(), s = null) {
   switch (key) {
     case 'rental': return b.inRental;
     case 'blocked': return !b.inRental && boatStats(b).blocked > 0;
-    case 'late': return maintCounts(b, now).late > 0;
+    case 'late': return maintCounts(b, now, s).late > 0;
     case 'missing': return missingDates(b, now) > 0;
     case 'ready': return boatStatus(b).key === 'ready';
     case 'obs': return !b.inRental && boatStats(b).obsOpen > 0;
@@ -322,10 +405,10 @@ export function nextDepartures(boats, now = new Date()) {
     .sort((a, b) => parseLocal(a.departure) - parseLocal(b.departure));
 }
 
-export function fleetStats(boats, now = new Date()) {
+export function fleetStats(boats, now = new Date(), s = null) {
   const f = { count: boats.length, rental: 0, blocked: 0, obsOpen: 0, late: 0, missing: 0, ready: 0, blockedBoats: 0 };
   boats.forEach((b) => {
-    const mc = maintCounts(b, now);
+    const mc = maintCounts(b, now, s);
     f.late += mc.late; f.missing += mc.missing;
     if (b.inRental) { f.rental++; return; }
     const st = boatStats(b);

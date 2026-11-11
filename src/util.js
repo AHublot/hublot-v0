@@ -19,7 +19,7 @@ export const slug = (s) =>
   String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 export const norm = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 export const num = (x) => {
-  const n = parseFloat(String(x ?? '').replace(',', '.'));
+  const n = parseFloat(String(x ?? '').replace(/[\s\u00a0\u202f]/g, '').replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 };
 

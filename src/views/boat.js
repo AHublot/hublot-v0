@@ -1,11 +1,12 @@
 import { esc, fmtD, fmtDT, fmtWDT, plural, parseLocal } from '../util.js';
 import {
-  boatStats, boatStatus, maintStatus, maintCounts, baseLabel, tplsOf, pinnedEvents, latestHours,
+  boatStats, boatStatus, maintStatus, maintCounts, engItems, engCounter, engineModelOf, engConf, engRecord, baseLabel, tplsOf, pinnedEvents, latestHours,
   observationsOf, obsState, BASES, CATEGORIES, INTERVALS, TPL_CATS, TPL_OTHER, tplCatOf,
   pendingObs, crewOf, resaStay, isTight, resaMismatch, shortDossier, optsOf, optLabel,
 } from '../model.js';
 import { returnPlan } from '../actions.js';
 import { ic } from '../icons.js';
+import { remote } from '../remote.js';
 import { pill, bar, cd, empty } from './common.js';
 import { boatReport, waLink } from '../whatsapp.js';
 import { voiceSupported } from '../voice.js';
@@ -30,15 +31,16 @@ function engineHoursRow(b) {
 function taskRow(b, t, { edit = false, pending = false } = {}) {
   const meta = [];
   if (t.blocked && !t.done) meta.push('<b class="t-bad">Bloquant</b>');
+  if (t.engDue) meta.push(`<b class="t-eng" title="Une fois cochée, l’entretien est noté au compteur actuel">${ic('engine')} Entretien moteur</b>`);
   if (t.bill) meta.push(`<b class="t-bill">${billText(t)}</b>`);
   if (t.bill && t.billed) meta.push(`<b class="t-ok">${ic('check')} Refacturé au client</b>`);
   if (t.carried && !t.opt) meta.push(`Reportée · depuis le ${esc(fmtD(t.origin))}`);
-  else if (!t.template && t.origin) meta.push(`Ajoutée le ${esc(fmtD(t.origin))}${t.addedBy ? ` · ${esc(t.addedBy)}` : ''}`);
+  else if (!t.template && !t.engDue && t.origin) meta.push(`Ajoutée le ${esc(fmtD(t.origin))}${t.addedBy ? ` · ${esc(t.addedBy)}` : ''}`);
   if (t.done && t.doneAt) meta.push(`Terminée le ${esc(fmtDT(t.doneAt))}${t.doneBy ? ` · ${esc(t.doneBy)}` : ''}`);
   const chk = pending
     ? `<span class="chk off" aria-hidden="true"></span>`
     : `<button type="button" class="chk" role="checkbox" aria-checked="${!!t.done}" aria-label="${esc(t.title)}" data-act="tgl" data-id="${b.id}" data-tid="${t.id}" data-fk="tgl-${t.id}">${ic('check')}</button>`;
-  const bill = !pending && !t.template && !t.opt
+  const bill = !pending && !t.template && !t.opt && !t.engDue
     ? `<button type="button" class="tbtn bill ${t.bill ? 'on' : ''}" data-act="bill" data-id="${b.id}" data-tid="${t.id}" data-fk="bill-${t.id}" aria-pressed="${!!t.bill}" title="À refacturer au propriétaire">${ic('euro')}<span>Refacturer</span></button>`
     : '';
   return `<li class="task ${t.done ? 'done' : ''} ${t.blocked && !t.done ? 'blocked' : ''} ${t.bill ? 'billed' : ''}">${chk}
@@ -93,7 +95,7 @@ function retConfirm(s, b) {
 }
 
 function header(s, b, ui, now) {
-  const st = boatStats(b), stt = boatStatus(b), mc = maintCounts(b, now);
+  const st = boatStats(b), stt = boatStatus(b), mc = maintCounts(b, now, s);
   const dep = !b.inRental && parseLocal(b.departure);
   const report = boatReport(b, now);
   const pins = pinnedEvents(b);
@@ -192,10 +194,44 @@ function tabPrep(s, b, ui, now) {
   return `<div class="two prepgrid"><div class="col">${recPanel}${obsPanel}${optPanel(b, optsOf(b.tasks))}</div><aside class="col">${add}</aside></div>`;
 }
 
+// ---- Moteurs (dans l'onglet Entretiens) ---------------------------------------------------
+const fmtHrs = (v) => (v == null || v === '' ? '—' : `${String(v).replace('.', ',')} h`);
+const ivText = (iv) => [iv.h ? `${iv.h} h` : '', iv.d ? (INTERVALS.find((i) => i.v === iv.d)?.l || `${iv.d} j`) : ''].filter(Boolean).join(' ou ');
+function enginePanel(s, b, ui, now) {
+  const mgr = remote.user?.role !== 'tech';
+  const conf = engConf(s), model = engineModelOf(s, b), cnt = engCounter(b);
+  const items = engItems(s, b, now);
+  const fix = ui.engFix || {};
+  const rows = items.map((x) => {
+    const k = `${b.id}:${x.type.id}`, open = x.key === 'missing' || fix[k];
+    const parts = (model.parts || []).filter((p) => p.type === x.type.id);
+    const hist = (x.rec?.log || []).slice(1, 6);
+    return `<li class="engrow ${x.key}">
+      <div class="engtop"><b>${esc(x.type.label)}</b><span class="mstat ${x.key}">${esc(x.label)}</span></div>
+      ${x.used != null ? `<div class="engbar" role="img" aria-label="${Math.round(x.used)} % de l’intervalle"><i style="width:${x.used.toFixed(0)}%"></i></div>` : ''}
+      <p class="small mut">${x.h != null || x.date ? `Faite${x.h != null ? ` à <b>${fmtHrs(x.h)}</b>` : ''}${x.date ? ` le ${esc(fmtD(x.date))}` : ''}${x.next != null ? ` · prochaine à <b>${fmtHrs(x.next)}</b>` : ''}` : 'Pas encore renseignée'} · tous les ${esc(ivText(x.iv))}</p>
+      ${parts.length ? `<p class="small engparts">${ic('bag')} ${parts.map((p) => `<span class="ep">${esc(p.label)}${p.ref ? ` <b class="mono">${esc(p.ref)}</b>` : ''}${p.qty && p.qty !== '1' ? ` <em>${/^\d+$/.test(p.qty) ? '×' : ''}${esc(p.qty)}</em>` : ''}</span>`).join('')}</p>` : ''}
+      <div class="engact"><button type="button" class="btn sm" data-act="engDone" data-id="${b.id}" data-type="${esc(x.type.id)}">${ic('check')} Faite aujourd’hui${cnt ? ` · ${fmtHrs(cnt.h)}` : ''}</button>
+        ${x.key === 'missing' ? '' : `<button type="button" class="linkbtn small" data-act="engFix" data-k="${esc(k)}" aria-expanded="${!!open}">${open ? 'Fermer' : 'Corriger'}</button>`}</div>
+      ${open ? `<div class="englast"><span class="k">${x.key === 'missing' ? 'Dernière fois (si connue)' : 'Dernière fois'}</span>
+        <label class="engh-in"><input inputmode="decimal" value="${esc(x.rec?.hours || '')}" placeholder="—" aria-label="${esc(x.type.label)} : compteur" data-chg="engF" data-id="${b.id}" data-type="${esc(x.type.id)}" data-f="hours"><em>h</em></label>
+        <input type="date" value="${esc(x.rec?.date || '')}" aria-label="${esc(x.type.label)} : date" data-chg="engF" data-id="${b.id}" data-type="${esc(x.type.id)}" data-f="date">
+        ${hist.length ? `<p class="small mut enghist">Avant : ${hist.map((y) => `${fmtHrs(y.h)}${y.d ? ` (${esc(fmtD(y.d))}${y.by ? `, ${esc(y.by)}` : ''})` : ''}`).join(' · ')}</p>` : ''}</div>` : ''}
+    </li>`;
+  }).join('');
+  const modelSel = mgr && conf.models.length > 1
+    ? `<select class="engmodel" aria-label="Modèle de moteur" data-chg="engModel" data-id="${b.id}">${conf.models.map((m) => `<option value="${esc(m.id)}"${m.id === model.id ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select>`
+    : `<b>${esc(model.name)}</b>`;
+  return `<section class="panel engp"><div class="phead"><h3>${ic('engine')} Moteurs</h3><span class="mono engcnt">${cnt ? fmtHrs(cnt.h) : '— h'}</span></div>
+    <p class="small mut engsub">Modèle : ${modelSel}${mgr ? ` · <button type="button" class="linkbtn small" data-act="nav" data-to="engines">Périodicités</button>` : ''}<br>Compteur suivi : le plus haut des deux moteurs${cnt?.both ? ` (${cnt.side})` : ''}.</p>
+    ${rows ? `<ul class="englist">${rows}</ul>` : '<p class="mut small">Aucun entretien moteur suivi pour ce modèle.</p>'}
+  </section>`;
+}
+
 // ---- Entretiens ------------------------------------------------------------------------
 function tabMaint(s, b, ui, now) {
   const lh = latestHours(b);
-  const items = b.maintenance.map((m) => {
+  const items = b.maintenance.filter((m) => !m.eng).map((m) => {
     const ms = maintStatus(m, b, now);
     const eng = /moteur/i.test(m.title) || !!m.intervalHours; // heures moteur : seulement pour l’entretien moteur
     return `<article class="panel mrow ${ms.key}"><header><h3>${esc(m.title)}</h3><span class="mstat ${ms.key}">${esc(ms.label)}</span>
@@ -212,7 +248,8 @@ ${eng ? `<div class="fld"><label class="k" for="mh-${m.id}">Heures moteur au con
     <div class="panel hours"><h3>Relevé moteur</h3>
       <div class="grid2"><div class="fld"><label class="k" for="hp-${b.id}">Bâbord (h)</label><input id="hp-${b.id}" inputmode="decimal" value="${esc(b.hours?.port ?? '')}" placeholder="${lh?.port != null ? esc(lh.port) : ''}" data-chg="hours" data-id="${b.id}" data-f="port"></div>
       <div class="fld"><label class="k" for="hs-${b.id}">Tribord (h)</label><input id="hs-${b.id}" inputmode="decimal" value="${esc(b.hours?.stbd ?? '')}" placeholder="${lh?.stbd != null ? esc(lh.stbd) : ''}" data-chg="hours" data-id="${b.id}" data-f="stbd"></div></div>
-      <p class="mut small">${lh ? `Dernier relevé : ${esc([lh.port, lh.stbd].filter((x) => x != null).join(' / '))} h${lh.date ? ` · ${esc(fmtD(lh.date))}` : ''}.` : 'Aucun relevé pour l’instant.'}</p></div>
+      <p class="mut small">${lh ? `Dernier relevé : ${esc([lh.port, lh.stbd].filter((x) => x != null).join(' / '))} h${lh.date ? ` · ${esc(fmtD(lh.date))}` : ''}` : 'Aucun relevé pour l’instant.'}</p></div>
+    ${enginePanel(s, b, ui, now)}
     ${items || empty('tool', 'Aucun entretien suivi')}
     <form class="inl" data-form="addMaint" data-id="${b.id}"><input name="title" placeholder="Nouvel entretien (ex. Winchs)" aria-label="Nouvel entretien" autocomplete="off" data-draft="maint-${b.id}"><button class="btn pri" type="submit">Ajouter</button></form></section>
     <section class="col"><div class="phead big"><div><h2>Événements importants</h2><p class="mut small">Un événement épinglé apparaît dans « À retenir » en haut de la page.</p></div></div>

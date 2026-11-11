@@ -119,8 +119,8 @@ export function applyOps(boat, ops, { by = '' } = {}) {
 }
 
 // ---- droits ----------------------------------------------------------------------------
-const TECH_TASK = new Set(['done', 'doneAt', 'blocked', 'title']);
-const TECH_MAINT = new Set(['date', 'hours', 'notes']);
+const TECH_TASK = new Set(['done', 'doneAt', 'blocked', 'title', 'engAt']);
+const TECH_MAINT = new Set(['date', 'hours', 'notes', 'log']);
 
 /**
  * Un technicien peut : cocher / bloquer / renommer une observation, ajouter ou retirer ses observations,
@@ -161,6 +161,8 @@ function techMay(o, boat) {
     }
     return false;
   }
+  // entretien moteur noté pour la première fois sur ce bateau (« Faite aujourd'hui »)
+  if (o.a === 'maintenance' && o.op === 'add') return !!o.item?.eng && o.item.id === `eng-${o.item.eng}`;
   if (o.a === 'maintenance' && o.op === 'upd') {
     return [...Object.keys(o.set || {}), ...(o.unset || [])].filter((f) => !STAMPS.includes(f)).every((f) => TECH_MAINT.has(f));
   }

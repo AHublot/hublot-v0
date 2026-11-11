@@ -56,7 +56,7 @@ const isFP = (b) => !NOT_FP.has(norm(b.name).trim());
 
 /** Le prochain départ est un convoyage (d'après les réservations, date non modifiée à la main). */
 const convDep = (b) => b.resa?.homeDepType === 'convoyage' && !!b.departure && b.departure.slice(0, 10) === String(b.resa.homeDep || '').slice(0, 10);
-function card(b, now) {
+function card(b, now, s) {
   const st = boatStats(b), stt = boatStatus(b), mc = maintCounts(b, now), miss = missingDates(b, now);
   const dep = !b.inRental && parseLocal(b.departure);
   // l'essentiel, en haut : où en est la préparation, ce qu'il reste à traiter
@@ -136,17 +136,17 @@ export function overviewView(s, ui, now = new Date()) {
         `<div class="row center wrap gap"><button class="btn pri" data-act="goBackup">${ic('upload')} Importer une sauvegarde</button>${ui.server ? '' : `<button class="btn" data-act="demo">${ic('wave')} Charger la démo</button>`}<button class="btn" data-act="toggleAdd">${ic('plus')} Ajouter un bateau</button></div>`)}
       ${ui.add ? addForm(ui) : ''}`;
   }
-  const f = fleetStats(s.boats, now);
+  const f = fleetStats(s.boats, now, s);
   const q = norm(ui.q);
   const base = ui.base;
   const bases = [...new Set(s.boats.map(baseLabel))];
-  let list = sortBoats(s.boats).filter((b) => matchFilter(b, ui.filter, now) && (base === 'all' || baseLabel(b) === base) && (!q || norm(b.name + ' ' + baseLabel(b)).includes(q)));
-  const counts = Object.fromEntries(FILTERS.map((x) => [x.key, s.boats.filter((b) => matchFilter(b, x.key, now)).length]));
+  let list = sortBoats(s.boats).filter((b) => matchFilter(b, ui.filter, now, s) && (base === 'all' || baseLabel(b) === base) && (!q || norm(b.name + ' ' + baseLabel(b)).includes(q)));
+  const counts = Object.fromEntries(FILTERS.map((x) => [x.key, s.boats.filter((b) => matchFilter(b, x.key, now, s)).length]));
   const nAct = (ui.filter !== 'all' ? 1 : 0) + (base !== 'all' ? 1 : 0);
   const body = !list.length
     ? empty('search', 'Aucun bateau pour ce filtre', 'Change de filtre ou efface la recherche.', `<button class="btn" data-act="resetFilters">Tout afficher</button>`)
     : ui.filter === 'obs' ? obsOverview(list, now)
-    : ui.view === 'board' ? board(list, now) : `<div class="fleet">${list.map((b) => card(b, now)).join('')}</div>`;
+    : ui.view === 'board' ? board(list, now) : `<div class="fleet">${list.map((b) => card(b, now, s)).join('')}</div>`;
   return `<div class="page-head"><div><h1>Vue d’ensemble</h1><p class="mut">${esc(s.baseName)} · ${esc(utcLabel())}</p></div>
       <div class="row gap wrap"><a class="btn" target="_blank" rel="noopener" href="${waLink(fleetReport(s, now))}" data-act="copyWA" data-kind="fleet">${ic('send')} Point flotte WhatsApp</a>
       <button class="btn pri" data-act="toggleAdd">${ic('plus')} Ajouter un bateau</button></div></div>
