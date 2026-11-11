@@ -3,6 +3,7 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, normalize, extname, dirname } from 'node:path';
+import { initMail, mailConfig, mailSettings, saveMailSettings, enqueueSheets, processMail, mailStatus, sheetMail, brevoSend } from './mail.js';
 import { syncResa, resaInfo, dueSlot } from './resa.js';
 import { fileURLToPath } from 'node:url';
 import {
@@ -17,7 +18,13 @@ const COOKIE = 'cd_sess';
 const SESSION_DAYS = 30;
 const MAX_BODY = 8 * 1024 * 1024;
 
-export function createApp({ db = openDb(), log = console } = {}) {
+export function createApp({ db = openDb(), log = console, mailFetch = fetch } = {}) {
+  initMail(db);
+  // Journal des managers : ligne « Hublot » pour les e-mails des feuilles retour
+  const jotMail = (boat, kind, what, note) => {
+    try { db.prepare('INSERT INTO journal (at, user_id, name, role, boat_id, boat, kind, what, note) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)').run(now(), 'Hublot', 'system', boat?.id || null, String(boat?.name || ''), kind, what, String(note || '').slice(0, 120)); } catch { /* */ }
+  };
+  const sendMail = () => processMail(db, { cfg: mailConfig(), fetchImpl: mailFetch, journal: jotMail }).catch((e) => log.error?.('E-mail :', e.message));
   // ---- limites de tentatives de connexion ----------------------------------------
   const fails = new Map();
   const WINDOW = 15 * 60e3;
@@ -137,7 +144,10 @@ export function createApp({ db = openDb(), log = console } = {}) {
       const b = await readJson(req);
       // Un technicien n'envoie que des modifications de bateaux existants (cocher, observations, heures, entretiens).
       if (!manager && (b.meta || (b.boats || []).length || (b.deleted || []).length)) return send(res, 403, { error: 'Accès limité pour ce compte.' });
-      return send(res, 200, applySync(db, user.id, b, { role: user.role, name: author }));
+      const r = applySync(db, user.id, b, { role: user.role, name: author });
+      // feuille retour validée : e-mail (seulement si l'envoi est réglé, pour ne pas envoyer d'un coup les anciennes feuilles plus tard)
+      if (r.sheets?.length) { const c = mailConfig(); if (c.key && c.from && mailSettings(db).to.length) { enqueueSheets(db, r.sheets); sendMail(); } }
+      return send(res, 200, { version: r.version, rejected: r.rejected });
     }
     if (!manager) return send(res, 403, { error: 'Réservé au manager.' });
     if (p === '/api/import' && req.method === 'POST') {
@@ -159,6 +169,33 @@ export function createApp({ db = openDb(), log = console } = {}) {
       if (!process.env.RESA_KEY) return send(res, 400, { error: 'Réservations non configurées sur le serveur (RESA_KEY).' });
       const info = await syncResa(db, { key: process.env.RESA_KEY, url: process.env.RESA_URL });
       return send(res, 200, { info });
+    }
+    // ---- e-mail des feuilles retour (manager) ----
+    if (p === '/api/mail' && req.method === 'GET') {
+      const cfg = mailConfig();
+      return send(res, 200, { configured: !!(cfg.key && cfg.from), from: cfg.from, ...mailSettings(db), status: mailStatus(db) });
+    }
+    if (p === '/api/mail' && req.method === 'POST') {
+      const b = await readJson(req);
+      const saved = saveMailSettings(db, { to: b.to });
+      sendMail(); // ce qui attendait des destinataires part maintenant
+      return send(res, 200, saved);
+    }
+    if (p === '/api/mail/test' && req.method === 'POST') {
+      const cfg = mailConfig(), { to } = mailSettings(db);
+      if (!cfg.key || !cfg.from) return send(res, 400, { error: 'Brevo n’est pas encore configuré sur le serveur (BREVO_KEY et MAIL_FROM dans .env).' });
+      if (!to.length) return send(res, 400, { error: 'Ajoute au moins une adresse.' });
+      // la dernière feuille retour validée de la flotte sert d'exemple
+      let last = null;
+      for (const row of db.prepare('SELECT data FROM boats WHERE deleted = 0').all()) {
+        const bt = JSON.parse(row.data);
+        for (const r of bt.returnSheets || []) if (!last || String(r.at) > String(last.r.at)) last = { bt, r };
+      }
+      try {
+        if (last) { const m = sheetMail(last.bt, last.r, cfg); await brevoSend(cfg, { to, ...m, subject: `[Essai] ${m.subject}` }, mailFetch); }
+        else await brevoSend(cfg, { to, subject: '[Essai] Hublot : e-mail des feuilles retour', html: '<p>L’envoi des feuilles retour par e-mail fonctionne.</p>', text: 'L’envoi des feuilles retour par e-mail fonctionne.' }, mailFetch);
+      } catch (e) { return send(res, 502, { error: `Envoi impossible : ${e.message}` }); }
+      return send(res, 200, { ok: true, to, sample: last ? last.bt.name : null });
     }
     if (p === '/api/users' && req.method === 'GET') return send(res, 200, { users: listUsers(db) });
     if (p === '/api/journal' && req.method === 'GET') return send(res, 200, { entries: listJournal(db) });
@@ -224,11 +261,12 @@ export function createApp({ db = openDb(), log = console } = {}) {
       if (db.__lastBackup !== today) { backup(db); db.__lastBackup = today; }
     } catch (e) { log.error?.('Sauvegarde impossible', e.message); }
   };
-  return { server, db, housekeeping };
+  return { server, db, housekeeping, sendMail };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === normalize(process.argv[1])) {
-  const { server, db, housekeeping } = createApp();
+  const { server, db, housekeeping, sendMail } = createApp();
+  setInterval(sendMail, 60e3).unref(); // nouveaux essais des e-mails en attente
   const users = db.prepare('SELECT COUNT(*) n FROM users').get().n;
   housekeeping();
   setInterval(housekeeping, 3 * 3600e3).unref();

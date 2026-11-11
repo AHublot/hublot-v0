@@ -115,6 +115,9 @@ export async function importRemote(raw) {
 export const listAccounts = () => api('users');
 export const getJournal = () => api('journal');
 export const refreshResa = () => api('resa/refresh', { method: 'POST', body: {} });
+export const getMail = () => api('mail');
+export const saveMail = (to) => api('mail', { method: 'POST', body: { to } });
+export const testMail = () => api('mail/test', { method: 'POST', body: {} });
 export const createAccount = (body) => api('users', { method: 'POST', body });
 export const resetAccount = (id) => api('users/reset', { method: 'POST', body: { id } });
 export const updateAccount = (body) => api('users/update', { method: 'POST', body });

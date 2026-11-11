@@ -947,3 +947,13 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 [data-theme="dark"] .rcount.todo { color: #FFC970; background: linear-gradient(90deg, rgba(255,190,80,.24), rgba(255,190,80,0)); }
 .rprog.todo i span { background: linear-gradient(90deg, #F5B041, #F7C46C); }
 .rbar .rcount { font-size: 15px; }
+
+/* Feuilles retour par e-mail (réglage manager) */
+.mailset { gap: 10px; }
+.mailstate { display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 9px; }
+.mailstate .ic { width: 16px; height: 16px; flex: none; }
+.mailstate.on { color: var(--ok); background: linear-gradient(90deg, color-mix(in srgb, var(--ok) 14%, transparent), transparent); }
+.mailstate.off { color: #A15C00; background: linear-gradient(90deg, rgba(255,190,80,.32), rgba(255,190,80,0)); }
+[data-theme="dark"] .mailstate.off { color: #FFC970; background: linear-gradient(90deg, rgba(255,190,80,.18), rgba(255,190,80,0)); }
+.mailset textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); font: inherit; font-size: 15px; resize: vertical; }
+.mailog { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }

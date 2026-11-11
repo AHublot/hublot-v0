@@ -158,6 +158,7 @@ const okOp = (o) => o && OPS.has(o.op) && (o.op === 'draft' ? typeof o.id === 's
 export function applySync(db, userId, { meta, boats = [], deleted = [], patches = [] }, actor = { role: 'manager', name: '' }) {
   const at = now();
   const rejected = [];
+  const sheets = []; // feuilles retour validées dans cet envoi (pour l'e-mail)
   db.exec('BEGIN IMMEDIATE');
   try {
     if (meta && typeof meta === 'object') {
@@ -192,12 +193,14 @@ export function applySync(db, userId, { meta, boats = [], deleted = [], patches 
       const next = applyOps(cur, ops, { by: actor.name || '' });
       if (stable(next) !== stable(cur)) {
         up.run(p.id, JSON.stringify(next), nextVersion(db), at, userId);
+        const had = new Set((cur.returnSheets || []).map((x) => x?.id));
+        (next.returnSheets || []).forEach((x) => { if (x?.id && !had.has(x.id)) sheets.push({ boatId: p.id, sheetId: x.id }); });
         for (const e of journalEvents(cur, next)) jot.run(at, userId ?? null, actor.name || '', actor.role || '', p.id, String(next.name || ''), e.kind, e.what, e.note);
       }
     }
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
-  return { version: currentVersion(db), rejected };
+  return { version: currentVersion(db), rejected, sheets };
 }
 
 /** Journal : on ne garde que les derniers jours. */

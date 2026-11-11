@@ -60,10 +60,28 @@ export function checklistView(s, ui) {
         ${ui.confirm === 'clApply' ? `<div class="row gap wrap"><span class="small">Remplace la liste habituelle des ${s.boats.length} bateaux.</span><button class="btn bad solid" data-act="clApply">Appliquer</button><button class="btn" data-act="confirmNo">Annuler</button></div>` : `<button class="btn" data-act="confirmAsk" data-v="clApply">Appliquer cette liste à tous les bateaux</button>`}
         ${list.join() !== DEFAULT_TEMPLATES.join() ? `<button class="btn ghost" data-act="clDefault">Reprendre la liste d’origine</button>` : ''}
       </div></div>
-      ${sheetEditor(s, ui)}</section>
+      ${sheetEditor(s, ui)}${ui.server ? mailPanel(ui) : ''}</section>
     <section class="col"><div class="panel"><div class="phead"><h3>Suivi par tâche</h3><span class="mut small">${plural(prepBoats.length, 'bateau', 'bateaux')} en préparation</span></div>
       <p class="mut small">Où en est chaque tâche habituelle sur la flotte ? Ouvre une ligne pour voir les bateaux concernés.</p>
       ${rows ? `<ul class="matrix">${rows}</ul>` : empty('list', 'Liste vide')}</div></section></div>`;
+}
+
+// ---- Feuilles retour par e-mail (Brevo) : destinataires, essai, derniers envois -----------------------
+function mailPanel(ui) {
+  const m = ui.mail || {};
+  if (!m.loaded) return `<div class="panel mailset"><div class="phead"><h3>${ic('send')} Feuilles retour par e-mail</h3></div><p class="mut small">${m.err ? esc(m.err) : 'Chargement…'}</p></div>`;
+  const to = ui.drafts['mail-to'] ?? (m.to || []).join('\n');
+  const when = (iso) => { try { const d = new Date(iso); return `${d.getDate()}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; } catch { return ''; } };
+  const st = (x) => x.status === 'sent' ? `<span class="t-ok">Envoyé</span>` : x.status === 'failed' ? `<span class="t-bad">Échec${x.error ? ` : ${esc(x.error)}` : ''}</span>` : x.status === 'gone' ? '<span class="mut">Feuille supprimée</span>' : `<span class="t-warn">En attente${x.tries ? ` (essai ${x.tries + 1}${x.error ? ` · ${esc(x.error)}` : ''})` : ''}</span>`;
+  return `<div class="panel mailset"><div class="phead"><h3>${ic('send')} Feuilles retour par e-mail</h3></div>
+    <p class="mut small">À chaque feuille retour validée, Hublot envoie un e-mail avec la feuille en PDF à ces adresses. Les techniciens n’ont rien à faire.</p>
+    <p class="small mailstate ${m.configured ? 'on' : 'off'}">${m.configured ? `${ic('check')}<span>Envoi actif · expéditeur <b>${esc(m.from)}</b></span>` : `${ic('alert')}<span>Pas encore actif : la clé Brevo n’est pas sur le serveur.</span>`}</p>
+    <form data-form="mailSave" class="formrow"><label class="fld"><span class="k">Destinataires (une adresse par ligne)</span>
+      <textarea name="to" rows="3" data-draft="mail-to" placeholder="anthony@exemple.fr&#10;bureau@exemple.fr" autocomplete="off" spellcheck="false">${esc(to)}</textarea></label>
+      <div class="row gap wrap"><button class="btn pri" type="submit">Enregistrer</button><button class="btn" type="button" data-act="mailTest" ${m.configured && (m.to || []).length ? '' : 'disabled'}>${ic('send')} Envoyer un e-mail d’essai</button></div></form>
+    ${m.msg ? `<p class="small ${m.msgBad ? 't-bad' : 't-ok'}" role="status">${esc(m.msg)}</p>` : ''}
+    ${(m.status || []).length ? `<div><p class="k">Derniers envois</p><ul class="mailog">${m.status.map((x) => `<li><b>${esc(x.boat)}</b> <span class="mut small">${when(x.sentAt || x.at)}</span> · <span class="small">${st(x)}</span></li>`).join('')}</ul></div>` : ''}
+  </div>`;
 }
 
 // ---- Feuille retour : liste des points, modifiable par les managers ------------------------------

@@ -14,7 +14,7 @@ import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
 import { journalView, journalDays } from './views/journal.js';
 import { retourView, cobsHint } from './views/retour.js';
-import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal, refreshResa, syncNow } from './remote.js';
+import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal, refreshResa, syncNow, getMail, saveMail, testMail } from './remote.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const ui = {
@@ -280,6 +280,7 @@ function render() {
   }
   if (isTech() && !TECH_PAGES.has(ui.route.name)) ui.route = { name: 'overview', id: null };
   if (ui.route.name === 'journal' && ui.server && remote.user?.role === 'manager' && !ui.journal.loaded && !ui.journal.busy) { ui.journal.busy = true; loadJournal(); }
+  if (ui.route.name === 'checklist' && ui.server && remote.user?.role === 'manager' && !ui.mail?.loaded && !ui.mail?.busy && !ui.mail?.err) loadMail();
 
   const routeKey = location.hash || '#/';
   const prevBars = routeKey === ui.barRoute ? [...document.querySelectorAll('#view .bar i')].map((i) => i.style.width) : [];
@@ -477,6 +478,9 @@ document.addEventListener('click', (e) => {
     case 'retAsk': openSheet(id); break;
     case 'resaUse': M('Date de la réservation reprise', (st) => { const b2 = st.boats.find((x) => x.id === id); const f = b2.inRental ? 'returnDate' : 'departure'; b2[f] = d.v; b2.resaDates = { ...(b2.resaDates || {}), [f]: d.v }; }); break;
     case 'resaRefresh': el.disabled = true; toast('Récupération des réservations…'); refreshResa().then((r) => { toast(r.info?.errors?.length ? `Réservations : ${r.info.errors.length} erreur(s)` : `Réservations à jour (${r.info.updated} bateau${r.info.updated > 1 ? 'x' : ''} modifié${r.info.updated > 1 ? 's' : ''})`); syncNow(); }).catch((err) => toast(`Actualisation impossible : ${err.message}`)).finally(() => { el.disabled = false; }); break;
+    case 'mailTest': el.disabled = true; ui.mail.msg = 'Envoi de l’e-mail d’essai…'; ui.mail.msgBad = false; render();
+      testMail().then((r) => { ui.mail.msg = `E-mail d’essai envoyé à ${r.to.join(', ')}${r.sample ? ` (avec la dernière feuille retour : ${r.sample})` : ''}.`; ui.mail.msgBad = false; })
+        .catch((err) => { ui.mail.msg = err.message; ui.mail.msgBad = true; }).finally(() => { render(); }); break;
     case 'rView': go('retour', id, d.sheet); break;
     case 'rSet': {
       M('', (st) => A.setSheetValue(st, id, d.it, d.v));
@@ -717,6 +721,11 @@ document.addEventListener('submit', (e) => {
       M('Événement enregistré', (st) => A.addEvent(st, id, { title: g('title'), date: g('date'), category: g('category'), details: g('details'), pinned: !!fd.get('pinned') }));
       break;
     }
+    case 'mailSave': {
+      saveMail(String(fd.get('to') || '')).then((r) => { delete ui.drafts['mail-to']; ui.mail = { ...ui.mail, to: r.to, msg: r.to.length ? `Enregistré : ${r.to.length} adresse${r.to.length > 1 ? 's' : ''}.` : 'Enregistré : aucun destinataire, aucun e-mail ne partira.', msgBad: false }; render(); })
+        .catch((err) => { ui.mail.msg = err.message; ui.mail.msgBad = true; render(); });
+      return;
+    }
     case 'saveBoat': { if (!g('name')) return; M('Réglages enregistrés', (st) => A.updateBoat(st, id, { name: g('name'), model: g('model'), base: g('base'), otherBase: g('base') === 'Autre' ? g('otherBase') : '' })); break; }
     case 'addMember': { const n = g('name'); if (!n) return; delete ui.drafts.tm; M(`${n} ajouté à l’équipe`, (st) => A.addMember(st, n)); break; }
     case 'clRename': {
@@ -751,6 +760,12 @@ document.addEventListener('submit', (e) => {
 });
 
 // Journal : rechargé à chaque ouverture de la page ; le jour le plus récent avec des actions est ouvert.
+/** Réglages des e-mails des feuilles retour (managers, page « Liste de préparation »). */
+function loadMail() {
+  ui.mail = { ...(ui.mail || {}), busy: true };
+  return getMail().then((r) => { ui.mail = { ...ui.mail, ...r, loaded: true, busy: false, err: '' }; render(); })
+    .catch((e) => { ui.mail = { ...ui.mail, loaded: false, busy: false, err: `Réglages e-mail indisponibles : ${e.message}` }; render(); });
+}
 function loadJournal() {
   const j = ui.journal;
   j.busy = true;

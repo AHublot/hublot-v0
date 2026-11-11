@@ -11,6 +11,12 @@ services:
       # Réservations (API ACM) : la clé se met dans le fichier .env à côté de ce fichier (jamais sur GitHub)
       - RESA_KEY=${RESA_KEY:-}
       - RESA_URL=${RESA_URL:-https://acm-caraibes.com/hublot/}
+      # Feuilles retour par e-mail (Brevo) : clé et adresse d'envoi dans .env
+      - BREVO_KEY=${BREVO_KEY:-}
+      - MAIL_FROM=${MAIL_FROM:-}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Hublot}
+      - MAIL_REPLY_TO=${MAIL_REPLY_TO:-}
+      - PUBLIC_URL=${PUBLIC_URL:-https://hublot.lemard.fr/}
       # - COOKIE_SECURE=1   # à forcer si ton proxy n'envoie pas X-Forwarded-Proto
     # Écoute seulement en local : c'est ton proxy (Nginx, Caddy, Traefik) qui expose le site en HTTPS.
     # Change 8090 si ce port est déjà pris sur le VPS.
