@@ -77,6 +77,13 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
     </section>`;
   };
   const text = (f, label, ph) => (ro && !d[f] ? '' : `<label class="rtext"><span>${label}</span>${ro ? `<p>${esc(d[f])}</p>` : `<textarea rows="2" data-chg="rText" data-id="${b.id}" data-f="${f}" placeholder="${ph}">${esc(d[f] || '')}</textarea>`}</label>`);
+  const bureau = ro
+    ? `<section class="panel rbureau ro"><p class="k">${ic('euro')}<span>Uniquement pour le bureau</span></p>
+        <p><span class="mut small">À facturer aujourd’hui</span><br><b>${d.billToday ? esc(d.billToday) : '<span class="mut">Rien</span>'}</b></p>
+        <p class="rdiver ${d.diver ? 'yes' : 'no'}">Plongeur passé : <b>${d.diver ? 'oui' : 'non'}</b></p></section>`
+    : `<section class="panel rbureau"><p class="k">${ic('euro')}<span>Uniquement pour le bureau</span><span class="mut">· facultatif</span></p>
+        <label class="rtext"><span>À facturer aujourd’hui</span><textarea rows="2" data-chg="rText" data-id="${b.id}" data-f="billToday" placeholder="Ex. : gasoil 40 L, paddle percé, nettoyage supplémentaire">${esc(d.billToday || '')}</textarea></label>
+        <label class="rdiverck"><input type="checkbox" data-chg="rDiver" data-id="${b.id}" ${d.diver ? 'checked' : ''}> Plongeur passé</label></section>`;
   const pct = total ? Math.round((seen / total) * 100) : 0;
   // Ce qu'il reste à remplir (points sans réponse + Défauts sans note), en ambre ; vert quand tout est rempli
   const left = ro ? 0 : miss.unseen.length + miss.noNote.length;
@@ -89,12 +96,14 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
     ${top(b, ro ? 'Feuille retour validée' : 'Feuille retour', ro ? `<button type="button" class="btn sm" data-act="rPrint">${ic('download')} PDF</button>` : `<button type="button" class="btn ghost sm" data-act="rCancel" data-id="${b.id}">Annuler la feuille</button>`)}
     ${ui.rCancel === b.id ? `<section class="panel rcancel" role="alert"><p><b>Annuler cette feuille retour ?</b> Les réponses seront perdues. Le bateau reste en location.</p><div class="row gap"><button type="button" class="btn" data-act="rCancelNo">Garder la feuille</button><button type="button" class="btn bad" data-act="rCancelYes" data-id="${b.id}">Annuler la feuille</button></div></section>` : ''}
     ${info}
+    ${ro ? bureau : ''}
     ${ro ? `<p class="small mut">${defs} défaut${defs > 1 ? 's' : ''} · heures du séjour bâbord ${hh(trip.port)}, tribord ${hh(trip.stbd)}</p>` : `<div class="rprog ${left ? 'todo' : 'done'}" aria-label="Avancement"><div>${left ? `<b class="rcount todo">${left} à remplir</b>` : `<b class="rcount done">${ic('check')} Tout est rempli</b>`} <span class="mut small">${seen} / ${total}</span></div><i><span style="width:${pct}%"></span></i></div>`}
     <div class="rsecs">${sheet.map(sec).join('')}</div>
     ${ro && !d.clientObs ? '' : `<section class="panel rfree">
       ${text('clientObs', 'Observations du client et autre', 'Une ligne = une observation à cocher.&#10;Exemple :&#10;Le client signale que le frigo refroidit mal&#10;Coussin de cockpit déchiré')}
       ${ro ? '' : `<p class="small mut" data-cobs-out>${cobsHint(d.clientObs)}</p>`}
     </section>`}
+    ${ro ? '' : bureau}
     ${bar}
   </div>${!ro && ui.rRecap === b.id ? recap(s, b, d, sheet, miss, trip) : ''}`;
 }

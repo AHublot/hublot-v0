@@ -627,6 +627,7 @@ document.addEventListener('change', (e) => {
     case 'shSec': M('Partie renommée', (st) => A.sheetRenameSection(st, d.sec, el.value)); break;
     case 'shItem': M('Point renommé', (st) => A.sheetRenameItem(st, d.sec, d.it, el.value)); break;
     case 'rBill': M('', (st) => A.setSheetBill(st, id, d.it, el.checked)); break;
+    case 'rDiver': M('', (st) => A.setSheetDiver(st, id, el.checked)); break;
     case 'rNum': holdSheet(); M('', (st) => A.setSheetNum(st, id, d.k, el.value)); break;
     case 'rText': holdSheet(); M('', (st) => A.setSheetText(st, id, d.f, el.value)); break;
     case 'base': M('', (st) => A.updateBoat(st, id, { base: el.value, otherBase: el.value === 'Autre' ? st.boats.find((b) => b.id === id).otherBase : '' })); break;

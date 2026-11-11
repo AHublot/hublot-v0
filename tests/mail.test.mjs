@@ -31,6 +31,7 @@ function validateSheet(db) {
     const mix = M.sheetOf(s).flatMap((x) => x.items).find((it) => it.kind === 'mix'); A.setSheetNote(s, id, mix.id, '5');
     A.setSheetValue(s, id, 'cui2', 'def'); A.setSheetNote(s, id, 'cui2', 'ne refroidit plus'); A.setSheetBill(s, id, 'cui2', true);
     A.setSheetText(s, id, 'clientObs', 'Fuite au WC avant');
+    A.setSheetText(s, id, 'billToday', 'Gasoil 40 L'); A.setSheetDiver(s, id, true);
   });
   return techDoes(db, (s, id) => A.validateReturnSheet(s, id, 'Léa'));
 }
@@ -59,6 +60,7 @@ test('e-mail : la feuille validée part une fois, avec le PDF nommé', async () 
   assert.match(Buffer.from(m.attachment[0].content, 'base64').subarray(0, 8).toString(), /^%PDF-1\.4/);
   assert.match(m.htmlContent, /Frigo : ne refroidit plus/);
   assert.match(m.htmlContent, /Fuite au WC avant/);
+  assert.match(m.htmlContent, /BUREAU<\/div>[\s\S]*Gasoil 40 L[\s\S]*Plongeur passé : <b[^>]*>OUI/);
   assert.deepEqual(lines, ['mail']);
   assert.equal(mailStatus(db)[0].status, 'sent');
 });

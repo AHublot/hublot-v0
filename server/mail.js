@@ -54,6 +54,11 @@ export function sheetMail(boat, r, cfg) {
 <tr><td style="font-size:12px;font-weight:bold;color:#0b7f8a;letter-spacing:.06em">FEUILLE RETOUR</td></tr>
 <tr><td style="font-size:26px;font-weight:bold;color:#0c2b3d;padding:2px 0 6px">${esc(boat.name)}</td></tr>
 <tr><td style="color:#5d6f7c;font-size:14px;padding-bottom:14px;border-bottom:2px solid #0b7f8a">Validée le ${esc(fmtWhen(r.at, { year: true }))}${r.by ? ` par ${esc(r.by)}` : ''}${st.dossier ? `<br>Dossier ${esc(st.dossier)}` : ''}${st.client ? ` · ${esc(st.client)}` : ''}${st.skipper ? ` · skipper ${esc(st.skipper)}` : ''}${st.dep || st.ret ? `<br>Séjour : ${esc(fmtWhen(st.dep) || '?')} – ${esc(fmtWhen(st.ret) || '?')}` : ''}</td></tr>
+<tr><td style="padding-top:14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff4dc;border-left:4px solid #f5b041;border-radius:8px"><tr><td style="padding:10px 12px">
+<div style="font-size:11px;font-weight:bold;color:#a15c00;letter-spacing:.06em">BUREAU</div>
+<div style="padding-top:4px"><span style="color:#5d6f7c;font-size:13px">À facturer aujourd’hui :</span><br><b style="font-size:16px">${r.billToday ? esc(r.billToday).replace(/\n/g, '<br>') : '<span style="color:#8a9aa6">Rien</span>'}</b></div>
+<div style="padding-top:6px;font-size:14px">Plongeur passé : <b style="color:${r.diver ? '#1b7f4b' : '#5d6f7c'}">${r.diver ? 'OUI' : 'NON'}</b></div>
+</td></tr></table></td></tr>
 <tr><td style="padding:14px 0 6px;font-size:16px;font-weight:bold;color:${defs.length ? '#c62f3b' : '#1b7f4b'}">${defs.length ? `${defs.length} défaut${defs.length > 1 ? 's' : ''}` : 'Aucun défaut'}</td></tr>
 ${defs.length ? `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${defs.map((d) => li(d.title, `${esc(d.sec)}${d.bill ? ' · <b style="color:#6b3fb4">À refacturer</b>' : ''}`, '#c62f3b')).join('')}</table></td></tr>` : ''}
 ${client.length ? `<tr><td style="padding:10px 0 6px;font-size:16px;font-weight:bold;color:#0c2b3d">Observations du client et autre</td></tr><tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${client.map((o) => li(o.title, o.blocked ? '<b style="color:#c62f3b">Bloquante</b>' : '', '#a15c00')).join('')}</table></td></tr>` : ''}
@@ -62,6 +67,7 @@ ${client.length ? `<tr><td style="padding:10px 0 6px;font-size:16px;font-weight:
 <tr><td style="padding-top:18px;color:#8a9aa6;font-size:12px">Envoyé automatiquement par Hublot · ACM Caraïbes</td></tr>
 </table></td></tr></table></body></html>`;
   const text = [`Feuille retour ${boat.name}`, `Validée le ${fmtWhen(r.at, { year: true })}${r.by ? ` par ${r.by}` : ''}`, st.dossier ? `Dossier ${st.dossier}` : '', '',
+    `BUREAU — À facturer aujourd’hui : ${r.billToday || 'rien'} · Plongeur passé : ${r.diver ? 'oui' : 'non'}`, '',
     defs.length ? `${defs.length} défaut(s) :` : 'Aucun défaut', ...defs.map((d) => `- ${d.title}${d.bill ? ' (à refacturer)' : ''}`),
     ...(client.length ? ['', 'Observations du client et autre :', ...client.map((o) => `- ${o.title}`)] : []), '', `Ouvrir dans Hublot : ${link}`].filter((x, i, a) => x !== '' || a[i - 1] !== '').join('\n');
   return { subject, html, text, attachment: { name: sheetFileName(boat.name, r), content: sheetPdf(boat.name, r).toString('base64') } };

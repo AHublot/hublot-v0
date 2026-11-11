@@ -957,3 +957,11 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 [data-theme="dark"] .mailstate.off { color: #FFC970; background: linear-gradient(90deg, rgba(255,190,80,.18), rgba(255,190,80,0)); }
 .mailset textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel); font: inherit; font-size: 15px; resize: vertical; }
 .mailog { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+
+/* Feuille retour : « Uniquement pour le bureau » (à facturer aujourd'hui, plongeur passé) */
+.rbureau { gap: 10px; border-left: 4px solid #F5B041; background: linear-gradient(90deg, rgba(255,200,90,.16), transparent 65%), var(--panel); }
+.rbureau .k { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: #A15C00; } .rbureau .k .mut { font-weight: 600; } .rbureau .k .ic { width: 15px; height: 15px; }
+[data-theme="dark"] .rbureau .k { color: #FFC970; }
+.rdiverck { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; min-height: 40px; }
+.rdiverck input { width: 22px; height: 22px; accent-color: var(--ok); }
+.rdiver.yes b { color: var(--ok); } .rdiver.no b { color: var(--mut); }

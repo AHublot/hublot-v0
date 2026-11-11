@@ -74,12 +74,22 @@ export function sheetPdf(boatName, r) {
   cell(L + 2 * cw, cw, 'Heures moteur tribord', stbd ? `${hh(stbd)}${tp.stbd != null ? ` (séjour ${hh(tp.stbd)})` : ''}` : '');
   y += 38;
 
-  // Résumé
-  const chip = (x, label, fg, bg) => { const w = textWidth(label, 9.5, true) + 18; doc.rect(x, y, w, 18, { fill: bg, r: 9 }); doc.text(x + 9, y + 4.5, label, { size: 9.5, bold: true, color: fg }); return x + w + 8; };
-  let x = chip(L, defs.length ? `${defs.length} défaut${defs.length > 1 ? 's' : ''}` : 'Aucun défaut', defs.length ? C.bad : C.ok, defs.length ? C.badBg : C.okBg);
-  const nObs = defs.length + client.length;
-  chip(x, `${nObs} observation${nObs > 1 ? 's' : ''} à cocher créée${nObs > 1 ? 's' : ''}`, C.navy, C.soft);
-  y += 30;
+  // Uniquement pour le bureau : bien visible, entre le séjour et les défauts
+  {
+    const txt = String(r.billToday || '').trim();
+    const lines = wrap(txt || 'Rien', 11, W - 170, true);
+    const h = 30 + lines.length * 14;
+    doc.rect(L, y, W, h, { fill: '#fff4dc', r: 6 });
+    doc.rect(L, y, 4, h, { fill: '#f5b041' });
+    doc.text(L + 14, y + 9, 'BUREAU', { size: 7.5, bold: true, color: C.amber });
+    doc.text(L + 14, y + 22, 'À facturer aujourd’hui :', { size: 9, color: C.mut });
+    lines.forEach((l, i) => doc.text(L + 118, y + 21 + i * 14, l, { size: 11, bold: true, color: txt ? C.ink : C.mut }));
+    const dv = `Plongeur passé : ${r.diver ? 'OUI' : 'NON'}`;
+    const dw = textWidth(dv, 10, true) + 20;
+    doc.rect(R - dw - 10, y + 8, dw, 20, { fill: r.diver ? C.okBg : '#ffffff', stroke: r.diver ? null : C.line, r: 10 });
+    doc.text(R - dw, y + 13.5, dv, { size: 10, bold: true, color: r.diver ? C.ok : C.mut });
+    y += h + 12;
+  }
 
   // Défauts
   const block = (title, color, items) => {

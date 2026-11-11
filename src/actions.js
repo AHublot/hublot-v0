@@ -357,7 +357,10 @@ export function setSheetText(s, id, field, value) {
   const v = String(value || '');
   if (field.startsWith('stay.')) d.stay = { ...d.stay, [field.slice(5)]: v };
   else if (field === 'clientObs') d.clientObs = v;
+  else if (field === 'billToday') d.billToday = v; // « Uniquement pour le bureau : à facturer aujourd'hui » (facultatif)
 }
+/** « Plongeur passé » (case facultative, pour le bureau). */
+export function setSheetDiver(s, id, on) { const [, d] = draftOf(s, id); d.diver = !!on; }
 export function cancelReturnSheet(s, id) {
   const b = find(s, id);
   b.returnDraft = null;
