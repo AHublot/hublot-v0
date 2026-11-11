@@ -342,7 +342,8 @@ function updateParse(ta) {
   const n = parseObservations(ta.value).length;
   const out = form.querySelector('[data-parse-out]');
   const btn = form.querySelector('[data-submit-label]');
-  if (out) out.textContent = n ? `${plural(n, 'tâche détectée', 'tâches détectées')}` : '';
+  // même compteur que la feuille retour : combien d'observations à cocher seront créées
+  if (out) out.innerHTML = n ? `<b>${n} observation${n > 1 ? 's' : ''} à cocher</b>` : 'Une ligne = une observation';
   if (btn) btn.innerHTML = `${n > 1 ? `Préparer ${n} tâches` : n === 1 ? 'Préparer la tâche' : 'Préparer les tâches'} ${ic('right')}`;
   if (btn) btn.disabled = !n;
 }
