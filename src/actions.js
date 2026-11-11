@@ -144,7 +144,7 @@ export function confirmDeparture(s, id, { auto = false, now = new Date() } = {})
   const entry = {
     id: uid(), date: b.cycle || todayStr(), tasks: clone(b.tasks), kind: 'departure',
     at: nowIso(), automatic: !!auto, departure: b.departure || '',
-    ...(b.hours && (b.hours.port || b.hours.stbd) ? { hours: { port: b.hours.port || '', stbd: b.hours.stbd || '' } } : {}),
+    ...(b.hours && (b.hours.port || b.hours.stbd) ? { hours: { port: b.hours.port || '', stbd: b.hours.stbd || '', ...(b.hours.date ? { date: b.hours.date } : {}) } } : {}),
   };
   b.history = [entry, ...b.history];
   // Seules les observations non terminées passent au retour : les tâches habituelles repartent à zéro.
@@ -404,12 +404,31 @@ export function sheetMissing(s, b, d = b.returnDraft) {
     total: items.length,
   };
 }
-const numOrNull = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
-/** Heures du séjour par moteur = relevé au retour − relevé au départ (null si l'un des deux manque). */
-export function tripHours(b, nums) {
-  const dep = (b.history || []).find((h) => h.kind === 'departure')?.hours || {};
-  const diff = (now, before) => { const a = numOrNull(now), c = numOrNull(before); return a != null && c != null && a >= c ? Math.round((a - c) * 10) / 10 : null; };
-  return { port: diff(nums.hoursPort, dep.port), stbd: diff(nums.hoursStbd, dep.stbd) };
+const numOrNull = (v) => { const n = parseFloat(String(v ?? '').replace(/[\s\u00a0\u202f]/g, '').replace(',', '.')); return Number.isFinite(n) ? n : null; };
+/**
+ * Heures du séjour par moteur = relevé au retour − relevé au départ (null si on ne peut pas s'y fier).
+ * Prudence, car beaucoup de bateaux n'ont pas encore de relevé à jour :
+ * - le relevé du départ doit avoir été saisi depuis la location précédente (sinon il date d'avant et compterait 2 séjours) ;
+ * - le résultat ne peut pas dépasser le temps écoulé depuis le départ (faute de frappe, compteur changé) ;
+ * - un relevé au retour plus petit qu'au départ ne donne rien.
+ */
+export function tripHours(b, nums, now = new Date()) {
+  const deps = (b.history || []).filter((h) => h.kind === 'departure');
+  const dep = deps[0], prev = deps[1];
+  const none = { port: null, stbd: null };
+  if (!dep?.hours) return none;
+  // Date du relevé : enregistrée au départ, sinon (anciens départs) celle du relevé actuel s'il n'a pas changé depuis.
+  const same = b.hours && ['port', 'stbd'].every((k) => String(b.hours[k] || '') === String(dep.hours[k] || ''));
+  const when = dep.hours.date || (same ? b.hours.date : '') || '';
+  if (prev?.at && (!when || when < prev.at)) return none;
+  const leftAt = new Date(dep.at || 0), max = Number.isNaN(+leftAt) || !dep.at ? Infinity : (now - leftAt) / 3600e3 + 1;
+  const diff = (a0, c0) => {
+    const a = numOrNull(a0), c = numOrNull(c0);
+    if (a == null || c == null || a < c) return null;
+    const d = Math.round((a - c) * 10) / 10;
+    return d <= max ? d : null;
+  };
+  return { port: diff(nums.hoursPort, dep.hours.port), stbd: diff(nums.hoursStbd, dep.hours.stbd) };
 }
 /**
  * Valide la feuille : retour signalé (préparation archivée comme aujourd'hui), une observation par Défaut,
@@ -423,7 +442,7 @@ export function validateReturnSheet(s, id, user = '', now = new Date()) {
   if (miss.unseen.length) throw new Error(`Encore ${miss.unseen.length} point${miss.unseen.length > 1 ? 's' : ''} à voir`);
   if (miss.noNote.length) throw new Error(miss.noNote[0].kind === 'mix' ? 'Indique les litres à mélanger' : `Décris le défaut : ${miss.noNote[0].label}`);
   const sheet = draftSheet(s, d);
-  const trip = tripHours(b, d.nums || {});
+  const trip = tripHours(b, d.nums || {}, now);
   newReturn(s, id, now);
   const open = new Set(b.tasks.filter((t) => !t.done).map((t) => norm(t.title)));
   const obsIds = [];

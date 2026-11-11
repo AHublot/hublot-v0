@@ -300,7 +300,7 @@ test('feuille retour : tous les points obligatoires, chaque Défaut devient une 
   A.setSheetBill(s, id, 'voi3', true);
   A.setSheetValue(s, id, 'mtd4', 'def'); A.setSheetNote(s, id, 'mtd4', 'Courroie tribord à remplacer');
   A.setSheetNum(s, id, 'hoursPort', '1012,5'); A.setSheetNum(s, id, 'hoursStbd', '1001');
-  const r = A.validateReturnSheet(s, id, 'Léa');
+  const r = A.validateReturnSheet(s, id, 'Léa', new Date(Date.now() + 7 * 864e5));
   assert.equal(r.obs, 2);
   assert.equal(b.inRental, false);
   assert.equal(b.returnDraft, null);
@@ -430,4 +430,30 @@ test('feuille retour : observations du client → une observation à cocher par 
   assert.equal(t[1].blocked, true);
   assert.equal(t[0].dossier, 'ACM-2026-0002');
   assert.equal(r.obs, 4); // + mélange
+});
+
+test('heures du séjour : jamais calculées sur un relevé ancien ou impossible', () => {
+  const week = (n) => new Date(Date.now() + n * 7 * 864e5);
+  const s = fresh();
+  const id = s.boats[0].id;
+  const b = s.boats[0];
+  // pas de relevé au départ : rien
+  A.confirmDeparture(s, id);
+  assert.deepEqual(A.tripHours(b, { hoursPort: '1000' }, week(1)), { port: null, stbd: null });
+  // relevé saisi pendant la préparation suivante : calculé
+  b.inRental = false; b.history[0].at = week(-3).toISOString();
+  A.setHours(s, id, 'port', '1 000'); A.setHours(s, id, 'stbd', '990');
+  A.confirmDeparture(s, id);
+  assert.deepEqual(A.tripHours(b, { hoursPort: '1 021,5', hoursStbd: '1011' }, week(1)), { port: 21.5, stbd: 21 });
+  // plus d'heures que de temps écoulé (faute de frappe) ou relevé plus petit : rien
+  assert.deepEqual(A.tripHours(b, { hoursPort: '10210', hoursStbd: '900' }, week(1)), { port: null, stbd: null });
+  // départ suivant sans nouveau relevé (retour sans heures) : l'ancien relevé compterait 2 séjours, on ne calcule pas
+  b.inRental = false;
+  A.confirmDeparture(s, id);
+  b.history[1].at = week(-1).toISOString(); b.history[0].hours.date = week(-2).toISOString(); // relevé d'avant la location précédente
+  assert.equal(b.history[0].hours.port, '1 000');
+  assert.deepEqual(A.tripHours(b, { hoursPort: '1040' }, week(1)), { port: null, stbd: null });
+  // anciens départs sans date de relevé : on reprend la date du relevé actuel s'il est identique
+  delete b.history[0].hours.date; b.hours.date = week(-0.5).toISOString();
+  assert.deepEqual(A.tripHours(b, { hoursPort: '1040' }, week(1)), { port: 40, stbd: null });
 });
