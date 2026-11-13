@@ -973,6 +973,11 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .jresa input { width: 18px; height: 18px; accent-color: var(--acc); }
 
 /* Convoyages inter-îles (page bateau, bloc réservations) */
+.resarow { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line2); }
+.resa .eyebrow + .resarow { border-top: 0; padding-top: 2px; }
+.resarow > .ic { width: 16px !important; height: 16px !important; flex: none; margin-top: 3px; color: var(--mut); }
+.resarow p { margin: 0; } .resarow p:first-child { font-weight: 600; } .resarow p.small { margin-top: 2px; font-weight: 400; }
+.resarow.cur > .ic, .resarow.cur b { color: var(--rent); } .resarow.conv > .ic, .resarow.conv b { color: var(--rent); } .resarow.next b { color: var(--tx); }
 .resa .convline { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0 0; font-size: 14px; color: var(--rent); }
 .resa .convline .ic { width: 16px; height: 16px; flex: none; margin-top: 2px; }
 .resa .convline span { color: var(--tx); } .resa .convline b { color: var(--rent); }
