@@ -39,11 +39,26 @@ export function sheetFindings(r) {
   return { defs, client: clientObsList(r.clientObs || '') };
 }
 
-export function sheetPdf(boatName, r) {
+/**
+ * Observations notées sur le bateau après la feuille retour, jusqu'au départ suivant
+ * (hors tâches habituelles, options client, entretiens moteur automatiques et observations reportées).
+ */
+export function sheetExtras(boat, r) {
+  if (!boat || !r?.at) return [];
+  const next = (boat.history || []).filter((h) => h.kind === 'departure' && h.at && h.at > r.at).sort((a, c) => a.at.localeCompare(c.at))[0];
+  const newer = (boat.returnSheets || []).some((x) => x.at && x.at > r.at);
+  const tasks = next ? next.tasks || [] : newer || boat.inRental ? [] : boat.tasks || [];
+  const known = new Set(r.obsIds || []);
+  return tasks.filter((t) => t && !t.template && !t.opt && !t.engDue && !t.carried && !t.sheet && !known.has(t.id))
+    .map((t) => ({ title: String(t.title || ''), blocked: !!t.blocked }));
+}
+
+export function sheetPdf(boatName, r, { extra = [] } = {}) {
   const doc = new Pdf({ title: `Feuille retour ${boatName}` });
   const L = 36, R = doc.w - 36, W = R - L, BOTTOM = doc.h - 46;
   let y = 34;
-  const { defs, client } = sheetFindings(r);
+  const found = sheetFindings(r), defs = found.defs;
+  const client = [...found.client, ...extra];
   const st = r.stay || {};
   const newPage = () => { doc.addPage(); y = 34; };
   const ensure = (h) => { if (y + h > BOTTOM) newPage(); };

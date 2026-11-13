@@ -93,7 +93,7 @@ export function retourView(s, ui, boatId, sheetId, user = '') {
     : `<div class="small"><b class="rcount done">${ic('check')} Tout est rempli</b><br><span class="mut">${nObs} observation${nObs > 1 ? 's' : ''} ${nObs > 1 ? 'seront créées' : 'sera créée'}</span></div><button type="button" class="btn pri" data-act="rDone" data-id="${b.id}">Valider le retour</button>`}</div>`;
 
   return `<div class="rwrap ${ro ? 'ro' : ''}">
-    ${top(b, ro ? 'Feuille retour validée' : 'Feuille retour', ro ? `<button type="button" class="btn sm" data-act="rPrint">${ic('download')} PDF</button>` : `<button type="button" class="btn ghost sm" data-act="rCancel" data-id="${b.id}">Annuler la feuille</button>`)}
+    ${top(b, ro ? 'Feuille retour validée' : 'Feuille retour', ro ? (ui.server ? `<a class="btn sm" href="/api/sheet.pdf?boat=${encodeURIComponent(b.id)}&amp;sheet=${encodeURIComponent(d.id)}" target="_blank" rel="noopener" title="PDF à jour, avec les observations ajoutées depuis le retour">${ic('download')} PDF</a>` : `<button type="button" class="btn sm" data-act="rPrint">${ic('download')} PDF</button>`) : `<button type="button" class="btn ghost sm" data-act="rCancel" data-id="${b.id}">Annuler la feuille</button>`)}
     ${ui.rCancel === b.id ? `<section class="panel rcancel" role="alert"><p><b>Annuler cette feuille retour ?</b> Les réponses seront perdues. Le bateau reste en location.</p><div class="row gap"><button type="button" class="btn" data-act="rCancelNo">Garder la feuille</button><button type="button" class="btn bad" data-act="rCancelYes" data-id="${b.id}">Annuler la feuille</button></div></section>` : ''}
     ${info}
     ${ro ? bureau : ''}

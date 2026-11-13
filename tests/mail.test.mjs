@@ -89,3 +89,40 @@ test('PDF : accents, plusieurs pages, nom du fichier', () => {
   assert.equal(sheetFileName('Isla / Madinina', { at: '2026-11-10T14:30:00Z' }), 'Feuille retour - Isla Madinina - 10-11-2026.pdf');
   assert.match(sheetMail(b, r, cfg).html, /#\/retour\//);
 });
+
+test('PDF à jour : les observations ajoutées après la feuille, jusqu’au départ suivant', async () => {
+  const { sheetExtras } = await import('../server/sheet-pdf.js');
+  const { createApp } = await import('../server/server.js');
+  const { addUser } = await import('../server/lib.js');
+  const db = fleet();
+  validateSheet(db);
+  techDoes(db, (s, id) => A.addObservations(s, id, [{ title: 'Taud de cockpit decousu' }, { title: 'Pompe de cale HS', blocked: true }]));
+  let b = boatOf(db), r = b.returnSheets[0];
+  assert.deepEqual(sheetExtras(b, r).map((x) => x.title), ['Taud de cockpit decousu', 'Pompe de cale HS']);
+  let pdf = sheetPdf(b.name, r, { extra: sheetExtras(b, r) }).toString('latin1');
+  assert.match(pdf, /Fuite au WC avant/); // les observations de la feuille restent
+  assert.match(pdf, /Taud de cockpit decousu/);
+  // départ suivant : la liste s'arrête là
+  techDoes(db, (s, id) => A.confirmDeparture(s, id));
+  techDoes(db, (s, id) => A.newReturn(s, id));
+  techDoes(db, (s, id) => A.addObservations(s, id, [{ title: 'Apres le depart suivant' }]));
+  b = boatOf(db); r = b.returnSheets[0];
+  assert.deepEqual(sheetExtras(b, r).map((x) => x.title), ['Taud de cockpit decousu', 'Pompe de cale HS']);
+  // par le serveur : connecté seulement, technicien compris
+  addUser(db, { email: 'tech@acm.test', name: 'Léa', role: 'tech', password: 'motdepasse-tech1' });
+  const { server } = createApp({ db, log: { error() {} } });
+  await new Promise((ok) => server.listen(0, ok));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const q = `/api/sheet.pdf?boat=${b.id}&sheet=${r.id}`;
+    assert.equal((await fetch(base + q)).status, 401);
+    const lg = await fetch(base + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hublot': '1' }, body: JSON.stringify({ email: 'tech@acm.test', password: 'motdepasse-tech1' }) });
+    const cookie = (lg.headers.get('set-cookie') || '').split(';')[0];
+    const res = await fetch(base + q, { headers: { cookie } });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'application/pdf');
+    assert.match(res.headers.get('content-disposition'), /^inline; filename="Feuille retour - Palomas - \d{2}-\d{2}-\d{4}\.pdf"/);
+    assert.match(Buffer.from(await res.arrayBuffer()).toString('latin1'), /Pompe de cale HS/);
+    assert.equal((await fetch(base + `/api/sheet.pdf?boat=${b.id}&sheet=nope`, { headers: { cookie } })).status, 404);
+  } finally { server.close(); }
+});

@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, normalize, extname, dirname } from 'node:path';
 import { initMail, mailConfig, mailSettings, saveMailSettings, enqueueSheets, processMail, mailStatus, sheetMail, brevoSend } from './mail.js';
+import { sheetPdf, sheetExtras, sheetFileName } from './sheet-pdf.js';
 import { syncResa, resaInfo, dueSlot } from './resa.js';
 import { fileURLToPath } from 'node:url';
 import {
@@ -137,6 +138,16 @@ export function createApp({ db = openDb(), log = console, mailFetch = fetch } = 
     if (p === '/api/boat' && req.method === 'GET') { // un seul bateau (resynchronisation après un refus)
       const boat = getBoat(db, String(url.searchParams.get('id') || ''));
       return send(res, 200, boat ? { boat } : { deleted: true });
+    }
+    if (p === '/api/sheet.pdf' && req.method === 'GET') { // feuille retour en PDF, avec les observations ajoutées depuis
+      const boat = getBoat(db, String(url.searchParams.get('boat') || ''));
+      const r = (boat?.returnSheets || []).find((x) => x.id === String(url.searchParams.get('sheet') || ''));
+      if (!r) return send(res, 404, { error: 'Feuille retour introuvable.' });
+      const name = sheetFileName(boat.name, r);
+      return send(res, 200, sheetPdf(boat.name, r, { extra: sheetExtras(boat, r) }), {
+        'Content-Type': 'application/pdf', 'Cache-Control': 'no-store',
+        'Content-Disposition': `inline; filename="${name.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+      });
     }
     const manager = user.role === 'manager';
     const author = pub(user).name;
