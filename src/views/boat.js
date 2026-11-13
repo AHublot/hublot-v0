@@ -1,12 +1,13 @@
 import { esc, fmtD, fmtDT, fmtWDT, plural, parseLocal } from '../util.js';
 import {
-  boatStats, boatStatus, maintStatus, maintCounts, engItems, engCounter, engineModelOf, engConf, engRecord, baseLabel, tplsOf, pinnedEvents, latestHours,
+  boatStats, boatStatus, maintStatus, maintCounts, STARLINK_TYPES, engItems, engCounter, engineModelOf, engConf, engRecord, baseLabel, tplsOf, pinnedEvents, latestHours,
   observationsOf, obsState, BASES, CATEGORIES, INTERVALS, TPL_CATS, TPL_OTHER, tplCatOf,
   pendingObs, crewOf, resaStay, isTight, resaMismatch, shortDossier, optsOf, optLabel,
 } from '../model.js';
 import { returnPlan } from '../actions.js';
 import { ic } from '../icons.js';
 import { remote } from '../remote.js';
+import { qrSvg, wifiQrText } from '../qr.js';
 import { pill, bar, cd, empty } from './common.js';
 import { boatReport, waLink } from '../whatsapp.js';
 import { voiceSupported } from '../voice.js';
@@ -18,7 +19,7 @@ const billText = (t) => ['À refacturer', t.hours ? hrs(t.hours) : '', t.materia
 
 export const TABS = [
   ['prep', 'Préparation', 'list'], ['maint', 'Entretiens', 'tool'],
-  ['archives', 'Archives & suivi', 'history'], ['reglages', 'Réglages', 'sliders'],
+  ['archives', 'Archives & suivi', 'history'], ['starlink', 'Starlink', 'sat'], ['reglages', 'Réglages', 'sliders'],
 ];
 
 const isEngineCheck = (t) => /entretien (du |des )?moteurs?/i.test(String(t.template || ''));
@@ -303,6 +304,42 @@ function tabArchives(s, b, ui) {
 }
 
 // ---- Réglages -------------------------------------------------------------------------------
+// ---- Starlink (ces informations ne sont reprises nulle part ailleurs) ------------------------------
+function tabStarlink(b, ui) {
+  const sl = b.starlink || {};
+  const show = !!ui.slShow;
+  const state = sl.on === true ? 'on' : sl.on === false ? 'off' : 'unk';
+  const stateTxt = { on: 'Activée', off: 'Désactivée', unk: 'Non renseignée' }[state];
+  let qr = '';
+  if (sl.ssid) { try { qr = qrSvg(wifiQrText(sl.ssid, sl.pass), { label: `QR code du wifi ${sl.ssid}` }); } catch { qr = ''; } }
+  const masked = sl.pass ? (show ? esc(sl.pass) : '•'.repeat(Math.min(12, Math.max(8, sl.pass.length)))) : '—';
+  const card = `<section class="panel slcard ${state}">
+    <div class="phead"><h3>${ic('wifi')} Wifi à bord</h3><span class="slstate ${state}"><i></i>${stateTxt}${sl.type ? ` · ${esc(sl.type)}` : ''}</span></div>
+    <div class="slbody">
+      ${qr ? `<figure class="slqr">${qr}<figcaption>Scanner avec l’appareil photo pour se connecter</figcaption><button type="button" class="btn sm slshare" data-act="slShare" data-id="${b.id}">${ic('share')} Partager le QR code</button></figure>` : `<div class="slqr empty">${ic('wifi')}<span>Le QR code apparaît dès que le nom du wifi est rempli.</span></div>`}
+      <dl class="slinfo">
+        <div><dt>Nom du wifi</dt><dd>${sl.ssid ? esc(sl.ssid) : '—'}</dd></div>
+        <div><dt>Mot de passe</dt><dd class="slpw"><span class="mono ${show ? '' : 'masked'}">${masked}</span>${sl.pass ? `<button type="button" class="ibtn sm" data-act="slShow" aria-pressed="${show}" aria-label="${show ? 'Masquer' : 'Afficher'} le mot de passe">${ic('eye')}</button><button type="button" class="ibtn sm" data-act="slCopy" data-id="${b.id}" aria-label="Copier le mot de passe">${ic('copy')}</button>` : ''}</dd></div>
+        <div><dt>N° de série</dt><dd class="mono">${sl.serial ? esc(sl.serial) : '—'}</dd></div>
+      </dl>
+    </div>
+  </section>`;
+  const yes = sl.on === true, no = sl.on === false;
+  const form = `<section class="panel slform"><div class="phead"><h3>${ic('sat')} Antenne Starlink</h3></div>
+    <div class="fld"><span class="k">Antenne activée</span><div class="seg slseg" role="group" aria-label="Antenne activée">
+      <button type="button" class="${yes ? 'on yes' : ''}" aria-pressed="${yes}" data-act="slSet" data-id="${b.id}" data-f="on" data-v="${yes ? '' : 'true'}">Oui</button>
+      <button type="button" class="${no ? 'on no' : ''}" aria-pressed="${no}" data-act="slSet" data-id="${b.id}" data-f="on" data-v="${no ? '' : 'false'}">Non</button></div></div>
+    <div class="fld"><label class="k" for="sl-serial">Numéro de série de l’antenne</label><input id="sl-serial" class="mono" value="${esc(sl.serial || '')}" placeholder="Ex. : 2DWC231500012345" autocomplete="off" spellcheck="false" data-chg="sl" data-id="${b.id}" data-f="serial"></div>
+    <div class="fld"><span class="k">Type d’antenne</span><div class="seg slseg" role="group" aria-label="Type d’antenne">${STARLINK_TYPES.map((t) => `<button type="button" class="${sl.type === t ? 'on' : ''}" aria-pressed="${sl.type === t}" data-act="slSet" data-id="${b.id}" data-f="type" data-v="${sl.type === t ? '' : t}">${t}</button>`).join('')}</div></div>
+    <div class="grid2">
+      <div class="fld"><label class="k" for="sl-ssid">Nom du wifi</label><input id="sl-ssid" value="${esc(sl.ssid || '')}" placeholder="Ex. : STARLINK-MAHANA" autocomplete="off" spellcheck="false" data-chg="sl" data-id="${b.id}" data-f="ssid"></div>
+      <div class="fld"><label class="k" for="sl-pass">Mot de passe du wifi</label><div class="slpass"><input id="sl-pass" type="${show ? 'text' : 'password'}" value="${esc(sl.pass || '')}" autocomplete="new-password" spellcheck="false" data-chg="sl" data-id="${b.id}" data-f="pass"><button type="button" class="ibtn" data-act="slShow" aria-pressed="${show}" aria-label="${show ? 'Masquer' : 'Afficher'} le mot de passe">${ic('eye')}</button></div></div>
+    </div>
+    <p class="mut small">Ces informations restent dans cet onglet : elles n’apparaissent nulle part ailleurs dans Hublot.</p>
+  </section>`;
+  return `<div class="slwrap">${card}${form}</div>`;
+}
+
 function tabReglages(s, b, ui) {
   return `<div class="two even"><section class="col"><form class="panel formrow" data-form="saveBoat" data-id="${b.id}"><h3>Ce bateau</h3>
     <div class="fld"><label class="k" for="st-n">Nom</label><input id="st-n" name="name" value="${esc(b.name)}" required></div>
@@ -319,7 +356,7 @@ export function boatView(s, ui, id, now = new Date()) {
   if (!b) return `<div class="page-head"><h1>Bateau introuvable</h1></div>${empty('boat', 'Ce bateau n’existe plus', '', `<button class="btn" data-act="nav" data-to="overview">Retour à la flotte</button>`)}`;
   if (!TABS.some((t) => t[0] === ui.tab)) ui.tab = 'prep';
   const body = ui.tab === 'maint' ? tabMaint(s, b, ui, now)
-    : ui.tab === 'archives' ? tabArchives(s, b, ui) : ui.tab === 'reglages' ? tabReglages(s, b, ui) : tabPrep(s, b, ui, now);
+    : ui.tab === 'archives' ? tabArchives(s, b, ui) : ui.tab === 'starlink' ? tabStarlink(b, ui) : ui.tab === 'reglages' ? tabReglages(s, b, ui) : tabPrep(s, b, ui, now);
   return header(s, b, ui, now) + `<div class="tabpane" role="tabpanel" aria-labelledby="tab-${ui.tab}">${body}</div>`;
 }
 

@@ -99,6 +99,16 @@ export function guessInterval(title = '') {
 }
 export const DEFAULT_MAINT = ['Survie', 'Extincteurs', 'Entretien moteur'];
 export const mkMaint = (title, extra = {}) => ({ id: uid(), title, date: '', hours: '', notes: '', ...guessInterval(title), ...extra });
+// ---- Starlink : fiche de l'antenne du bord (visible seulement dans l'onglet Starlink) ----------
+export const STARLINK_TYPES = ['V1', 'V2', 'V3', 'Mini'];
+export function normStarlink(x) {
+  return {
+    on: x.on === true ? true : x.on === false ? false : null,
+    serial: String(x.serial || ''), type: STARLINK_TYPES.includes(x.type) ? x.type : '',
+    ssid: String(x.ssid || ''), pass: String(x.pass || ''),
+  };
+}
+
 // ---- moteurs : entretiens à l'heure ----------------------------------------------------------
 // Les deux moteurs comptent comme un seul : on suit le compteur le plus haut des deux.
 // Les entretiens suivis et leurs périodicités dépendent du modèle de moteur (page Moteurs).
@@ -218,6 +228,7 @@ export function normalizeBoat(raw, i = 0) {
     resa: r.resa && typeof r.resa === 'object' ? r.resa : null,
     resaDates: r.resaDates && typeof r.resaDates === 'object' ? r.resaDates : null,
     ...(r.engineModel ? { engineModel: String(r.engineModel) } : {}),
+    ...(r.starlink && typeof r.starlink === 'object' ? { starlink: normStarlink(r.starlink) } : {}),
   };
   const fixTask = (t) => ({ ...t, id: t.id || uid(), title: String(t.title || ''), done: !!t.done, blocked: !!t.blocked });
   b.tasks = b.tasks.map(fixTask);

@@ -525,3 +525,25 @@ test('moteurs : en location, rien n’est ajouté ; le retour amène les entreti
   A.addEngineModel(s, 'Autre'); A.setBoatEngine(s, id, s.engines.models[1].id);
   assert.equal(deniedOps('tech', diffBoat(b2, b), b2).length > 0, true);
 });
+
+test('Starlink : fiche remplie par un technicien, mot de passe jamais dans le journal, QR code wifi', async () => {
+  const { qrMatrix, wifiQrText, qrSvg } = await import('../src/qr.js');
+  const s = fresh();
+  const id = s.boats[0].id, b = s.boats[0];
+  const before = JSON.parse(JSON.stringify(b));
+  A.setStarlink(s, id, 'on', 'true');
+  A.setStarlink(s, id, 'type', 'V3');
+  A.setStarlink(s, id, 'serial', ' 2DWC2315 ');
+  A.setStarlink(s, id, 'ssid', 'STARLINK-TEST');
+  A.setStarlink(s, id, 'pass', 'Secret;42');
+  A.setStarlink(s, id, 'type', 'V9'); // type inconnu : ignoré
+  assert.deepEqual(b.starlink, { on: true, serial: '2DWC2315', type: 'V3', ssid: 'STARLINK-TEST', pass: 'Secret;42' });
+  assert.ok(!JSON.stringify({ ...b, starlink: null }).includes('Secret')); // ni journal ni ailleurs dans le bateau
+  assert.deepEqual(deniedOps('tech', diffBoat(before, b), before), []);
+  // QR code : texte wifi échappé, taille d'une version 4 (33 modules)
+  assert.equal(wifiQrText('Bateau;1', 'a:b\\c'), 'WIFI:T:WPA;S:Bateau\\;1;P:a\\:b\\\\c;;');
+  assert.equal(wifiQrText('Libre', ''), 'WIFI:T:nopass;S:Libre;;');
+  assert.equal(qrMatrix(wifiQrText('STARLINK-MAHANA', 'Lagon-2026!')).length, 33);
+  assert.match(qrSvg('Hello'), /^<svg class="qr" viewBox="0 0 29 29"/);
+  assert.throws(() => qrMatrix('x'.repeat(300)), /trop long/);
+});

@@ -1016,3 +1016,27 @@ body.tech .editdate, body.tech .basesel { display: none !important; }
 .rdiverck { display: inline-flex; align-items: center; gap: 9px; font-weight: 600; font-size: 15px; min-height: 40px; }
 .rdiverck input { width: 22px; height: 22px; accent-color: var(--ok); }
 .rdiver.yes b { color: var(--ok); } .rdiver.no b { color: var(--mut); }
+
+/* ---- Starlink (onglet de la fiche bateau) ---- */
+.slwrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+.slcard .phead h3, .slform .phead h3 { display: inline-flex; align-items: center; gap: 8px; }
+:root:not([data-theme="dark"]) .slcard { background: linear-gradient(160deg, #FFFFFF 50%, #E3F2F8 100%); }
+.slstate { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--mut); }
+.slstate i { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); } .slstate.on { color: var(--ok); } .slstate.on i { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); } .slstate.off { color: var(--bad); } .slstate.off i { background: var(--bad); }
+.slbody { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; }
+.slqr { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 156px; }
+.slqr .qr { width: 156px; height: 156px; display: block; border-radius: 10px; border: 1px solid var(--line2); background: #fff; }
+.slqr .slshare { margin-top: 2px; white-space: nowrap; }
+.slqr figcaption { font-size: 11.5px; color: var(--mut); text-align: center; line-height: 1.3; }
+.slqr.empty { height: 156px; justify-content: center; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; color: var(--mut); font-size: 12px; text-align: center; } .slqr.empty .ic { width: 28px; height: 28px; opacity: .5; }
+.slinfo { margin: 0; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.slinfo dt { font: 600 10.5px var(--f-cond); letter-spacing: .1em; text-transform: uppercase; color: var(--mut); }
+.slinfo dd { margin: 2px 0 0; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.slpw { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; } .slpw .mono { margin-right: 4px; } .slpw .masked { letter-spacing: .12em; }
+.slinfo .ibtn.sm { width: 32px; height: 32px; min-height: 0; }
+.slform { display: flex; flex-direction: column; gap: 12px; }
+.slseg { display: flex; width: max-content; max-width: 100%; } .slseg button { min-width: 64px; justify-content: center; font-weight: 600; }
+.slseg button.on { background: var(--acc); color: #fff; } .slseg button.on.yes { background: var(--ok); } .slseg button.on.no { background: var(--bad); }
+.slpass { display: flex; gap: 6px; align-items: center; } .slpass input { flex: 1; min-width: 0; font-family: var(--f-mono); }
+@media (max-width: 900px) { .slwrap { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 420px) { .slbody { grid-template-columns: minmax(0, 1fr); justify-items: center; } .slinfo { width: 100%; } .slqr, .slqr .qr { width: 180px; } .slqr .qr { height: 180px; } }

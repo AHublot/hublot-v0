@@ -145,7 +145,7 @@ function lifeMay(o) {
 function techMay(o, boat) {
   // feuille retour en cours : tout le monde la remplit
   if (o.op === 'draft') return true;
-  if (o.op === 'set') return o.k === 'hours' || o.k === 'returnDraft';
+  if (o.op === 'set') return o.k === 'hours' || o.k === 'returnDraft' || o.k === 'starlink'; // Starlink : les techniciens remplissent la fiche
   if (o.op === 'unset') return o.k === 'returnDraft';
   if (o.a === 'logs') return o.op === 'add';
   const list = Array.isArray(boat?.[o.a]) ? boat[o.a] : [];

@@ -14,6 +14,7 @@ import { voiceSupported, toggleVoice, stopVoice } from './voice.js';
 import { demoState } from './demo.js';
 import { journalView, journalDays } from './views/journal.js';
 import { enginesView } from './views/engines.js';
+import { qrPngFile, wifiQrText } from './qr.js';
 import { retourView, cobsHint } from './views/retour.js';
 import { remote, detect, login, logout, startSync, onRemote, changePassword, importRemote, listAccounts, createAccount, resetAccount, updateAccount, getJournal, refreshResa, syncNow, getMail, saveMail, testMail } from './remote.js';
 
@@ -32,8 +33,8 @@ const TECH_PAGES = new Set(['overview', 'boat', 'backup', 'retour']); // « back
 const TECH_ACTS = new Set(['nav', 'open', 'tab', 'filter', 'resetFilters', 'view', 'undo', 'theme', 'palette', 'palRun', 'print', 'copyWA',
   'tgl', 'blk', 'del', 'delp', 'voice', 'obsF', 'banner', 'logout', 'logoutKeep', 'logoutForce', 'confirmNo',
   'pjMore', 'fOpen', 'fClose', 'baseAll', 'depAsk', 'dep', 'retAsk', 'retGo', 'depYes', 'retYes', 'depNo',
-  'engDone', 'engFix', 'rSet', 'rOpen', 'rNext', 'rDone', 'rRecapNo', 'rValidate', 'rCancel', 'rCancelNo', 'rCancelYes', 'rPrint', 'rView']);
-const TECH_CHG = new Set(['hours', 'baseFilter', 'rNote', 'rBill', 'rNum', 'rText', 'engF']);
+  'engDone', 'engFix', 'slShow', 'slCopy', 'slShare', 'slSet', 'rSet', 'rOpen', 'rNext', 'rDone', 'rRecapNo', 'rValidate', 'rCancel', 'rCancelNo', 'rCancelYes', 'rPrint', 'rView']);
+const TECH_CHG = new Set(['hours', 'baseFilter', 'rNote', 'rBill', 'rNum', 'rText', 'engF', 'sl']);
 const TECH_MAINT = new Set(['date', 'hours', 'notes']);
 const TECH_FORMS = new Set(['obs', 'pwd', 'firstPwd', 'login']);
 
@@ -548,6 +549,19 @@ document.addEventListener('click', (e) => {
     case 'engDone': M('Entretien noté', (st) => A.engDone(st, id, d.type, remote.user?.name || '')); break;
     case 'engFix': ui.engFix = { ...(ui.engFix || {}), [d.k]: !ui.engFix?.[d.k] }; render(); break;
     case 'engTab': ui.engTab = d.v; render(); break;
+    case 'slShow': ui.slShow = !ui.slShow; render(); break;
+    case 'slSet': M('Starlink mis à jour', (st) => A.setStarlink(st, id, d.f, d.v === '' ? (d.f === 'on' ? null : '') : d.v)); break;
+    case 'slShare': { // QR code du wifi : partage (téléphone) ou téléchargement (PC)
+      const sl = boat?.starlink;
+      if (!sl?.ssid) break;
+      const safe = boat.name.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
+      let f;
+      try { f = qrPngFile(wifiQrText(sl.ssid, sl.pass), { title: boat.name, name: sl.ssid, file: `Wifi-${safe || 'bateau'}.png` }); } catch { toast('QR code impossible'); break; }
+      if (navigator.canShare?.({ files: [f] })) navigator.share({ files: [f], title: `Wifi ${boat.name}` }).catch(() => {});
+      else { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast('QR code téléchargé'); }
+      break;
+    }
+    case 'slCopy': { const pw = boat?.starlink?.pass || ''; if (pw) navigator.clipboard?.writeText(pw).then(() => toast('Mot de passe copié'), () => toast('Copie impossible')); break; }
     case 'engTypeDel': M('Entretien retiré', (st) => A.deleteEngineType(st, d.type)); break;
     case 'engModelDel': M('Modèle retiré', (st) => A.deleteEngineModel(st, d.mid)); break;
     case 'engPartDel': M('Pièce retirée', (st) => A.deleteEnginePart(st, d.mid, d.pid)); break;
@@ -649,6 +663,7 @@ document.addEventListener('change', (e) => {
     case 'tplCat': M('', (st) => A.setTplCat(st, st.templates[+d.i], el.value)); break;
     case 'tplNow': ui.tplNow = el.checked; break;
     case 'maint': M('', (st) => A.updateMaint(st, id, d.mid, d.f, el.value)); break;
+    case 'sl': M('', (st) => A.setStarlink(st, id, d.f, el.value)); break;
     case 'engF': M('', (st) => A.setEngField(st, id, d.type, d.f, el.value, remote.user?.name || '')); break;
     case 'engModel': M('Modèle de moteur changé', (st) => A.setBoatEngine(st, id, el.value)); break;
     case 'engTypeName': M('', (st) => A.renameEngineType(st, d.type, el.value)); break;

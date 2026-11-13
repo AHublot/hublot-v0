@@ -1,7 +1,7 @@
 // Toutes les modifications de données. Chaque fonction reçoit l'état « brouillon » (muté en place)
 // via store.mutate(), qui s'occupe de l'enregistrement et de l'annulation.
 import { uid, todayStr, nowIso, clone, norm, parseObservations } from './util.js';
-import { mkTask, mkMaint, engConf, engCounter, normEngines, engineDue, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet, inMartinique, homeBase } from './model.js';
+import { normStarlink, STARLINK_TYPES, mkTask, mkMaint, engConf, engCounter, normEngines, engineDue, normalizeBoat, newBoat, tplsOf, DEFAULT_TEMPLATES, sheetOf, sheetItems, storedSheet, inMartinique, homeBase } from './model.js';
 
 const find = (s, id) => {
   const b = s.boats.find((x) => x.id === id);
@@ -230,6 +230,21 @@ export function updateMaint(s, id, mid, field, value) {
   m[field] = ['intervalDays', 'intervalHours'].includes(field) ? (Number(value) || undefined) : value;
   log(b, `Entretien mis à jour : ${m.title}`);
 }
+// ---- Starlink ------------------------------------------------------------------------------------
+const SL_LOG = { on: 'antenne', serial: 'numéro de série', type: 'type d’antenne', ssid: 'nom du wifi', pass: 'mot de passe du wifi' };
+/** Fiche Starlink du bateau. Le journal dit ce qui a changé, jamais les valeurs (mot de passe). */
+export function setStarlink(s, id, field, value) {
+  if (!SL_LOG[field]) return;
+  const b = find(s, id);
+  const sl = normStarlink(b.starlink || {});
+  const v = field === 'on' ? (value === true || value === 'true' ? true : value === false || value === 'false' ? false : null) : String(value ?? '').trim();
+  if (field === 'type' && v && !STARLINK_TYPES.includes(v)) return;
+  if (sl[field] === v) return;
+  sl[field] = v;
+  b.starlink = sl;
+  log(b, field === 'on' ? `Starlink : antenne ${v ? 'activée' : v === false ? 'désactivée' : 'non renseignée'}` : `Starlink : ${SL_LOG[field]} modifié`);
+}
+
 // ---- moteurs : entretiens à l'heure (compteur le plus haut des deux moteurs) -----------------
 const engType = (s, typeId) => engConf(s).types.find((t) => t.id === typeId);
 function engRec(s, b, typeId) {
